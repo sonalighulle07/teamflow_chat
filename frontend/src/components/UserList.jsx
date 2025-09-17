@@ -1,13 +1,20 @@
-import React from 'react';
-
+// -------------------- UserList.jsx --------------------
 function getInitials(name) {
   const parts = name.split(" ");
   return (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
 }
 
-export default function UserList({ users, selectedUser, onSelectUser }) {
+export default function UserList({ users = [], selectedUser, onSelectUser }) {
+  if (users.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-gray-500 font-medium">
+        No users yet 👥
+      </div>
+    );
+  }
+
   return (
-    <ul className="flex-1 overflow-y-auto px-2 pb-2">
+    <ul className="flex flex-col h-full overflow-y-auto px-4 py-4">
       {users.map((user) => (
         <li
           key={user.id}

@@ -1,7 +1,9 @@
-import React from 'react';
 import { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import Header from "./components/Header";
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -30,17 +32,21 @@ function App() {
   // }, [selectedUser, userId]);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50">
+      <Header/>
+
       <Sidebar
         users={users}
         selectedUser={selectedUser}
         onSelectUser={setSelectedUser}
       />
-      <ChatWindow
+      {/* <ChatWindow
         selectedUser={selectedUser}
         messages={messages}
         currentUserId={userId}
       />
+      <Login/>
+      <Register/> */}
     </div>
   );
 }
