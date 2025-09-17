@@ -1,32 +1,80 @@
-import { Phone, Video } from "lucide-react";
+// -------------------- Header.jsx --------------------
+import { useState } from "react";
 
 export default function Header({ selectedUser }) {
-  if (!selectedUser) return null;
+  const [showSearch, setShowSearch] = useState(false);
 
   return (
-    <div className="p-4 border-b flex items-center justify-between bg-white shadow">
-      {/* Left: Avatar + Name */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold">
-          {selectedUser.username[0]}
+    <div className="flex items-center justify-between px-4 py-2 bg-white border-b shadow-sm">
+      {/* Left section */}
+      <div className="flex items-center gap-4">
+        <h2 className="font-bold text-black text-lg">Chat</h2>
+        <h6 className="text-gray-600 text-sm flex items-center gap-1">
+          Recent <span className="text-xs">▼</span>
+        </h6>
+
+        {/* Selected user name */}
+        <div className="text-sm text-gray-700 font-medium">
+          {selectedUser ? selectedUser.username : "Select a chat"}
         </div>
-        <h2 className="font-semibold text-lg">{selectedUser.username}</h2>
       </div>
 
-      {/* Right: Call Buttons */}
+      {/* Search box (inline) */}
+      <div className="flex-1 mx-4">
+        <input
+          type="text"
+          placeholder="🔍 Search..."
+          className="w-full max-w-xs rounded-md border border-gray-300 px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+        />
+      </div>
+
+      {/* Right actions */}
       <div className="flex items-center gap-3">
-        <button
-          className="p-2 rounded-full hover:bg-gray-100 text-gray-600 hover:text-purple-600 transition"
-          title="Audio Call"
-        >
-          <Phone size={20} />
+        <button className="p-2 hover:bg-gray-100 rounded-full" title="Audio Call">
+          <i className="fas fa-phone"></i>
         </button>
-        <button
-          className="p-2 rounded-full hover:bg-gray-100 text-gray-600 hover:text-purple-600 transition"
-          title="Video Call"
-        >
-          <Video size={20} />
+        <button className="p-2 hover:bg-gray-100 rounded-full" title="Video Call">
+          <i className="fas fa-video"></i>
         </button>
+
+        {/* Toggleable search form */}
+        <div className="relative">
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className="p-2 hover:bg-gray-100 rounded-full"
+            title="Search in Chat"
+          >
+            <i className="fas fa-search"></i>
+          </button>
+          {showSearch && (
+            <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-md p-2">
+              <label
+                htmlFor="chatSearchInput"
+                className="text-xs font-semibold text-gray-500"
+              >
+                Search Chat:
+              </label>
+              <input
+                id="chatSearchInput"
+                type="text"
+                placeholder="Type to search 🔍..."
+                className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+          )}
+        </div>
+
+        <button className="p-2 hover:bg-gray-100 rounded-full" title="Manage Group">
+          <i className="fas fa-users-cog"></i>
+        </button>
+        <button className="p-2 hover:bg-gray-100 rounded-full" title="More Options">
+          <i className="fas fa-ellipsis-v"></i>
+        </button>
+
+        {/* User Avatar placeholder */}
+        <div className="ml-4 h-8 w-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold">
+          {selectedUser ? selectedUser.username[0] : "U"}
+        </div>
       </div>
     </div>
   );
