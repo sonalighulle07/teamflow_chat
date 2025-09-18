@@ -8,10 +8,10 @@ const isValidContact = (contact) => /^[0-9]{10,15}$/.test(contact);
 
 exports.register = async (req, res) => {
   try {
-    const { full_name, email, contact, username, password, confirmPassword } = req.body;
+    const { full_name, email, contact, username, password } = req.body;
 
     // ===== Basic validation =====
-    if (!full_name || !email || !contact || !username || !password || !confirmPassword) {
+    if (!full_name || !email || !contact || !username || !password) {
       return res.status(400).json({ success: false, message: 'All fields are required' });
     }
 
