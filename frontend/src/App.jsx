@@ -12,6 +12,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(
     !!sessionStorage.getItem("chatUserId")
   );
+  const [showRegister, setShowRegister] = useState(false);
 
   const userId = Number(sessionStorage.getItem("chatUserId"));
 
@@ -48,10 +49,19 @@ function App() {
   return (
     <div className="h-screen w-screen bg-gray-50 flex flex-col">
       {!isAuthenticated ? (
-        // Show Login & Register
-        <div className="flex-1 flex items-center justify-center gap-4 p-4">
-          <Login onLogin={handleAuthSuccess} />
-          <Register onRegister={handleAuthSuccess} />
+        // 👇 Full-screen Login/Register container
+        <div className="flex-1 w-full flex items-center justify-center p-4">
+          {!showRegister ? (
+            <Login
+              onLogin={handleAuthSuccess}
+              onSwitch={() => setShowRegister(true)}
+            />
+          ) : (
+            <Register
+              onRegister={handleAuthSuccess}
+              onSwitch={() => setShowRegister(false)}
+            />
+          )}
         </div>
       ) : (
         // Show Chat UI
@@ -60,7 +70,7 @@ function App() {
           <Header selectedUser={selectedUser} />
 
           {/* Main Content */}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-hidden w-full">
             {/* Sidebar */}
             <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
               <Sidebar
@@ -71,7 +81,7 @@ function App() {
             </div>
 
             {/* Chat Window */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden w-full">
               <ChatWindow
                 selectedUser={selectedUser}
                 messages={messages}

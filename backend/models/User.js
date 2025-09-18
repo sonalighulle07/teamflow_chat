@@ -39,11 +39,12 @@ class User {
 
     // ===== Get all users =====
     static async getAll() {
-        const [rows] = await pool.query(
-            'SELECT id, full_name, email, contact, username, profile_image FROM users'
-        );
-        return rows;
-    }
+    const [rows] = await pool.query(
+        'SELECT id, full_name, username, profile_image, is_online FROM users'
+    );
+    return rows;
+}
+
 
     // ===== Update Avatar =====
     static async updateAvatar(userId, filePath) {
