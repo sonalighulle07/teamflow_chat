@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
-export default function Login() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginMsg, setLoginMsg] = useState("");
-  const [msgColor, setMsgColor] = useState("text-red-500"); // default red for errors
+export default function Login({ onLogin, onSwitch }) {
+  const [toastMsg, setToastMsg] = useState("");
+  const [toastColor, setToastColor] = useState("bg-red-500");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,32 +19,30 @@ export default function Login() {
 
       const data = await res.json();
 
-      if (res.ok && data.success) {
-        //  success msg in green
-        setMsgColor("text-green-500");
-        setLoginMsg(data.message || "Login successful!");
+      // Show message
+      setToastColor(res.ok && data.success ? "bg-green-500" : "bg-red-500");
+      setToastMsg(data.message || (res.ok ? "Login successful!" : "Login failed!"));
 
-        // Save session
+      // Auto-hide after 2 seconds
+      setTimeout(() => setToastMsg(""), 2000);
+
+      if (res.ok && data.success) {
         sessionStorage.setItem("chatUserId", data.user.id);
         sessionStorage.setItem("chatUsername", data.user.username);
         sessionStorage.setItem("chatToken", data.token);
 
-        // Redirect after 1.5 sec
-        setTimeout(() => {
-          window.location.href = "index.html";
-        }, 1500);
-      } else {
-        setMsgColor("text-red-500");
-        setLoginMsg(data.message || "Login failed");
+        // Switch to chat component after short delay (so user sees message)
+        setTimeout(() => onLogin(), 1000);
       }
     } catch (err) {
-      setMsgColor("text-red-500");
-      setLoginMsg("Server error, try again later.");
+      setToastColor("bg-red-500");
+      setToastMsg("Server error, try again later.");
+      setTimeout(() => setToastMsg(""), 2000);
     }
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-gradient-to-tl from-white to-purple-600 animate-fadeIn">
+    <div className="flex h-screen w-full items-center justify-center bg-gradient-to-tl from-white to-purple-600 animate-fadeIn relative">
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -54,7 +50,7 @@ export default function Login() {
         .animate-slideUp { animation: slideUp 0.8s ease; }
       `}</style>
 
-      <div className="w-[400px] rounded-2xl bg-white/20 p-10 shadow-xl backdrop-blur-md animate-slideUp">
+      <div className="w-[400px] rounded-2xl bg-white/20 p-10 shadow-xl backdrop-blur-md animate-slideUp relative">
         <h2 className="mb-5 text-center text-2xl font-semibold text-white tracking-wide">
           Login
         </h2>
@@ -65,29 +61,16 @@ export default function Login() {
             id="loginUsername"
             placeholder="Username"
             required
-            className="w-full rounded-lg border-none bg-white/85 px-4 py-3 text-sm text-gray-800 outline-none focus:border-2 focus:border-purple-400 focus:shadow-md focus:shadow-purple-500"
+            className="w-full rounded-lg border-none bg-white/85 px-4 py-3 mb-4 text-sm text-gray-800 outline-none focus:border-2 focus:border-purple-400 focus:shadow-md focus:shadow-purple-500"
           />
 
-          <div className="relative mt-4">
-            <input
-              type={showPassword ? "text" : "password"}
-              id="loginPassword"
-              placeholder="Password"
-              required
-              className="w-full rounded-lg border-none bg-white/85 px-4 py-3 pr-10 text-sm text-gray-800 outline-none focus:border-2 focus:border-purple-400 focus:shadow-md focus:shadow-purple-500"
-            />
-            {showPassword ? (
-              <EyeSlashIcon
-                className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 cursor-pointer text-gray-700"
-                onClick={() => setShowPassword(false)}
-              />
-            ) : (
-              <EyeIcon
-                className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 cursor-pointer text-gray-700"
-                onClick={() => setShowPassword(true)}
-              />
-            )}
-          </div>
+          <input
+            type="password"
+            id="loginPassword"
+            placeholder="Password"
+            required
+            className="w-full rounded-lg border-none bg-white/85 px-4 py-3 text-sm text-gray-800 outline-none focus:border-2 focus:border-purple-400 focus:shadow-md focus:shadow-purple-500"
+          />
 
           <button
             type="submit"
@@ -97,18 +80,21 @@ export default function Login() {
           </button>
         </form>
 
-        {loginMsg && (
-          <p className={`mt-3 text-center font-semibold ${msgColor}`}>
-            {loginMsg}
-          </p>
-        )}
-
-        <a
-          href="register.html"
-          className="mt-4 block text-center text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline"
+        <p
+          className="mt-4 text-center text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+          onClick={onSwitch}
         >
-          Register here
-        </a>
+          Don't have an account? Register
+        </p>
+
+        {/* Inline message */}
+        {toastMsg && (
+          <div
+            className={`absolute top-[-50px] left-1/2 -translate-x-1/2 px-4 py-2 rounded-md text-white font-semibold shadow-lg ${toastColor}`}
+          >
+            {toastMsg}
+          </div>
+        )}
       </div>
     </div>
   );
