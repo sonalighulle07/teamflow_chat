@@ -14,39 +14,52 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
   }
 
   return (
-    <ul className="flex flex-col h-full overflow-y-auto px-4 py-4">
-      {users.map((user) => (
-        <li
-          key={user.id}
-          onClick={() => onSelectUser(user)}
-          className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition mb-2
-            ${
-              selectedUser?.id === user.id
-                ? "bg-white shadow-md"
-                : "bg-gray-200 hover:bg-white hover:shadow"
-            }`}
-        >
-          {/* Avatar */}
-          <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm text-white 
-              ${
-                selectedUser?.id === user.id
-                  ? "bg-green-600 shadow-md"
-                  : "bg-gradient-to-r from-blue-900 to-blue-600"
-              }`}
+    <ul className="flex flex-col h-full overflow-y-auto bg-gray-200  p-2">
+      {users.map((user) => {
+        const isSelected = selectedUser?.id === user.id;
+
+        return (
+          <li
+            key={user.id}
+            onClick={() => onSelectUser(user)}
+            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition mb-1
+              ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}
+            `}
           >
-            {getInitials(user.username)}
-          </div>
+            {/* Avatar */}
+            <div
+              className={`w-10 h-10 text-center pt-2 rounded-full flex-shrink-0 items-center justify-center font-semibold text-sm text-white overflow-hidden relative
+                ${isSelected ? "bg-green-600 shadow-md" : "bg-gradient-to-r from-blue-700 to-blue-500"}
+              `}
+            >
+              {user.profile_image ? (
+                <img
+                  src={`http://localhost:3000${user.profile_image}`}
+                  alt={user.username}
+                  className="w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                getInitials(user.username)
+              )}
 
-          {/* Name */}
-          <span className="text-gray-800 font-medium">{user.username}</span>
+              {/* Online indicator */}
+              {user.isOnline && (
+                <span className="absolute bottom-0 right-0 w-3 h-3  bg-green-400 border-2 border-white rounded-full" />
+              )}
+            </div>
 
-          {/* Example unread badge */}
-          <span className="ml-auto bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-            2
-          </span>
-        </li>
-      ))}
+            {/* Name & status */}
+            <div className="flex flex-col truncate">
+              <span className={`text-gray-900 font-medium truncate`}>
+                {user.username}
+              </span>
+              {user.status && (
+                <span className="text-xs text-gray-500 truncate">{user.status}</span>
+              )}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }

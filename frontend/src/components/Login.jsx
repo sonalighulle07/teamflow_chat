@@ -4,6 +4,7 @@ import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loginMsg, setLoginMsg] = useState("");
+  const [msgColor, setMsgColor] = useState("text-red-500"); // default red for errors
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -12,7 +13,7 @@ export default function Login() {
     const password = document.getElementById("loginPassword").value.trim();
 
     try {
-      const res = await fetch("/api/login", {
+      const res = await fetch("http://localhost:3000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -20,37 +21,37 @@ export default function Login() {
 
       const data = await res.json();
 
-      if (res.ok) {
-        sessionStorage.setItem("chatUserId", data.id);
-        sessionStorage.setItem("chatUsername", data.username);
+      if (res.ok && data.success) {
+        //  success msg in green
+        setMsgColor("text-green-500");
+        setLoginMsg(data.message || "Login successful!");
+
+        // Save session
+        sessionStorage.setItem("chatUserId", data.user.id);
+        sessionStorage.setItem("chatUsername", data.user.username);
         sessionStorage.setItem("chatToken", data.token);
-        window.location.href = "index.html";
+
+        // Redirect after 1.5 sec
+        setTimeout(() => {
+          window.location.href = "index.html";
+        }, 1500);
       } else {
-        setLoginMsg(data.error || "Login failed");
+        setMsgColor("text-red-500");
+        setLoginMsg(data.message || "Login failed");
       }
     } catch (err) {
+      setMsgColor("text-red-500");
       setLoginMsg("Server error, try again later.");
     }
   };
 
   return (
     <div className="flex h-screen items-center justify-center bg-gradient-to-tl from-white to-purple-600 animate-fadeIn">
-      {/* Custom animations */}
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slideUp {
-          from { transform: translateY(40px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.7s ease-in-out;
-        }
-        .animate-slideUp {
-          animation: slideUp 0.8s ease;
-        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-fadeIn { animation: fadeIn 0.7s ease-in-out; }
+        .animate-slideUp { animation: slideUp 0.8s ease; }
       `}</style>
 
       <div className="w-[400px] rounded-2xl bg-white/20 p-10 shadow-xl backdrop-blur-md animate-slideUp">
@@ -97,7 +98,7 @@ export default function Login() {
         </form>
 
         {loginMsg && (
-          <p className="mt-3 text-center font-semibold text-red-500 hover:text-blue-600">
+          <p className={`mt-3 text-center font-semibold ${msgColor}`}>
             {loginMsg}
           </p>
         )}
