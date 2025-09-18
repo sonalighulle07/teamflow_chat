@@ -21,10 +21,15 @@ function App() {
     if (!isAuthenticated || !userId) return;
 
     async function fetchUsers() {
-      const res = await fetch("/api/users");
-      const data = await res.json();
-      setUsers(data.filter((u) => u.id !== userId));
+      try {
+        const res = await fetch("/api/users");
+        const data = await res.json();
+        setUsers(data.filter((u) => u.id !== userId));
+      } catch (err) {
+        console.error(err);
+      }
     }
+
     fetchUsers();
   }, [isAuthenticated, userId]);
 
@@ -33,24 +38,29 @@ function App() {
     if (!isAuthenticated || !selectedUser) return;
 
     async function fetchChat() {
-      const res = await fetch(`/api/chats/${userId}/${selectedUser.id}`);
-      const data = await res.json();
-      setMessages(data);
+      try {
+        const res = await fetch(`/api/chats/${userId}/${selectedUser.id}`);
+        const data = await res.json();
+        setMessages(data);
+      } catch (err) {
+        console.error(err);
+      }
     }
+
     fetchChat();
   }, [isAuthenticated, selectedUser, userId]);
 
   // Handle login/register success
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
-    window.location.reload(); // reload ensures sessionStorage updates
+    window.location.reload(); // ensures sessionStorage updates
   };
 
   return (
-    <div className="h-screen w-screen bg-gray-50 flex flex-col">
+    <div className="h-screen w-screen bg-gray-50 flex flex-col overflow-hidden">
       {!isAuthenticated ? (
-        // 👇 Full-screen Login/Register container
-        <div className="flex-1 w-full flex items-center justify-center p-4">
+        // Full-screen Login/Register container
+        <div className="flex-1 w-full min-h-screen flex items-center justify-center p-4 bg-gradient-to-tl from-white to-purple-600">
           {!showRegister ? (
             <Login
               onLogin={handleAuthSuccess}
@@ -64,7 +74,7 @@ function App() {
           )}
         </div>
       ) : (
-        // Show Chat UI
+        // Chat UI
         <>
           {/* Header */}
           <Header selectedUser={selectedUser} />

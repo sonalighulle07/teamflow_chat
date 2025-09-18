@@ -39,17 +39,27 @@ class User {
 
     // ===== Get all users =====
     static async getAll() {
-    const [rows] = await pool.query(
-        'SELECT id, full_name, username, profile_image, is_online FROM users'
-    );
-    return rows;
-}
-
+        const [rows] = await pool.query(
+            'SELECT id, full_name, username, profile_image, is_online FROM users'
+        );
+        return rows;
+    }
 
     // ===== Update Avatar =====
     static async updateAvatar(userId, filePath) {
-        await pool.query('UPDATE users SET profile_image=? WHERE id=?', [filePath, userId]);
+        await pool.query(
+            'UPDATE users SET profile_image = ? WHERE id = ?',
+            [filePath, userId]
+        );
         return this.findById(userId);
+    }
+
+    // ===== Set Online Status =====
+    static async setOnlineStatus(userId, status = true) {
+        await pool.query(
+            'UPDATE users SET is_online = ? WHERE id = ?',
+            [status ? 1 : 0, userId]
+        );
     }
 }
 
