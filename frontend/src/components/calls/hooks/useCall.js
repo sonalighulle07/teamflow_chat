@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import io from "socket.io-client";
 
 export function useCall(userId) {
@@ -11,8 +11,30 @@ export function useCall(userId) {
   const peerRef = useRef(null);
   const socket = useRef(io("http://localhost:3000")).current;
 
-  // Register
-  socket.emit("register", { userId });
+  useEffect(() => {
+    socket.emit("register", { userId });
+
+    socket.on("incomingCall", ({ from, offer, callType }) => {
+      console.log("Incoming call from:", from);
+      setIncoming({ from, offer, callType });
+    });
+
+    socket.on("callAccepted", async ({ answer }) => {
+      if (peerRef.current) {
+        await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+      }
+    });
+
+    socket.on("iceCandidate", ({ candidate }) => {
+      if (peerRef.current && candidate) {
+        peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    });
+
+    socket.on("endCall", () => {
+      cleanup();
+    });
+  }, [userId]);
 
   function createPeerConnection(remoteUserId) {
     const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
@@ -21,44 +43,51 @@ export function useCall(userId) {
 
     peer.ontrack = e => remote.addTrack(e.track);
     peer.onicecandidate = e => {
-      if (e.candidate) socket.emit("iceCandidate", { to: remoteUserId, candidate: e.candidate });
+      if (e.candidate) {
+        socket.emit("iceCandidate", { to: remoteUserId, candidate: e.candidate });
+      }
     };
+
     peerRef.current = peer;
     return peer;
   }
 
-  async function startCall(remoteUser, type) {
+  async function startCall(type,remoteUser) {
     setCallType(type);
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === "video" });
-    setLocalStream(stream);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      setLocalStream(stream);
 
-    const peer = createPeerConnection(remoteUser.id);
-    stream.getTracks().forEach(t => peer.addTrack(t, stream));
+      const peer = createPeerConnection(remoteUser.id);
+      stream.getTracks().forEach(t => peer.addTrack(t, stream));
 
-    const offer = await peer.createOffer();
-    await peer.setLocalDescription(offer);
-    socket.emit("callUser", { from: userId, to: remoteUser.id, offer, callType: type });
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      socket.emit("callUser", { from: userId, to: remoteUser.id, offer, callType: type });
+    } catch (err) {
+      console.error("Error accessing media devices:", err);
+    }
   }
-
-  socket.on("incomingCall", ({ from, offer, callType }) => {
-    setIncoming({ from, offer, callType });
-  });
 
   async function acceptCall() {
     if (!incoming) return;
     setCallType(incoming.callType);
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: incoming.callType === "video" });
-    setLocalStream(stream);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: incoming.callType === "video" });
+      setLocalStream(stream);
 
-    const peer = createPeerConnection(incoming.from);
-    stream.getTracks().forEach(t => peer.addTrack(t, stream));
+      const peer = createPeerConnection(incoming.from);
+      stream.getTracks().forEach(t => peer.addTrack(t, stream));
 
-    await peer.setRemoteDescription(new RTCSessionDescription(incoming.offer));
-    const answer = await peer.createAnswer();
-    await peer.setLocalDescription(answer);
+      await peer.setRemoteDescription(new RTCSessionDescription(incoming.offer));
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
 
-    socket.emit("answerCall", { to: incoming.from, answer });
-    setIncoming(null);
+      socket.emit("answerCall", { to: incoming.from, answer });
+      setIncoming(null);
+    } catch (err) {
+      console.error("Error accepting call:", err);
+    }
   }
 
   function rejectCall() {
@@ -81,16 +110,20 @@ export function useCall(userId) {
   }
 
   return {
-    callType,
-    localStream,
-    remoteStream,
-    incoming,
-    isMaximized,
-    setIsMaximized,
+    callState: {
+      incoming,
+      caller: incoming?.from,
+      type: callType,
+      active: !!remoteStream,
+    },
     startCall,
     acceptCall,
     rejectCall,
     endCall,
-    cleanup
+    cleanup,
+    localStream,
+    remoteStream,
+    isMaximized,
+    setIsMaximized
   };
 }
