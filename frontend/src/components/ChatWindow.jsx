@@ -5,8 +5,6 @@ import Header from "./Header";
 export default function ChatWindow({ selectedUser, messages, currentUserId, onNewMessage }) {
   const [text, setText] = useState("");
 
-
-
   const handleSend = async () => {
     if (!text.trim()) return;
 

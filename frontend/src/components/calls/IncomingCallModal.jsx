@@ -1,25 +1,39 @@
-import React from "react";
-import { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 
-export default function IncomingCallModal({ visible, fromUser, callType, onAccept, onReject }) {
+export default function IncomingCallModal({
+  visible,
+  fromUser,
+  callType,
+  onAccept,
+  onReject,
+}) {
+  const audioRef = useRef(null);
 
-  // Add this inside useEffect to play ringtone
-useEffect(() => {
-  if (!visible) return;
+  useEffect(() => {
+    if (!visible) return;
 
-  const audio = new Audio("/sounds/ringtone.mp3");
-  audio.loop = true;
+    if (!audioRef.current) {
+      audioRef.current = new Audio("/sounds/ringtone.mp3");
+      audioRef.current.loop = true;
+    }
 
-  audio.play().catch(err => {
-    console.warn("Audio playback blocked:", err);
-  });
+    // Load & attempt to play ringtone
+    audioRef.current.load();
+    const playPromise = audioRef.current.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((err) => console.warn("Ringtone play failed:", err));
+    }
 
-  return () => {
-    audio.pause();
-    audio.currentTime = 0;
-  };
-}, [visible]);
+    // Stop ringtone when modal hides
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    };
+  }, [visible]);
 
+  if (!visible) return null;
 
   return (
     <div
@@ -30,15 +44,35 @@ useEffect(() => {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        zIndex: 3000
+        zIndex: 3000,
       }}
     >
-      <div style={{ background: "#fff", padding: "20px", borderRadius: "10px", textAlign: "center", width: "300px" }}>
-        <p>Incoming {callType} call from {fromUser}</p>
-        <div style={{ marginTop: "15px", display: "flex", justifyContent: "center", gap: "40px" }}>
-          {/* Accept */}
+      <div
+        style={{
+          background: "#fff",
+          padding: "20px",
+          borderRadius: "10px",
+          textAlign: "center",
+          width: "300px",
+        }}
+      >
+        <p>
+          Incoming {callType} call from <strong>{fromUser}</strong>
+        </p>
+        <div
+          style={{
+            marginTop: "15px",
+            display: "flex",
+            justifyContent: "center",
+            gap: "40px",
+          }}
+        >
           <button
-            onClick={onAccept}
+            onClick={() => {
+              audioRef.current?.pause();
+              audioRef.current.currentTime = 0;
+              onAccept();
+            }}
             style={{
               background: "#4caf50",
               border: "none",
@@ -46,14 +80,18 @@ useEffect(() => {
               width: "50px",
               height: "50px",
               fontSize: "18px",
-              color: "white"
+              color: "white",
+              cursor: "pointer",
             }}
           >
             ✓
           </button>
-          {/* Reject */}
           <button
-            onClick={onReject}
+            onClick={() => {
+              audioRef.current?.pause();
+              audioRef.current.currentTime = 0;
+              onReject();
+            }}
             style={{
               background: "#f44336",
               border: "none",
@@ -61,7 +99,8 @@ useEffect(() => {
               width: "50px",
               height: "50px",
               fontSize: "18px",
-              color: "white"
+              color: "white",
+              cursor: "pointer",
             }}
           >
             ✕
