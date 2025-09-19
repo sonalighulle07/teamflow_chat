@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FaUser, FaLock } from "react-icons/fa";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 
@@ -10,6 +10,35 @@ export default function Login({ onLogin, onSwitch }) {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordValue, setPasswordValue] = useState("");
   const [usernameValue, setUsernameValue] = useState("");
+
+  // New states for inline validation errors
+  const [usernameError, setUsernameError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  // Debounce validation (runs after user stops typing)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (usernameValue && usernameValue.length < 3) {
+        setUsernameError("Incorrect username!");
+      } else {
+        setUsernameError("");
+      }
+    }, 800); // 800ms after typing stops
+
+    return () => clearTimeout(handler);
+  }, [usernameValue]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (passwordValue && passwordValue.length < 6) {
+        setPasswordError("Incorrect password!");
+      } else {
+        setPasswordError("");
+      }
+    }, 800);
+
+    return () => clearTimeout(handler);
+  }, [passwordValue]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,6 +116,9 @@ export default function Login({ onLogin, onSwitch }) {
                 className="w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-500 text-sm border-2 border-transparent outline-none focus:border-purple-400 focus:shadow-md focus:shadow-purple-400 transition duration-200"
               />
             </div>
+            {usernameError && (
+              <span className="text-red-500 text-xs mt-1">{usernameError}</span>
+            )}
           </div>
 
           {/* Password */}
@@ -109,7 +141,6 @@ export default function Login({ onLogin, onSwitch }) {
                 onChange={(e) => setPasswordValue(e.target.value)}
                 className="w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-500 text-sm border-2 border-transparent outline-none focus:border-purple-400 focus:shadow-md focus:shadow-purple-400 transition duration-200"
               />
-              {/* Show eye icon only if user typed something */}
               {passwordValue && (
                 <div
                   className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-purple-600"
@@ -119,6 +150,9 @@ export default function Login({ onLogin, onSwitch }) {
                 </div>
               )}
             </div>
+            {passwordError && (
+              <span className="text-red-500 text-xs mt-1">{passwordError}</span>
+            )}
           </div>
 
           {/* Submit */}

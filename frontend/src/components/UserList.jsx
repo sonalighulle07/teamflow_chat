@@ -14,7 +14,7 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
   }
 
   return (
-    <ul className="flex flex-col h-[100%] overflow-y-auto bg-gray-200">
+    <ul className="flex flex-col h-[100%] overflow-y-auto bg-slate-200 w-7xl">
       {users.map((user) => {
         const isSelected = selectedUser?.id === user.id;
 
@@ -23,13 +23,21 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
             key={user.id}
             onClick={() => onSelectUser(user)}
             className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition mb-1
-              ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}
+              ${
+                isSelected
+                  ? "bg-white shadow-md"
+                  : "hover:bg-white hover:shadow"
+              }
             `}
           >
             {/* Avatar */}
             <div
               className={`w-10 h-10 text-center pt-2 rounded-full flex-shrink-0 items-center justify-center font-semibold text-sm text-white overflow-hidden relative
-                ${isSelected ? "bg-green-600 shadow-md" : "bg-gradient-to-r from-blue-700 to-blue-500"}
+                ${
+                  isSelected
+                    ? "bg-green-600 shadow-md"
+                    : "bg-gradient-to-r from-blue-700 to-blue-500"
+                }
               `}
             >
               {user.profile_image ? (
@@ -54,7 +62,9 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
                 {user.username}
               </span>
               {user.status && (
-                <span className="text-xs text-gray-500 truncate">{user.status}</span>
+                <span className="text-xs text-gray-500 truncate">
+                  {user.status}
+                </span>
               )}
             </div>
           </li>
