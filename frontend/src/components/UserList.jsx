@@ -14,7 +14,7 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
   }
 
   return (
-    <ul className="flex flex-col h-full overflow-y-auto bg-gray-200  p-2">
+    <ul className="flex flex-col h-[100%] overflow-y-auto bg-gray-200">
       {users.map((user) => {
         const isSelected = selectedUser?.id === user.id;
 

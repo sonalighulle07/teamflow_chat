@@ -1,11 +1,10 @@
-// -------------------- Header.jsx --------------------
 import { useState } from "react";
 
-export default function Header({ selectedUser }) {
+export default function Header({ selectedUser, onStartCall }) {
   const [showSearch, setShowSearch] = useState(false);
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-white border-b shadow-sm">
+    <div className="flex items-center justify-between px-4 py-2 bg-[#e5e7eb] shadow-sm">
       {/* Left section */}
       <div className="flex items-center gap-4">
         <h2 className="font-bold text-black text-lg">Chat</h2>
@@ -19,7 +18,11 @@ export default function Header({ selectedUser }) {
         </div>
       </div>
 
-      {/* Search box (inline) */}
+
+      {/* Right actions */}
+      <div className="flex items-center gap-3">
+
+         {/* Search box (inline) */}
       <div className="flex-1 mx-4">
         <input
           type="text"
@@ -28,12 +31,21 @@ export default function Header({ selectedUser }) {
         />
       </div>
 
-      {/* Right actions */}
-      <div className="flex items-center gap-3">
-        <button className="p-2 hover:bg-gray-100 rounded-full" title="Audio Call">
+        <button
+          className="p-2 hover:bg-gray-100 rounded-full"
+          title="Audio Call"
+          disabled={!selectedUser}
+          onClick={() => onStartCall("audio", selectedUser)}
+        >
           <i className="fas fa-phone"></i>
         </button>
-        <button className="p-2 hover:bg-gray-100 rounded-full" title="Video Call">
+
+        <button
+          className="p-2 hover:bg-gray-100 rounded-full"
+          title="Video Call"
+          disabled={!selectedUser}
+          onClick={() => onStartCall("video", selectedUser)}
+        >
           <i className="fas fa-video"></i>
         </button>
 
