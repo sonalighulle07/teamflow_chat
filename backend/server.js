@@ -3,20 +3,19 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-const bodyParser = require("body-parser");
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reactionRoutes = require('./routes/reactionRoutes');
 
-const callHandlers = require('./Utils/socket/callHandlers'); // <-- import call handlers
+const callHandlers = require('./Utils/socket/callHandlers');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:5173", // frontend dev server
+    origin: "http://localhost:5173",
     methods: ["GET", "POST"]
   }
 });
@@ -25,25 +24,21 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Make io accessible in routes/controllers
 app.use((req, res, next) => { req.io = io; next(); });
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/reactions', reactionRoutes);
 
-
-
-// Socket.io logic
 io.on('connection', (socket) => {
   console.log('Socket connected:', socket.id);
 
   socket.on('register', ({ userId }) => {
     if (userId) {
-      socket.userId = userId;   // store userId on socket
+      socket.userId = userId;
       socket.join(`user_${userId}`);
+      console.log(`User ${userId} joined room user_${userId}`);
     }
   });
 
@@ -52,7 +47,6 @@ io.on('connection', (socket) => {
     io.to(`user_${msg.receiverId}`).emit('privateMessage', msg);
   });
 
-  // Reaction events
   socket.on('sendReaction', async ({ msgId, userId, emoji }) => {
     try {
       const { addOrUpdateReaction, getReactionsByMessage } = require('./models/reactionModel');
@@ -64,10 +58,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Attach call handlers here
+  // Attach call handlers
   callHandlers(io, socket);
 
-  socket.on('disconnect', () => console.log('Socket disconnected:', socket.id));
+  socket.on('disconnect', () => {
+    console.log('Socket disconnected:', socket.id);
+  });
 });
 
 const PORT = process.env.PORT || 3000;

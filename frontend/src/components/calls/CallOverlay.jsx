@@ -10,7 +10,7 @@ export default function CallOverlay({
   onMinimize,
   onMaximize,
   onClose,
-  isMaximized
+  isMaximized,
 }) {
   return (
     <div
@@ -28,7 +28,7 @@ export default function CallOverlay({
         boxShadow: "0 4px 15px rgba(0,0,0,0.3)",
         flexDirection: "column",
         overflow: "hidden",
-        zIndex: 2000
+        zIndex: 2000,
       }}
     >
       {/* Top bar */}
@@ -41,7 +41,7 @@ export default function CallOverlay({
           alignItems: "center",
           padding: "0 10px",
           color: "#fff",
-          fontSize: "14px"
+          fontSize: "14px",
         }}
       >
         <span>{callType === "video" ? "Video Call" : "Audio Call"}</span>
@@ -57,7 +57,7 @@ export default function CallOverlay({
               width: "32px",
               height: "32px",
               color: "white",
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
             ✖️
@@ -69,19 +69,19 @@ export default function CallOverlay({
       <video
         autoPlay
         playsInline
-        ref={el => {
+        ref={(el) => {
           if (el && remoteStream) el.srcObject = remoteStream;
         }}
         style={{ flex: 1, width: "100%", height: "100%", objectFit: "cover" }}
       />
 
-      {/* Local Video */}
+      {/* Local Video (only for video calls) */}
       {callType === "video" && (
         <video
           autoPlay
           playsInline
           muted
-          ref={el => {
+          ref={(el) => {
             if (el && localStream) el.srcObject = localStream;
           }}
           style={{
@@ -92,7 +92,7 @@ export default function CallOverlay({
             right: "20px",
             border: "2px solid #fff",
             borderRadius: "8px",
-            zIndex: 100
+            zIndex: 100,
           }}
         />
       )}
@@ -108,21 +108,18 @@ export default function CallOverlay({
           gap: "15px",
           background: "rgba(0,0,0,0.6)",
           padding: "8px 14px",
-          borderRadius: "30px"
+          borderRadius: "30px",
         }}
       >
-        <button onClick={onToggleMic}>🎤</button>
-        <button onClick={onToggleCam}>📹</button>
+        <button onClick={onToggleMic} style={controlButtonStyle}>
+          🎤
+        </button>
+        <button onClick={onToggleCam} style={controlButtonStyle}>
+          📹
+        </button>
         <button
           onClick={onEndCall}
-          style={{
-            background: "#d93025",
-            border: "none",
-            borderRadius: "50%",
-            width: "40px",
-            height: "40px",
-            color: "white"
-          }}
+          style={{ ...controlButtonStyle, background: "#d93025" }}
         >
           ✖️
         </button>
@@ -130,3 +127,13 @@ export default function CallOverlay({
     </div>
   );
 }
+
+const controlButtonStyle = {
+  background: "#444",
+  border: "none",
+  borderRadius: "50%",
+  width: "40px",
+  height: "40px",
+  color: "white",
+  cursor: "pointer",
+};

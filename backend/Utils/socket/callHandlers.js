@@ -4,30 +4,36 @@ module.exports = function callHandlers(io, socket) {
   socket.on("register", ({ userId }) => {
     socket.userId = userId;
     socket.join(`user_${userId}`);
+    console.log(`User ${userId} registered`);
   });
 
   socket.on("callUser", ({ from, to, offer, callType }) => {
-    console.log("Inside Call user")
+    console.log(`Call from ${from} to ${to}`);
     io.to(`user_${to}`).emit("incomingCall", { from, offer, callType });
   });
 
   socket.on("answerCall", ({ to, answer }) => {
+    console.log(`Answer sent to ${to}`);
     io.to(`user_${to}`).emit("callAccepted", { answer });
   });
 
   socket.on("iceCandidate", ({ to, candidate }) => {
+    console.log(`ICE candidate sent to ${to}`);
     io.to(`user_${to}`).emit("iceCandidate", {
       from: socket.userId,
       candidate
     });
   });
 
-  socket.on("endCall", ({ to }) => {
-    if (!socket.userId) return;
-    io.to(`user_${to}`).emit("endCall", { from: socket.userId });
+  socket.on("endCall", ({ to, from }) => {
+    if (!from) return;
+    console.log(`Call ended by ${from} to ${to}`);
+    io.to(`user_${to}`).emit("endCall", { from });
+    io.to(`user_${from}`).emit("endCall", { from });
   });
 
-  socket.on("cancelCall", ({ to }) => {
-    io.to(`user_${to}`).emit("callCancelled", { from: socket.userId });
+  socket.on("cancelCall", ({ to, from }) => {
+    console.log(`Call cancelled by ${from} to ${to}`);
+    io.to(`user_${to}`).emit("callCancelled", { from });
   });
 };
