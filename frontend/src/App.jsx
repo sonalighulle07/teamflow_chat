@@ -40,17 +40,17 @@ function App() {
     fetchUsers();
   }, [isAuthenticated, userId]);
 
-  // // Fetch chat messages
-  // useEffect(() => {
-  //   if (!isAuthenticated || !selectedUser) return;
+  // Fetch chat messages
+  useEffect(() => {
+    if (!isAuthenticated || !selectedUser) return;
 
-  //   async function fetchChat() {
-  //     const res = await fetch(`/api/chats/${userId}/${selectedUser.id}`);
-  //     const data = await res.json();
-  //     setMessages(data);
-  //   }
-  //   fetchChat();
-  // }, [isAuthenticated, selectedUser, userId]);
+    async function fetchChat() {
+      const res = await fetch(`/api/chats/${userId}/${selectedUser.id}`);
+      const data = await res.json();
+      setMessages(data);
+    }
+    fetchChat();
+  }, [isAuthenticated, selectedUser, userId]);
 
 
   // Handle login/register success

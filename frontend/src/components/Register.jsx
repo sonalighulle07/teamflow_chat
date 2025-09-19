@@ -1,6 +1,12 @@
-import { useState } from "react";
-import { FaUser, FaEnvelope, FaPhone, FaLock } from "react-icons/fa";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { useState, useEffect } from "react";
+import {
+  FaUser,
+  FaEnvelope,
+  FaPhone,
+  FaLock,
+  FaEye,
+  FaEyeSlash,
+} from "react-icons/fa";
 
 // Debounce helper
 const debounce = (func, delay) => {
@@ -17,38 +23,30 @@ export default function Register({ onRegister, onSwitch }) {
   const [showToast, setShowToast] = useState(false);
 
   // Form states
-  const [usernameAvailable, setUsernameAvailable] = useState(null);
-  const [emailAvailable, setEmailAvailable] = useState(null);
   const [contact, setContact] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Error states
+  const [usernameError, setUsernameError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [contactError, setContactError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+
+  // Password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Tooltip messages
-  const [hoverMsg, setHoverMsg] = useState({
-    username: "",
-    email: "",
-    contact: "",
-    password: "",
-    confirmPassword: "",
-  });
 
   // Regex patterns
   const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const contactPattern = /^[0-9]{10,15}$/;
 
-  // Show tooltip
-  const showHoverMsg = (field, msg) => {
-    setHoverMsg((prev) => ({ ...prev, [field]: msg }));
-    setTimeout(() => setHoverMsg((prev) => ({ ...prev, [field]: "" })), 3000);
-  };
-
-  // Check username availability
+  // Username availability
   const checkUsernameAvailability = async (username) => {
     if (!username) {
-      setUsernameAvailable(null);
+      setUsernameError("");
       return;
     }
     try {
@@ -56,21 +54,16 @@ export default function Register({ onRegister, onSwitch }) {
         `http://localhost:3000/api/auth/check-username?username=${username}`
       );
       const data = await res.json();
-      setUsernameAvailable(data.available);
-      showHoverMsg(
-        "username",
-        data.available ? "Username available ✅" : "Username taken ❌"
-      );
-    } catch (err) {
-      console.error(err);
-      showHoverMsg("username", "Error checking username");
+      setUsernameError(!data.available ? "Username already taken" : "");
+    } catch {
+      setUsernameError("Error checking username");
     }
   };
 
-  // Check email availability
+  // Email availability
   const checkEmailAvailability = async (email) => {
     if (!email) {
-      setEmailAvailable(null);
+      setEmailError("");
       return;
     }
     try {
@@ -78,63 +71,66 @@ export default function Register({ onRegister, onSwitch }) {
         `http://localhost:3000/api/auth/check-email?email=${email}`
       );
       const data = await res.json();
-      const valid = data.available && emailPattern.test(email);
-      setEmailAvailable(valid);
-      showHoverMsg(
-        "email",
-        valid ? "Email available ✅" : "Email invalid or taken ❌"
-      );
-    } catch (err) {
-      console.error(err);
-      showHoverMsg("email", "Error checking email");
+      if (!data.available || !emailPattern.test(email)) {
+        setEmailError("Invalid or already used email");
+      } else {
+        setEmailError("");
+      }
+    } catch {
+      setEmailError("Error checking email");
     }
   };
 
-  // Field validation
-  const handleBlurValidation = (field, value) => {
+  // Validation
+  const validateField = (field, value) => {
+    if (!value) {
+      // remove error if empty
+      if (field === "contact") setContactError("");
+      if (field === "password") setPasswordError("");
+      if (field === "confirmPassword") setConfirmPasswordError("");
+      return;
+    }
+
     switch (field) {
       case "contact":
-        showHoverMsg(
-          "contact",
-          contactPattern.test(value) ? "Valid contact ✅" : "Invalid contact ❌"
+        setContactError(
+          contactPattern.test(value) ? "" : "Invalid contact number"
         );
         break;
       case "password":
-        showHoverMsg(
-          "password",
+        setPasswordError(
           passwordPattern.test(value)
-            ? "Valid password ✅"
-            : "Password must be 8+ chars, letters & numbers ❌"
+            ? ""
+            : "Password must be 8+ chars with numbers"
         );
         break;
       case "confirmPassword":
-        showHoverMsg(
-          "confirmPassword",
-          password === confirmPassword
-            ? "Passwords match ✅"
-            : "Passwords do not match ❌"
+        setConfirmPasswordError(
+          value === password ? "" : "Passwords do not match"
         );
+        break;
+      default:
         break;
     }
   };
 
-  // Debounced validation
-  const debouncedUsernameCheck = debounce(checkUsernameAvailability, 500);
-  const debouncedEmailCheck = debounce(checkEmailAvailability, 500);
+  // Debounced checks
+  const debouncedUsernameCheck = debounce(checkUsernameAvailability, 600);
+  const debouncedEmailCheck = debounce(checkEmailAvailability, 600);
   const debouncedContactCheck = debounce(
-    (value) => handleBlurValidation("contact", value),
-    500
+    (value) => validateField("contact", value),
+    600
   );
   const debouncedPasswordCheck = debounce(
-    (value) => handleBlurValidation("password", value),
-    500
+    (value) => validateField("password", value),
+    600
   );
   const debouncedConfirmPasswordCheck = debounce(
-    (value) => handleBlurValidation("confirmPassword", value),
-    500
+    (value) => validateField("confirmPassword", value),
+    600
   );
 
-  // Form submission
+  // Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     const full_name = document.getElementById("regFullName").value.trim();
@@ -153,31 +149,14 @@ export default function Register({ onRegister, onSwitch }) {
       return;
     }
 
-    if (usernameAvailable === false) {
-      showToastMessage("Username already taken!", "bg-red-500");
-      return;
-    }
-
-    if (emailAvailable === false) {
-      showToastMessage("Email already registered or invalid!", "bg-red-500");
-      return;
-    }
-
-    if (!contactPattern.test(contact)) {
-      showToastMessage("Invalid contact number!", "bg-red-500");
-      return;
-    }
-
-    if (!passwordPattern.test(password)) {
-      showToastMessage(
-        "Password must be 8+ chars, include letters & numbers, no symbols!",
-        "bg-red-500"
-      );
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      showToastMessage("Passwords do not match!", "bg-red-500");
+    if (
+      usernameError ||
+      emailError ||
+      contactError ||
+      passwordError ||
+      confirmPasswordError
+    ) {
+      showToastMessage("Fix the errors before submitting!", "bg-red-500");
       return;
     }
 
@@ -198,8 +177,7 @@ export default function Register({ onRegister, onSwitch }) {
         sessionStorage.setItem("chatToken", data.token);
         setTimeout(() => onRegister(), 1000);
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       showToastMessage("Server error, try again later.", "bg-red-500");
     }
   };
@@ -211,20 +189,6 @@ export default function Register({ onRegister, onSwitch }) {
     setTimeout(() => setShowToast(false), 2000);
   };
 
-  const renderTooltip = (msg) => {
-    if (!msg) return null;
-    const isError = msg.includes("❌");
-    return (
-      <div
-        className={`absolute right-0 top-1/2 -translate-y-1/2 px-2 py-1 rounded shadow-lg z-10 whitespace-nowrap text-xs font-semibold ${
-          isError ? "bg-red-500 text-white" : "bg-green-500 text-white"
-        }`}
-      >
-        {msg}
-      </div>
-    );
-  };
-
   return (
     <div className="flex h-screen w-full items-center justify-center bg-gradient-to-tl from-white to-purple-600 animate-fadeIn p-2">
       <div className="w-full max-w-md rounded-2xl bg-white/20 p-6 sm:p-8 shadow-xl backdrop-blur-md animate-slideUp relative">
@@ -233,7 +197,7 @@ export default function Register({ onRegister, onSwitch }) {
         </h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Full Name */}
-          <div className="relative flex flex-col">
+          <div className="flex flex-col">
             <label
               htmlFor="regFullName"
               className="text-white font-medium text-sm mb-1"
@@ -246,13 +210,13 @@ export default function Register({ onRegister, onSwitch }) {
                 type="text"
                 id="regFullName"
                 placeholder="Enter full name"
-                className="w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-500 text-sm border-2 border-transparent outline-none focus:border-purple-300 focus:shadow-md focus:shadow-purple-300 transition duration-200"
+                className="w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border border-gray-300 outline-none focus:border-purple-400 transition duration-200"
               />
             </div>
           </div>
 
           {/* Username */}
-          <div className="relative flex flex-col">
+          <div className="flex flex-col">
             <label
               htmlFor="regUsername"
               className="text-white font-medium text-sm mb-1"
@@ -265,22 +229,20 @@ export default function Register({ onRegister, onSwitch }) {
                 type="text"
                 id="regUsername"
                 placeholder="Enter username"
-                className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-500 text-sm border-2 border-transparent outline-none focus:border-purple-300 focus:shadow-md focus:shadow-purple-300 transition duration-200 ${
-                  usernameAvailable === false
-                    ? "border-red-500"
-                    : usernameAvailable
-                    ? "border-green-500"
-                    : ""
+                className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
+                  usernameError ? "border-red-500" : "border-gray-300"
                 }`}
                 onChange={(e) => debouncedUsernameCheck(e.target.value.trim())}
               />
-              {hoverMsg.username && renderTooltip(hoverMsg.username)}
             </div>
+            {usernameError && (
+              <span className="text-xs text-red-600 mt-1">{usernameError}</span>
+            )}
           </div>
 
           {/* Email + Contact */}
           <div className="grid grid-cols-2 gap-2">
-            <div className="relative flex flex-col">
+            <div className="flex flex-col">
               <label
                 htmlFor="regEmail"
                 className="text-white font-medium text-sm mb-1"
@@ -293,20 +255,18 @@ export default function Register({ onRegister, onSwitch }) {
                   type="email"
                   id="regEmail"
                   placeholder="Enter email"
-                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-500 text-sm border-2 border-transparent outline-none focus:border-purple-300 focus:shadow-md focus:shadow-purple-300 transition duration-200 ${
-                    emailAvailable === false
-                      ? "border-red-500"
-                      : emailAvailable
-                      ? "border-green-500"
-                      : ""
+                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
+                    emailError ? "border-red-500" : "border-gray-300"
                   }`}
                   onChange={(e) => debouncedEmailCheck(e.target.value.trim())}
                 />
               </div>
-              {hoverMsg.email && renderTooltip(hoverMsg.email)}
+              {emailError && (
+                <span className="text-xs text-red-600 mt-1">{emailError}</span>
+              )}
             </div>
 
-            <div className="relative flex flex-col">
+            <div className="flex flex-col">
               <label
                 htmlFor="regContact"
                 className="text-white font-medium text-sm mb-1"
@@ -324,15 +284,22 @@ export default function Register({ onRegister, onSwitch }) {
                     debouncedContactCheck(e.target.value.trim());
                   }}
                   placeholder="Enter contact number"
-                  className="w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-500 text-sm border-2 border-transparent outline-none focus:border-purple-300 focus:shadow-md focus:shadow-purple-300 transition duration-200"
+                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
+                    contactError ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
               </div>
+              {contactError && (
+                <span className="text-xs text-red-600 mt-1">
+                  {contactError}
+                </span>
+              )}
             </div>
           </div>
 
           {/* Password + Confirm Password */}
           <div className="grid grid-cols-2 gap-2">
-            <div className="relative flex flex-col">
+            <div className="flex flex-col">
               <label
                 htmlFor="regPassword"
                 className="text-white font-medium text-sm mb-1"
@@ -350,13 +317,25 @@ export default function Register({ onRegister, onSwitch }) {
                     debouncedPasswordCheck(e.target.value);
                   }}
                   placeholder="Enter password"
-                  className="w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-500 text-sm border-2 border-transparent outline-none focus:border-purple-300 focus:shadow-md focus:shadow-purple-300 transition duration-200"
+                  className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
+                    passwordError ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
+                <span
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </span>
               </div>
-              {hoverMsg.password && renderTooltip(hoverMsg.password)}
+              {passwordError && (
+                <span className="text-xs text-red-600 mt-1">
+                  {passwordError}
+                </span>
+              )}
             </div>
 
-            <div className="relative flex flex-col">
+            <div className="flex flex-col">
               <label
                 htmlFor="regConfirmPassword"
                 className="text-white font-medium text-sm mb-1"
@@ -374,11 +353,22 @@ export default function Register({ onRegister, onSwitch }) {
                     debouncedConfirmPasswordCheck(e.target.value);
                   }}
                   placeholder="Confirm password"
-                  className="w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-500 text-sm border-2 border-transparent outline-none focus:border-purple-300 focus:shadow-md focus:shadow-purple-300 transition duration-200"
+                  className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
+                    confirmPasswordError ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
+                <span
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                </span>
               </div>
-              {hoverMsg.confirmPassword &&
-                renderTooltip(hoverMsg.confirmPassword)}
+              {confirmPasswordError && (
+                <span className="text-xs text-red-600 mt-1">
+                  {confirmPasswordError}
+                </span>
+              )}
             </div>
           </div>
 
