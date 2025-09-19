@@ -5,6 +5,10 @@ import Login from "./components/Login";
 import Register from "./components/Register";
 import Header from "./components/Header";
 
+import IncomingCallModal from "./components/calls/IncomingCallModal";
+import CallOverlay from "./components/calls/CallOverlay";
+import { useCall } from "./components/calls/hooks/useCall";// 👈 custom hook for calls
+
 function App() {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -14,6 +18,9 @@ function App() {
   );
 
   const userId = Number(sessionStorage.getItem("chatUserId"));
+
+  // Call hook
+  const { callState, startCall, acceptCall, rejectCall, endCall,localStream,remoteStream,isMaximized,setIsMaximized } = useCall(userId);
 
   // Fetch users when authenticated
   useEffect(() => {
@@ -27,17 +34,17 @@ function App() {
     fetchUsers();
   }, [isAuthenticated, userId]);
 
-  // Fetch chat messages
-  useEffect(() => {
-    if (!isAuthenticated || !selectedUser) return;
+  // // Fetch chat messages
+  // useEffect(() => {
+  //   if (!isAuthenticated || !selectedUser) return;
 
-    async function fetchChat() {
-      const res = await fetch(`/api/chats/${userId}/${selectedUser.id}`);
-      const data = await res.json();
-      setMessages(data);
-    }
-    fetchChat();
-  }, [isAuthenticated, selectedUser, userId]);
+  //   async function fetchChat() {
+  //     const res = await fetch(`/api/chats/${userId}/${selectedUser.id}`);
+  //     const data = await res.json();
+  //     setMessages(data);
+  //   }
+  //   fetchChat();
+  // }, [isAuthenticated, selectedUser, userId]);
 
   // Handle login/register success
   const handleAuthSuccess = () => {
@@ -57,7 +64,10 @@ function App() {
         // Show Chat UI
         <>
           {/* Header */}
-          <Header selectedUser={selectedUser} />
+          <Header
+            selectedUser={selectedUser}
+            onStartCall={startCall} // 👈 pass down call starter
+          />
 
           {/* Main Content */}
           <div className="flex flex-1 overflow-hidden">
@@ -79,6 +89,31 @@ function App() {
               />
             </div>
           </div>
+
+          {/* Call UI */}
+          {callState.incoming && (
+            <IncomingCallModal
+              caller={callState.caller}
+              type={callState.type}
+              onAccept={acceptCall}
+              onReject={rejectCall}
+            />
+          )}
+          {callState.type && (
+  <CallOverlay
+    callType={callState.type}
+    localStream={localStream}
+    remoteStream={remoteStream}
+    onEndCall={() => endCall(selectedUser.id)}
+    onToggleMic={() => {}}
+    onToggleCam={() => {}}
+    onMinimize={() => setIsMaximized(false)}
+    onMaximize={() => setIsMaximized(true)}
+    onClose={() => endCall(selectedUser.id)}
+    isMaximized={isMaximized}
+  />
+)}
+
         </>
       )}
     </div>

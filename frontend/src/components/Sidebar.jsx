@@ -4,20 +4,19 @@ import UserList from "./UserList";
 export default function Sidebar({ selectedUser, onSelectUser }) {
   const [users, setUsers] = useState([]);
 
-  // Fetch users from backend
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch("http://localhost:3000/api/users");
-      const data = await res.json();
-      setUsers(data);
-    } catch (err) {
-      console.error("Failed to fetch users:", err);
-    }
-  };
-
   useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch("http://localhost:3000/api/users");
+        const data = await res.json();
+        setUsers(data);
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+      }
+    };
+
     fetchUsers();
-    const interval = setInterval(fetchUsers, 5000); // Optional: auto-refresh every 5s
+    const interval = setInterval(fetchUsers, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -27,63 +26,88 @@ export default function Sidebar({ selectedUser, onSelectUser }) {
   };
 
   return (
-    <div className="flex h-screen">
-      {/* Left Sidebar */}
-      <div className="flex w-20 flex-col items-center justify-between bg-gray-200 py-6 text-white shadow-lg">
-        <div className="flex flex-col items-center gap-8">
-          <div className="sidebar-icon">
-            <img
-              src="/Tapsoft.jpeg"
-              alt="Tapsoft Logo"
-              className="h-12 w-12 rounded-full object-contain"
-            />
-          </div>
+    <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
+      {/* Static Icon Column */}
+      <div
+        style={{
+          width: "70px",
+          backgroundColor: "#e5e7eb",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          padding: "24px 12px",
+          boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+          flexShrink: 0
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "24px" }}>
+          <img
+            src="/Tapsoft.jpeg"
+            alt="Tapsoft Logo"
+            style={{ height: "48px", width: "48px", borderRadius: "50%", objectFit: "contain" }}
+          />
 
-          <div className="flex flex-col gap-8 text-center">
-  <div className="sidebar-icon group cursor-pointer" title="Chat">
-    <i className="fa-solid fa-comment-dots text-[18px] text-gray-500 group-hover:text-purple-600"></i>
-    <span className="block text-[12px] text-gray-500 group-hover:text-purple-600">Chat</span>
-  </div>
-
-  <div className="sidebar-icon group cursor-pointer" title="Meet">
-    <i className="fa-solid fa-video text-[18px] text-gray-500 group-hover:text-purple-600"></i>
-    <span className="block text-[12px] text-gray-500 group-hover:text-purple-600">Meet</span>
-  </div>
-
-  <div className="sidebar-icon group cursor-pointer" title="Communities">
-    <i className="fa-solid fa-users text-[18px] text-gray-500 group-hover:text-purple-600"></i>
-    <span className="block text-[12px] text-gray-500 group-hover:text-purple-600">Communities</span>
-  </div>
-
-  <div className="sidebar-icon group cursor-pointer" title="Calendar">
-    <i className="fa-regular fa-calendar text-[18px] text-gray-500 group-hover:text-purple-600"></i>
-    <span className="block text-[12px] text-gray-500 group-hover:text-purple-600">Calendar</span>
-  </div>
-
-  <div className="sidebar-icon group cursor-pointer" title="Activity">
-    <i className="fa-regular fa-bell text-[18px] text-gray-500 group-hover:text-purple-600"></i>
-    <span className="block text-[12px] text-gray-500 group-hover:text-purple-600">Activity</span>
-  </div>
-</div>
-
+          {[
+            { icon: "fa-comment-dots", label: "Chat" },
+            { icon: "fa-video", label: "Meet" },
+            { icon: "fa-users", label: "Communities" },
+            { icon: "fa-calendar", label: "Calendar" },
+            { icon: "fa-bell", label: "Activity" }
+          ].map(({ icon, label }) => (
+            <div key={label} title={label} style={{ textAlign: "center", cursor: "pointer" }}>
+              <i className={`fa-solid ${icon}`} style={{ fontSize: "18px", color: "#6b7280" }}></i>
+              <div style={{ fontSize: "12px", color: "#6b7280" }}>{label}</div>
+            </div>
+          ))}
         </div>
 
-        <div className="flex flex-col items-center gap-6">
-          <div className="sidebar-icon" title="Premium">
-            <i className="fa-solid fa-gem text-2xl text-yellow-400"></i>
-            <span className="block text-sm">Premium</span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+          <div title="Premium" style={{ textAlign: "center" }}>
+            <i className="fa-solid fa-gem" style={{ fontSize: "20px", color: "#facc15" }}></i>
+            <div style={{ fontSize: "12px", color: "#000" }}>Premium</div>
           </div>
           <button
             onClick={logout}
-            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold hover:bg-red-700"
+            style={{
+              backgroundColor: "#dc2626",
+              color: "#fff",
+              padding: "6px 12px",
+              borderRadius: "6px",
+              fontSize: "14px",
+              fontWeight: "bold",
+              border: "none",
+              cursor: "pointer"
+            }}
           >
             Logout
           </button>
         </div>
       </div>
 
-      {/* Right User List */}
-      <div className="flex-1 max-w-xs bg-gray-200 py-6 border-l border-gray-200">
+      {/* Scrollable User List */}
+      <div
+        style={{
+          flex: 1,
+          maxWidth: "500px",
+          backgroundColor: "#e5e7eb",
+          borderLeft: "1px solid #d1d5db",
+          overflowY: "scroll",
+          position: "relative"
+        }}
+      >
+        {/* Hidden scrollbar styling */}
+        <style>
+          {`
+            ::-webkit-scrollbar {
+              width: 0px;
+              background: transparent;
+            }
+            div::-webkit-scrollbar {
+              display: none;
+            }
+          `}
+        </style>
+
         <UserList
           users={users}
           selectedUser={selectedUser}
