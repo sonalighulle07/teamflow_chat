@@ -1,7 +1,25 @@
 import React from "react";
+import { useEffect } from "react";
 
 export default function IncomingCallModal({ visible, fromUser, callType, onAccept, onReject }) {
-  if (!visible) return null;
+
+  // Add this inside useEffect to play ringtone
+useEffect(() => {
+  if (!visible) return;
+
+  const audio = new Audio("/sounds/ringtone.mp3");
+  audio.loop = true;
+
+  audio.play().catch(err => {
+    console.warn("Audio playback blocked:", err);
+  });
+
+  return () => {
+    audio.pause();
+    audio.currentTime = 0;
+  };
+}, [visible]);
+
 
   return (
     <div

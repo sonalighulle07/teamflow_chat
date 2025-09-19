@@ -14,18 +14,24 @@ function App() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(
-    !!sessionStorage.getItem("chatUserId")
+    !!sessionStorage.getItem("chatToken")
   );
   const [showRegister, setShowRegister] = useState(false);
 
   const userId = Number(sessionStorage.getItem("chatUserId"));
+
+  const activeUser = JSON.parse(sessionStorage.getItem("chatUser"));
 
   // Call hook
   const { callState, startCall, acceptCall, rejectCall, endCall,localStream,remoteStream,isMaximized,setIsMaximized } = useCall(userId);
 
   // Fetch users when authenticated
   useEffect(() => {
+
+    console.log("Active user"+JSON.stringify(activeUser))
+
     if (!isAuthenticated || !userId) return;
+    
 
     async function fetchUsers() {
       try {
@@ -81,6 +87,7 @@ function App() {
         <>
           {/* Header */}
           <Header
+            activeUser={activeUser}
             selectedUser={selectedUser}
             onStartCall={startCall} // 👈 pass down call starter
           />
@@ -106,15 +113,19 @@ function App() {
             </div>
           </div>
 
-          {/* Call UI */}
           {callState.incoming && (
-            <IncomingCallModal
-              caller={callState.caller}
-              type={callState.type}
-              onAccept={acceptCall}
-              onReject={rejectCall}
-            />
-          )}
+  <IncomingCallModal
+    visible={true}
+    fromUser={callState.caller}
+    callType={callState.type}
+    onAccept={acceptCall}
+    onReject={rejectCall}
+  />
+)}
+
+
+
+
           {callState.type && (
   <CallOverlay
     callType={callState.type}
