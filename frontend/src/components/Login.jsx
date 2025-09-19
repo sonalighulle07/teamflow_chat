@@ -40,9 +40,12 @@ export default function Login({ onLogin, onSwitch }) {
       );
 
       if (res.ok && data.success) {
-        sessionStorage.setItem("chatUserId", data.user.id);
-        sessionStorage.setItem("chatUsername", data.user.username);
+        console.log("after login user : "+JSON.stringify(data.user))
+        console.log("after login token : "+data.token)
+
+        sessionStorage.setItem("chatUser", JSON.stringify(data.user));
         sessionStorage.setItem("chatToken", data.token);
+
         setTimeout(() => onLogin(), 1000);
       }
     } catch (err) {

@@ -1,7 +1,8 @@
 import { useState } from "react";
 
-export default function Header({ selectedUser, onStartCall }) {
+export default function Header({ activeUser, selectedUser, onStartCall }) {
   const [showSearch, setShowSearch] = useState(false);
+  const username = activeUser.username;
 
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-[#e5e7eb] shadow-sm">
@@ -18,18 +19,16 @@ export default function Header({ selectedUser, onStartCall }) {
         </div>
       </div>
 
-
       {/* Right actions */}
       <div className="flex items-center gap-3">
-
-         {/* Search box (inline) */}
-      <div className="flex-1 mx-4">
-        <input
-          type="text"
-          placeholder="🔍 Search..."
-          className="w-full max-w-xs rounded-md border border-gray-300 px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-        />
-      </div>
+        {/* Search box (inline) */}
+        <div className="flex-1 mx-4">
+          <input
+            type="text"
+            placeholder="🔍 Search..."
+            className="w-full max-w-xs rounded-md border border-gray-300 px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          />
+        </div>
 
         <button
           className="p-2 hover:bg-gray-100 rounded-full"
@@ -76,16 +75,33 @@ export default function Header({ selectedUser, onStartCall }) {
           )}
         </div>
 
-        <button className="p-2 hover:bg-gray-100 rounded-full" title="Manage Group">
+        <button
+          className="p-1 hover:bg-gray-100 rounded-full"
+          title="Manage Group"
+        >
           <i className="fas fa-users-cog"></i>
         </button>
-        <button className="p-2 hover:bg-gray-100 rounded-full" title="More Options">
+        <button
+          className="p-1 hover:bg-gray-100 rounded-full"
+          title="More Options"
+        >
           <i className="fas fa-ellipsis-v"></i>
         </button>
 
-        {/* User Avatar placeholder */}
-        <div className="ml-4 h-8 w-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold">
-          {selectedUser ? selectedUser.username[0] : "U"}
+        <div
+          className="flex flex-col items-center justify-center p-1 
+  rounded hover:rounded-t-full 
+  hover:bg-purple-500/50 hover:shadow-lg hover:shadow-purple-500/50 hover:cursor-pointer 
+  transition-all duration-300"
+        >
+          {/* User Avatar placeholder */}
+          <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
+            {username[0]}
+          </div>
+
+          <div className="text-black font-bold text-sm">
+            <span className="text-xs">{username}</span>
+          </div>
         </div>
       </div>
     </div>
