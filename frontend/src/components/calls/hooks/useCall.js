@@ -10,7 +10,6 @@ export function useCall(userId) {
   const [remoteUserId, setRemoteUserId] = useState(null);
 
   const peerRef = useRef(null);
-  const callEndedByMe = useRef(false);
   const hasCleanedUp = useRef(false);
 
   useEffect(() => {
@@ -38,8 +37,7 @@ export function useCall(userId) {
     };
 
     const handleEndCall = ({ from }) => {
-      const isRemoteEnd = from !== userId;
-      if (isRemoteEnd) alert(`Call ended by user: ${from}`);
+      alert(`Call ended by user: ${from}`);
       cleanup();
     };
 
@@ -84,7 +82,6 @@ export function useCall(userId) {
 
   async function startCall(type, remoteUser) {
     hasCleanedUp.current = false;
-    callEndedByMe.current = false;
     setRemoteUserId(remoteUser.id);
     setCallType(type);
 
@@ -108,7 +105,6 @@ export function useCall(userId) {
   async function acceptCall() {
     if (!incoming) return;
     hasCleanedUp.current = false;
-    callEndedByMe.current = false;
     setRemoteUserId(incoming.from);
     setCallType(incoming.callType);
 
@@ -138,7 +134,6 @@ export function useCall(userId) {
   }
 
   function endCall() {
-    callEndedByMe.current = true;
     if (remoteUserId) socket.emit("endCall", { to: remoteUserId, from: userId });
     cleanup();
   }
@@ -148,10 +143,15 @@ export function useCall(userId) {
     stream.getTracks().forEach((t) => t.stop());
   }
 
-  function cleanup() {
-    if (hasCleanedUp.current) return;
+function cleanup(force = false) {
+  if (hasCleanedUp.current && !force) return;
+
+  const delay = remoteStream?.getTracks().length ? 0 : 1000;
+
+  setTimeout(() => {
+    if (hasCleanedUp.current && !force) return;
     hasCleanedUp.current = true;
-    callEndedByMe.current = false;
+    console.log("Running cleanup");
 
     stopTracks(localStream);
     stopTracks(remoteStream);
@@ -169,7 +169,16 @@ export function useCall(userId) {
       peerRef.current.close();
       peerRef.current = null;
     }
-  }
+  }, delay);
+
+  // Fallback cleanup after 3 seconds if nothing else worked
+  setTimeout(() => {
+    if (!hasCleanedUp.current) {
+      console.warn("Force cleanup triggered");
+      cleanup(true);
+    }
+  }, 3000);
+}
 
   return {
     callState: {

@@ -40,11 +40,9 @@ function App() {
     fetchUsers();
   }, [isAuthenticated, userId]);
 
-  
   useEffect(() => {
-  console.log("Call type changed:", call?.callState.type);
-}, [call?.callState.type]);
-
+    console.log("Call type changed:", call?.callState.type);
+  }, [call?.callState.type]);
 
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
@@ -103,22 +101,20 @@ function App() {
             />
           )}
 
-         {call?.callState.type && (
-  <CallOverlay
-  callType={call.callState.type}
-  localStream={call.localStream}
-  remoteStream={call.remoteStream}
-  onEndCall={call.endCall}
-  onToggleMic={() => {}}
-  onToggleCam={() => {}}
-  onMinimize={() => call.setIsMaximized(false)}
-  onMaximize={() => call.setIsMaximized(true)}
-  onClose={call.endCall}
-  isMaximized={call.isMaximized}
-/>
-
-)}
-
+          {call?.callState.type && (
+            <CallOverlay
+              callType={call.callState.type}
+              localStream={call.localStream}
+              remoteStream={call.remoteStream}
+              onEndCall={call.endCall}
+              onToggleMic={() => {}}
+              onToggleCam={() => {}}
+              onMinimize={() => call.setIsMaximized(false)}
+              onMaximize={() => call.setIsMaximized(true)}
+              onClose={call.endCall}
+              isMaximized={call.isMaximized}
+            />
+          )}
         </>
       )}
     </div>
