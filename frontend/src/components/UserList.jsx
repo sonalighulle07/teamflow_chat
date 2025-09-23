@@ -13,6 +13,12 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
     );
   }
 
+
+  const showSelectedUSer = (user) =>{
+    console.log(user)
+    onSelectUser(user)
+  }
+
   return (
     <ul className="flex flex-col h-[100%] overflow-y-auto bg-slate-200 w-7xl">
       {users.map((user) => {
@@ -21,7 +27,7 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
         return (
           <li
             key={user.id}
-            onClick={() => onSelectUser(user)}
+            onClick={() => showSelectedUSer(user)}
             className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition mb-1
               ${
                 isSelected

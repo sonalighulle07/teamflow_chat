@@ -7,9 +7,12 @@ import {
   FaEllipsisV,
 } from "react-icons/fa";
 
-export default function Header({ selectedUser, onStartCall }) {
+export default function Header({ activeUser, selectedUser, onStartCall }) {
   const [showSearch, setShowSearch] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
+
+  const username = activeUser.username;
 
   return (
     <div className="flex items-center justify-between px-4 py-2 mb-0.5 bg-slate-200 shadow-md border-b border-gray-200">
@@ -41,6 +44,16 @@ export default function Header({ selectedUser, onStartCall }) {
         </div>
 
         {/* Audio Call */}
+
+        {/* Search box (inline) */}
+        <div className="flex-1 mx-4">
+          <input
+            type="text"
+            placeholder="🔍 Search..."
+            className="w-full max-w-xs rounded-md border border-gray-300 px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          />
+        </div>
+
         <button
           className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
           title="Audio Call"
@@ -90,23 +103,33 @@ export default function Header({ selectedUser, onStartCall }) {
           )}
         </div>
 
-        {/* Other actions */}
         <button
-          className="p-2 hover:bg-gray-100 rounded-full text-gray-700"
+          className="p-1 hover:bg-gray-100 rounded-full"
           title="Manage Group"
         >
-          <FaUsersCog />
+          <i className="fas fa-users-cog"></i>
         </button>
         <button
-          className="p-2 hover:bg-gray-100 rounded-full text-gray-700"
+          className="p-1 hover:bg-gray-100 rounded-full"
           title="More Options"
         >
-          <FaEllipsisV />
+          <i className="fas fa-ellipsis-v"></i>
         </button>
 
-        {/* User Avatar */}
-        <div className="ml-4 h-8 w-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold">
-          {selectedUser ? selectedUser.username[0].toUpperCase() : "U"}
+        <div
+          className="flex flex-col items-center justify-center p-1 
+  rounded hover:rounded-t-full 
+  hover:bg-purple-500/50 hover:shadow-lg hover:shadow-purple-500/50 hover:cursor-pointer 
+  transition-all duration-300"
+        >
+          {/* User Avatar placeholder */}
+          <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
+            {username[0]}
+          </div>
+
+          <div className="text-black font-bold text-sm">
+            <span className="text-xs">{username}</span>
+          </div>
         </div>
       </div>
     </div>

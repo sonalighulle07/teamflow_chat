@@ -7,23 +7,23 @@ import Header from "./components/Header";
 
 import IncomingCallModal from "./components/calls/IncomingCallModal";
 import CallOverlay from "./components/calls/CallOverlay";
-import { useCall } from "./components/calls/hooks/useCall";// 👈 custom hook for calls
+import { useCall } from "./components/calls/hooks/useCall";
 
 function App() {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(
-    !!sessionStorage.getItem("chatUserId")
+    !!sessionStorage.getItem("chatToken")
   );
   const [showRegister, setShowRegister] = useState(false);
 
-  const userId = Number(sessionStorage.getItem("chatUserId"));
+  const activeUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
+  const userId = activeUser?.id;
 
-  // Call hook
-  const { callState, startCall, acceptCall, rejectCall, endCall,localStream,remoteStream,isMaximized,setIsMaximized } = useCall(userId);
+  // Only initialize call hook if user is authenticated
+  const call = userId ? useCall(userId) : null;
 
-  // Fetch users when authenticated
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
 
@@ -52,8 +52,12 @@ function App() {
     fetchChat();
   }, [isAuthenticated, selectedUser, userId]);
 
-
   // Handle login/register success
+
+  useEffect(() => {
+    console.log("Call type changed:", call?.callState.type);
+  }, [call?.callState.type]);
+
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
     window.location.reload(); // ensures sessionStorage updates
@@ -62,7 +66,6 @@ function App() {
   return (
     <div className="h-screen w-screen bg-gray-50 flex flex-col overflow-hidden">
       {!isAuthenticated ? (
-        // Full-screen Login/Register container
         <div className="flex-1 w-full min-h-screen flex items-center justify-center p-4 bg-gradient-to-tl from-white to-purple-600">
           {!showRegister ? (
             <Login
@@ -77,17 +80,14 @@ function App() {
           )}
         </div>
       ) : (
-        // Chat UI
         <>
-          {/* Header */}
           <Header
+            activeUser={activeUser}
             selectedUser={selectedUser}
-            onStartCall={startCall} // 👈 pass down call starter
+            onStartCall={call?.startCall}
           />
 
-          {/* Main Content */}
           <div className="flex flex-1 overflow-hidden w-full">
-            {/* Sidebar */}
             <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
               <Sidebar
                 users={users}
@@ -96,7 +96,6 @@ function App() {
               />
             </div>
 
-            {/* Chat Window */}
             <div className="flex-1 flex flex-col overflow-hidden w-full">
               <ChatWindow
                 selectedUser={selectedUser}
@@ -106,30 +105,30 @@ function App() {
             </div>
           </div>
 
-          {/* Call UI */}
-          {callState.incoming && (
+          {call?.callState.incoming && (
             <IncomingCallModal
-              caller={callState.caller}
-              type={callState.type}
-              onAccept={acceptCall}
-              onReject={rejectCall}
+              visible={true}
+              fromUser={call.callState.caller}
+              callType={call.callState.type}
+              onAccept={call.acceptCall}
+              onReject={call.rejectCall}
             />
           )}
-          {callState.type && (
-  <CallOverlay
-    callType={callState.type}
-    localStream={localStream}
-    remoteStream={remoteStream}
-    onEndCall={() => endCall(selectedUser.id)}
-    onToggleMic={() => {}}
-    onToggleCam={() => {}}
-    onMinimize={() => setIsMaximized(false)}
-    onMaximize={() => setIsMaximized(true)}
-    onClose={() => endCall(selectedUser.id)}
-    isMaximized={isMaximized}
-  />
-)}
 
+          {call?.callState.type && (
+            <CallOverlay
+              callType={call.callState.type}
+              localStream={call.localStream}
+              remoteStream={call.remoteStream}
+              onEndCall={call.endCall}
+              onToggleMic={() => {}}
+              onToggleCam={() => {}}
+              onMinimize={() => call.setIsMaximized(false)}
+              onMaximize={() => call.setIsMaximized(true)}
+              onClose={call.endCall}
+              isMaximized={call.isMaximized}
+            />
+          )}
         </>
       )}
     </div>

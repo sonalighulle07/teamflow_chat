@@ -1,6 +1,38 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
-export default function IncomingCallModal({ visible, fromUser, callType, onAccept, onReject }) {
+export default function IncomingCallModal({
+  visible,
+  fromUser,
+  callType,
+  onAccept,
+  onReject,
+}) {
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio("/sounds/ringtone.mp3");
+      audioRef.current.loop = true;
+    }
+
+    // Load & attempt to play ringtone
+    audioRef.current.load();
+    const playPromise = audioRef.current.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((err) => console.warn("Ringtone play failed:", err));
+    }
+
+    // Stop ringtone when modal hides
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    };
+  }, [visible]);
+
   if (!visible) return null;
 
   return (
@@ -12,15 +44,35 @@ export default function IncomingCallModal({ visible, fromUser, callType, onAccep
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        zIndex: 3000
+        zIndex: 3000,
       }}
     >
-      <div style={{ background: "#fff", padding: "20px", borderRadius: "10px", textAlign: "center", width: "300px" }}>
-        <p>Incoming {callType} call from {fromUser}</p>
-        <div style={{ marginTop: "15px", display: "flex", justifyContent: "center", gap: "40px" }}>
-          {/* Accept */}
+      <div
+        style={{
+          background: "#fff",
+          padding: "20px",
+          borderRadius: "10px",
+          textAlign: "center",
+          width: "300px",
+        }}
+      >
+        <p>
+          Incoming {callType} call from <strong>{fromUser}</strong>
+        </p>
+        <div
+          style={{
+            marginTop: "15px",
+            display: "flex",
+            justifyContent: "center",
+            gap: "40px",
+          }}
+        >
           <button
-            onClick={onAccept}
+            onClick={() => {
+              audioRef.current?.pause();
+              audioRef.current.currentTime = 0;
+              onAccept();
+            }}
             style={{
               background: "#4caf50",
               border: "none",
@@ -28,14 +80,18 @@ export default function IncomingCallModal({ visible, fromUser, callType, onAccep
               width: "50px",
               height: "50px",
               fontSize: "18px",
-              color: "white"
+              color: "white",
+              cursor: "pointer",
             }}
           >
             ✓
           </button>
-          {/* Reject */}
           <button
-            onClick={onReject}
+            onClick={() => {
+              audioRef.current?.pause();
+              audioRef.current.currentTime = 0;
+              onReject();
+            }}
             style={{
               background: "#f44336",
               border: "none",
@@ -43,7 +99,8 @@ export default function IncomingCallModal({ visible, fromUser, callType, onAccep
               width: "50px",
               height: "50px",
               fontSize: "18px",
-              color: "white"
+              color: "white",
+              cursor: "pointer",
             }}
           >
             ✕

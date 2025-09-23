@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import io from "socket.io-client";
+import socket from "./socket";
 
 export function useCall(userId) {
   const [callType, setCallType] = useState(null);
@@ -7,77 +7,113 @@ export function useCall(userId) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
+  const [remoteUserId, setRemoteUserId] = useState(null);
 
   const peerRef = useRef(null);
-  const socket = useRef(io("http://localhost:3000")).current;
+  const hasCleanedUp = useRef(false);
 
   useEffect(() => {
+    if (!socket.connected) socket.connect();
     socket.emit("register", { userId });
 
-    socket.on("incomingCall", ({ from, offer, callType }) => {
-      console.log("Incoming call from:", from);
+    const handleIncomingCall = ({ from, offer, callType }) => {
       setIncoming({ from, offer, callType });
-    });
+    };
 
-    socket.on("callAccepted", async ({ answer }) => {
+    const handleCallAccepted = async ({ answer }) => {
       if (peerRef.current) {
-        await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+        try {
+          await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+        } catch (err) {
+          console.warn("Failed to set remote description:", err);
+        }
       }
-    });
+    };
 
-    socket.on("iceCandidate", ({ candidate }) => {
-      if (peerRef.current && candidate) {
-        peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    });
+    const handleIceCandidate = ({ candidate }) => {
+      const peer = peerRef.current;
+      if (!peer || peer.signalingState === "closed") return;
+      if (candidate) peer.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.warn);
+    };
 
-    socket.on("endCall", () => {
+    const handleEndCall = ({ from }) => {
+      alert(`Call ended by user: ${from}`);
       cleanup();
-    });
+    };
+
+    const handleCallCancelled = ({ from }) => {
+      alert(`Call cancelled by user: ${from}`);
+      setIncoming(null);
+      cleanup();
+    };
+
+    socket.on("incomingCall", handleIncomingCall);
+    socket.on("callAccepted", handleCallAccepted);
+    socket.on("iceCandidate", handleIceCandidate);
+    socket.on("endCall", handleEndCall);
+    socket.on("callCancelled", handleCallCancelled);
+
+    return () => {
+      socket.off("incomingCall", handleIncomingCall);
+      socket.off("callAccepted", handleCallAccepted);
+      socket.off("iceCandidate", handleIceCandidate);
+      socket.off("endCall", handleEndCall);
+      socket.off("callCancelled", handleCallCancelled);
+    };
   }, [userId]);
 
-  function createPeerConnection(remoteUserId) {
+  function createPeerConnection(remoteId) {
     const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
     const remote = new MediaStream();
     setRemoteStream(remote);
 
-    peer.ontrack = e => remote.addTrack(e.track);
-    peer.onicecandidate = e => {
-      if (e.candidate) {
-        socket.emit("iceCandidate", { to: remoteUserId, candidate: e.candidate });
-      }
+    peer.ontrack = (e) => remote.addTrack(e.track);
+    peer.onicecandidate = (e) => {
+      if (e.candidate) socket.emit("iceCandidate", { to: remoteId, candidate: e.candidate });
+    };
+
+    peer.onconnectionstatechange = () => {
+      if (["disconnected", "failed", "closed"].includes(peer.connectionState)) cleanup();
     };
 
     peerRef.current = peer;
     return peer;
   }
 
-  async function startCall(type,remoteUser) {
+  async function startCall(type, remoteUser) {
+    hasCleanedUp.current = false;
+    setRemoteUserId(remoteUser.id);
     setCallType(type);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === "video" });
       setLocalStream(stream);
 
       const peer = createPeerConnection(remoteUser.id);
-      stream.getTracks().forEach(t => peer.addTrack(t, stream));
+      stream.getTracks().forEach((t) => peer.addTrack(t, stream));
 
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
+
       socket.emit("callUser", { from: userId, to: remoteUser.id, offer, callType: type });
     } catch (err) {
       console.error("Error accessing media devices:", err);
+      cleanup();
     }
   }
 
   async function acceptCall() {
     if (!incoming) return;
+    hasCleanedUp.current = false;
+    setRemoteUserId(incoming.from);
     setCallType(incoming.callType);
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: incoming.callType === "video" });
       setLocalStream(stream);
 
       const peer = createPeerConnection(incoming.from);
-      stream.getTracks().forEach(t => peer.addTrack(t, stream));
+      stream.getTracks().forEach((t) => peer.addTrack(t, stream));
 
       await peer.setRemoteDescription(new RTCSessionDescription(incoming.offer));
       const answer = await peer.createAnswer();
@@ -87,34 +123,69 @@ export function useCall(userId) {
       setIncoming(null);
     } catch (err) {
       console.error("Error accepting call:", err);
+      cleanup();
     }
   }
 
   function rejectCall() {
-    if (incoming) socket.emit("cancelCall", { to: incoming.from });
+    if (incoming) socket.emit("cancelCall", { to: incoming.from, from: userId });
     setIncoming(null);
-  }
-
-  function endCall(remoteUserId) {
-    socket.emit("endCall", { to: remoteUserId });
     cleanup();
   }
 
-  function cleanup() {
-    setCallType(null);
-    if (localStream) localStream.getTracks().forEach(t => t.stop());
-    if (remoteStream) remoteStream.getTracks().forEach(t => t.stop());
-    if (peerRef.current) peerRef.current.close();
+  function endCall() {
+    if (remoteUserId) socket.emit("endCall", { to: remoteUserId, from: userId });
+    cleanup();
+  }
+
+  function stopTracks(stream) {
+    if (!stream) return;
+    stream.getTracks().forEach((t) => t.stop());
+  }
+
+function cleanup(force = false) {
+  if (hasCleanedUp.current && !force) return;
+
+  const delay = remoteStream?.getTracks().length ? 0 : 1000;
+
+  setTimeout(() => {
+    if (hasCleanedUp.current && !force) return;
+    hasCleanedUp.current = true;
+    console.log("Running cleanup");
+
+    stopTracks(localStream);
+    stopTracks(remoteStream);
+
     setLocalStream(null);
     setRemoteStream(null);
-  }
+    setCallType(null);
+    setRemoteUserId(null);
+    setIncoming(null);
+
+    if (peerRef.current) {
+      peerRef.current.onicecandidate = null;
+      peerRef.current.ontrack = null;
+      peerRef.current.onconnectionstatechange = null;
+      peerRef.current.close();
+      peerRef.current = null;
+    }
+  }, delay);
+
+  // Fallback cleanup after 3 seconds if nothing else worked
+  setTimeout(() => {
+    if (!hasCleanedUp.current) {
+      console.warn("Force cleanup triggered");
+      cleanup(true);
+    }
+  }, 3000);
+}
 
   return {
     callState: {
       incoming,
       caller: incoming?.from,
       type: callType,
-      active: !!remoteStream,
+      active: !!remoteStream || !!localStream,
     },
     startCall,
     acceptCall,
@@ -124,6 +195,6 @@ export function useCall(userId) {
     localStream,
     remoteStream,
     isMaximized,
-    setIsMaximized
+    setIsMaximized,
   };
 }
