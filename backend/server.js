@@ -1,16 +1,18 @@
+//server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-
+ 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reactionRoutes = require('./routes/reactionRoutes');
-
+ 
 const callHandlers = require('./Utils/socket/callHandlers');
-
+const Chat = require('./models/chatModel');
+ 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -19,34 +21,72 @@ const io = socketIo(server, {
     methods: ["GET", "POST"]
   }
 });
-
+ 
+// Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-
+ 
 app.use((req, res, next) => { req.io = io; next(); });
-
+ 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/reactions', reactionRoutes);
-
+ 
+ 
+ 
+// Socket.io logic
 io.on('connection', (socket) => {
   console.log('Socket connected:', socket.id);
-
+ 
+  // Register userId for private messaging
   socket.on('register', ({ userId }) => {
     if (userId) {
       socket.userId = userId;
       socket.join(`user_${userId}`);
-      console.log(`User ${userId} joined room user_${userId}`);
     }
   });
-
-  socket.on('privateMessage', (msg) => {
-    io.to(`user_${msg.senderId}`).emit('privateMessage', msg);
-    io.to(`user_${msg.receiverId}`).emit('privateMessage', msg);
+ 
+  // Private messages (text or file)
+  socket.on('privateMessage', async (msg) => {
+    try {
+      const { senderId, receiverId, text, fileUrl, fileType, type } = msg;
+      if (!senderId || !receiverId || (!text && !fileUrl)) return;
+ 
+      // Save message to DB
+      const result = await Chat.insertMessage(
+        senderId,
+        receiverId,
+        text || null,
+        type || "text",
+        fileUrl || null,
+        fileType || null
+      );
+ 
+      // Construct message object
+      const savedMsg = {
+        id: result.insertId,
+        sender_id: senderId,
+        receiver_id: receiverId,
+        text: text || null,
+        file_url: fileUrl || null,
+        file_type: fileType || null,
+        type: type || "text",
+        created_at: new Date()
+      };
+ 
+      // Emit to sender and receiver
+      io.to(`user_${senderId}`).emit('privateMessage', savedMsg);
+      io.to(`user_${receiverId}`).emit('privateMessage', savedMsg);
+ 
+    } catch (err) {
+      console.error('Message save failed:', err);
+    }
   });
-
+ 
+  // Reaction events
   socket.on('sendReaction', async ({ msgId, userId, emoji }) => {
     try {
       const { addOrUpdateReaction, getReactionsByMessage } = require('./models/reactionModel');
@@ -57,14 +97,15 @@ io.on('connection', (socket) => {
       console.error('Reaction save failed:', err);
     }
   });
-
-  // Attach call handlers
+ 
+  // Attach call handlers here
   callHandlers(io, socket);
-
+ 
   socket.on('disconnect', () => {
     console.log('Socket disconnected:', socket.id);
   });
 });
-
+ 
+// Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));

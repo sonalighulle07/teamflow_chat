@@ -1,9 +1,14 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { sendMessage, getChats } = require('../controllers/chatController');
-const upload = require('../middlewares/uploadMiddleware');
-
-router.post('/', upload.single('file'), sendMessage);
-router.get('/:userId/:otherId', getChats);
-
+const chatController = require("../controllers/chatController");
+ 
+// GET सर्व messages
+router.get("/", chatController.getMessages);
+ 
+// GET दोन users मधील conversation
+router.get("/:user1/:user2", chatController.getConversation);
+ 
+// POST नवीन message पाठवण्यासाठी
+router.post("/send", chatController.sendMessage);
+ 
 module.exports = router;
