@@ -8,17 +8,22 @@ export default function ChatWindow({
   searchQuery,
 }) {
   const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [file, setFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
 
-  // Initialize Socket.IO once
+  // Initialize Socket.IO
   useEffect(() => {
     if (!currentUserId) return;
 
     socketRef.current = io("http://localhost:3000");
     socketRef.current.emit("register", { userId: currentUserId });
 
-    socketRef.current.on("receiveMessage", (msg) => {
+    // Receive messages from server
+    socketRef.current.on("privateMessage", (msg) => {
       if (
         selectedUser &&
         (msg.sender_id === selectedUser.id ||
@@ -31,7 +36,7 @@ export default function ChatWindow({
     return () => socketRef.current.disconnect();
   }, [currentUserId, selectedUser]);
 
-  // Fetch chat history when selectedUser changes
+  // Fetch chat history
   useEffect(() => {
     if (!selectedUser) return;
 
@@ -41,7 +46,7 @@ export default function ChatWindow({
           `/api/chats/${currentUserId}/${selectedUser.id}`
         );
         const data = await res.json();
-        setMessages(data); // ← store fetched messages
+        setMessages(data);
       } catch (err) {
         console.error("Failed to fetch chat history:", err);
       }
@@ -50,26 +55,39 @@ export default function ChatWindow({
     fetchChatHistory();
   }, [selectedUser, currentUserId]);
 
-  const handleSend = async (text) => {
-    if (!text.trim() || !selectedUser) return;
+  // Auto scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-    const msg = {
-      senderId: currentUserId,
-      receiverId: selectedUser.id,
-      text,
-      type: "text",
-    };
+  // Send message or file
+  const handleSend = async () => {
+    if (!text.trim() && !file) return;
+    if (!selectedUser) return;
+
+    const formData = new FormData();
+    formData.append("senderId", currentUserId);
+    formData.append("receiverId", selectedUser.id);
+    formData.append("text", text);
+    if (file) formData.append("file", file);
+    formData.append("type", file ? file.type.split("/")[0] : "text");
 
     try {
       const res = await fetch("/api/chats/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(msg),
+        body: formData,
       });
-      const newMessage = await res.json();
 
+      const newMessage = await res.json();
       setMessages((prev) => [...prev, newMessage]);
-      socketRef.current.emit("sendMessage", newMessage);
+
+      // Emit to Socket.IO
+      socketRef.current.emit("privateMessage", newMessage);
+
+      // Reset
+      setText("");
+      setFile(null);
+      setFilePreview(null);
     } catch (err) {
       console.error("Failed to send message:", err);
     }
@@ -78,26 +96,39 @@ export default function ChatWindow({
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend(e.target.value);
-      e.target.value = "";
+      handleSend();
     }
   };
 
-  // Auto scroll
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const handleFileChange = (e) => {
+    const selected = e.target.files[0];
+    if (!selected) return;
+    setFile(selected);
+
+    if (
+      selected.type.startsWith("image/") ||
+      selected.type.startsWith("video/")
+    ) {
+      setFilePreview(URL.createObjectURL(selected));
+    } else {
+      setFilePreview(null);
+    }
+  };
+
+  const removeFile = () => {
+    setFile(null);
+    setFilePreview(null);
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full">
+      {/* Messages */}
       <div className="flex-1 p-4 bg-gray-50 overflow-y-auto">
         {selectedUser ? (
           messages.length > 0 ? (
-            messages.map((msg) => (
+            messages.map((msg, index) => (
               <Message
-                key={
-                  msg.id || `${msg.sender_id}-${msg.receiver_id}-${msg.text}`
-                }
+                key={msg.id ? `msg-${msg.id}` : `msg-${index}`} // unique key
                 message={msg}
                 isOwn={msg.sender_id === currentUserId}
                 searchQuery={searchQuery}
@@ -116,29 +147,60 @@ export default function ChatWindow({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-3 border-t flex gap-2 bg-white">
-        <input
-          type="text"
-          placeholder={selectedUser ? "Type a message..." : "Select a user..."}
-          onKeyDown={handleKeyPress}
-          disabled={!selectedUser}
-          className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-        />
-        <button
-          onClick={() => {
-            const input = document.querySelector(
-              'input[placeholder="Type a message..."]'
-            );
-            if (input) {
-              handleSend(input.value);
-              input.value = "";
+      {/* Input area */}
+      <div className="p-3 border-t flex flex-col gap-2 bg-white">
+        {/* File preview */}
+        {filePreview && (
+          <div className="relative mb-2">
+            {file.type.startsWith("image/") && (
+              <img
+                src={filePreview}
+                alt="preview"
+                className="max-h-40 rounded-md"
+              />
+            )}
+            {file.type.startsWith("video/") && (
+              <video
+                src={filePreview}
+                className="max-h-40 rounded-md"
+                controls
+              />
+            )}
+            <button
+              onClick={removeFile}
+              className="absolute top-1 right-1 bg-red-500 text-white rounded-full px-2 hover:bg-red-600"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder={
+              selectedUser ? "Type a message..." : "Select a user..."
             }
-          }}
-          disabled={!selectedUser}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          Send
-        </button>
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyPress}
+            disabled={!selectedUser}
+            className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+          />
+
+          <label className="bg-gray-200 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-300 transition">
+            📎
+            <input type="file" className="hidden" onChange={handleFileChange} />
+          </label>
+
+          <button
+            onClick={handleSend}
+            disabled={!selectedUser}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            Send
+          </button>
+        </div>
       </div>
     </div>
   );
