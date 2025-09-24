@@ -4,7 +4,12 @@ function getInitials(name) {
   return (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
 }
 
-export default function UserList({ users = [], selectedUser, onSelectUser }) {
+export default function UserList({
+  users = [],
+  selectedUser,
+  onSelectUser,
+  searchQuery = "",
+}) {
   if (users.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-gray-500 font-medium">
@@ -13,21 +18,40 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
     );
   }
 
+  // Highlight matched text
+  const highlightMatch = (username) => {
+    if (!searchQuery) return username;
+    const regex = new RegExp(`(${searchQuery})`, "gi");
+    const parts = username.split(regex);
+    return parts.map((part, idx) =>
+      regex.test(part) ? (
+        <span key={idx} className="bg-yellow-200 text-black px-1 rounded">
+          {part}
+        </span>
+      ) : (
+        <span key={idx}>{part}</span>
+      )
+    );
+  };
 
-  const showSelectedUSer = (user) =>{
-    console.log(user)
-    onSelectUser(user)
-  }
+  const showSelectedUser = (user) => {
+    onSelectUser(user);
+  };
 
   return (
-    <ul className="flex flex-col h-[100%] overflow-y-auto bg-slate-200 w-7xl">
+    <ul className="flex flex-col h-[100%] overflow-y-auto bg-slate-200 w-full">
+      {users.length === 0 && (
+        <div className="flex items-center justify-center text-gray-500 font-medium mt-4">
+          No users found
+        </div>
+      )}
       {users.map((user) => {
         const isSelected = selectedUser?.id === user.id;
 
         return (
           <li
             key={user.id}
-            onClick={() => showSelectedUSer(user)}
+            onClick={() => showSelectedUser(user)}
             className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition mb-1
               ${
                 isSelected
@@ -58,14 +82,14 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
 
               {/* Online indicator */}
               {user.isOnline && (
-                <span className="absolute bottom-0 right-0 w-3 h-3  bg-green-400 border-2 border-white rounded-full" />
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full" />
               )}
             </div>
 
             {/* Name & status */}
             <div className="flex flex-col truncate">
               <span className={`text-gray-900 font-medium truncate`}>
-                {user.username}
+                {highlightMatch(user.username)}
               </span>
               {user.status && (
                 <span className="text-xs text-gray-500 truncate">

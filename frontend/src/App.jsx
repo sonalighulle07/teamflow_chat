@@ -17,13 +17,14 @@ function App() {
     !!sessionStorage.getItem("chatToken")
   );
   const [showRegister, setShowRegister] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const activeUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
   const userId = activeUser?.id;
 
-  // Only initialize call hook if user is authenticated
   const call = userId ? useCall(userId) : null;
 
+  // Fetch users
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
 
@@ -40,27 +41,26 @@ function App() {
     fetchUsers();
   }, [isAuthenticated, userId]);
 
-  // Fetch chat messages
+  // Fetch messages for selected user
   useEffect(() => {
     if (!isAuthenticated || !selectedUser) return;
 
     async function fetchChat() {
-      const res = await fetch(`/api/chats/${userId}/${selectedUser.id}`);
-      const data = await res.json();
-      setMessages(data);
+      try {
+        const res = await fetch(`/api/chats/${userId}/${selectedUser.id}`);
+        const data = await res.json();
+        setMessages(data);
+      } catch (err) {
+        console.error(err);
+      }
     }
+
     fetchChat();
   }, [isAuthenticated, selectedUser, userId]);
 
-  // Handle login/register success
-
-  useEffect(() => {
-    console.log("Call type changed:", call?.callState.type);
-  }, [call?.callState.type]);
-
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
-    window.location.reload(); // ensures sessionStorage updates
+    window.location.reload();
   };
 
   return (
@@ -85,6 +85,8 @@ function App() {
             activeUser={activeUser}
             selectedUser={selectedUser}
             onStartCall={call?.startCall}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
           />
 
           <div className="flex flex-1 overflow-hidden w-full">
@@ -100,7 +102,9 @@ function App() {
               <ChatWindow
                 selectedUser={selectedUser}
                 messages={messages}
+                setMessages={setMessages} // 👈 important for real-time updates
                 currentUserId={userId}
+                searchQuery={searchQuery}
               />
             </div>
           </div>
