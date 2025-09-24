@@ -16,10 +16,8 @@ export default function ChatWindow({
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
 
-  // Initialize Socket.IO
   useEffect(() => {
     if (!currentUserId) return;
-
     socketRef.current = io("http://localhost:3000");
     socketRef.current.emit("register", { userId: currentUserId });
 
@@ -36,12 +34,10 @@ export default function ChatWindow({
     return () => socketRef.current.disconnect();
   }, [currentUserId, selectedUser, setMessages]);
 
-  // Auto scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Send message or file
   const handleSend = async () => {
     if (!text.trim() && !file) return;
     if (!selectedUser) return;
@@ -58,10 +54,8 @@ export default function ChatWindow({
         method: "POST",
         body: formData,
       });
-
       const newMessage = await res.json();
       setMessages((prev) => [...prev, newMessage]);
-
       socketRef.current.emit("privateMessage", newMessage);
 
       setText("");
@@ -101,7 +95,6 @@ export default function ChatWindow({
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      {/* Messages */}
       <div className="flex-1 p-4 bg-gray-50 overflow-y-auto">
         {selectedUser ? (
           messages.length > 0 ? (
@@ -126,17 +119,11 @@ export default function ChatWindow({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input area */}
       <div className="p-3 border-t flex flex-col gap-2 bg-white">
-        {/* File preview */}
         {filePreview && (
           <div className="relative mb-2">
             {file.type.startsWith("image/") && (
-              <img
-                src={filePreview}
-                alt="preview"
-                className="max-h-40 rounded-md"
-              />
+              <img src={filePreview} className="max-h-40 rounded-md" />
             )}
             {file.type.startsWith("video/") && (
               <video
