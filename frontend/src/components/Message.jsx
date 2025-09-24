@@ -5,13 +5,10 @@ export default function Message({ message, isOwn, searchQuery }) {
     ? "bg-purple-600 text-white self-end rounded-tr-none"
     : "bg-gray-200 text-gray-900 self-start rounded-tl-none";
 
-  // 🔍 Highlight search text inside messages
   const highlightText = (text) => {
     if (!searchQuery) return text;
     const regex = new RegExp(`(${searchQuery})`, "gi");
-    const parts = text.split(regex);
-
-    return parts.map((part, i) =>
+    return text.split(regex).map((part, i) =>
       regex.test(part) ? (
         <mark key={i} className="bg-yellow-300 px-0.5 rounded">
           {part}
@@ -47,7 +44,7 @@ export default function Message({ message, isOwn, searchQuery }) {
               src={message.file_url}
               type={message.file_type || "audio/mpeg"}
             />
-            Your browser does not support the audio element.
+            Your browser does not support audio.
           </audio>
         );
       case "file":

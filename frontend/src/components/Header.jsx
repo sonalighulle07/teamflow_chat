@@ -112,9 +112,9 @@ export default function Header({
         </button>
         <button
           onClick={logout}
-          className="bg-red-600 text-white text-sm px-3 py-1 mb-3.5 rounded hover:bg-red-700 transition"
+          className="bg-red-600 text-white text-sm px-3 py-1  rounded hover:bg-red-700 transition"
         >
-          Logout
+          Sign Out
         </button>
 
         {/* User Avatar */}
