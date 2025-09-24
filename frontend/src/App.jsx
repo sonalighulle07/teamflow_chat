@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+// src/App.jsx
+import React, { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
 import Login from "./components/Login";
@@ -22,23 +23,15 @@ function App() {
   const activeUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
   const userId = activeUser?.id;
 
-  const call = userId ? useCall(userId) : null;
+  // Always invoke the hook so it can register incomingCall handlers
+  const call = useCall(userId);
 
   // Fetch users
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
-
-    async function fetchUsers() {
-      try {
-        const res = await fetch("/api/users");
-        const data = await res.json();
-        setUsers(data.filter((u) => u.id !== userId));
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    fetchUsers();
+    fetch("/api/users")
+      .then((r) => r.json())
+      .then((data) => setUsers(data.filter((u) => u.id !== userId)));
   }, [isAuthenticated, userId]);
 
   // Fetch messages for selected user
@@ -64,9 +57,9 @@ function App() {
   };
 
   return (
-    <div className="h-screen w-screen bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-screen w-screen flex flex-col">
       {!isAuthenticated ? (
-        <div className="flex-1 w-full min-h-screen flex items-center justify-center p-4 bg-gradient-to-tl from-white to-purple-600">
+        <div className="flex-1 flex items-center justify-center bg-gradient-to-tl from-white to-purple-600">
           {!showRegister ? (
             <Login
               onLogin={handleAuthSuccess}
@@ -84,7 +77,7 @@ function App() {
           <Header
             activeUser={activeUser}
             selectedUser={selectedUser}
-            onStartCall={call?.startCall}
+            onStartCall={(type) => call.startCall(type, selectedUser)}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
           />
@@ -102,16 +95,17 @@ function App() {
               <ChatWindow
                 selectedUser={selectedUser}
                 messages={messages}
-                setMessages={setMessages} // 👈 important for real-time updates
+                setMessages={setMessages}
                 currentUserId={userId}
                 searchQuery={searchQuery}
               />
             </div>
           </div>
 
-          {call?.callState.incoming && (
+          {/* Incoming-call modal will now show */}
+          {call.callState.incoming && (
             <IncomingCallModal
-              visible={true}
+              visible
               fromUser={call.callState.caller}
               callType={call.callState.type}
               onAccept={call.acceptCall}
@@ -119,14 +113,20 @@ function App() {
             />
           )}
 
-          {call?.callState.type && (
+          {/* Active call overlay */}
+          {call.callState.type && (
             <CallOverlay
               callType={call.callState.type}
               localStream={call.localStream}
               remoteStream={call.remoteStream}
               onEndCall={call.endCall}
-              onToggleMic={() => {}}
-              onToggleCam={() => {}}
+              onToggleMic={call.toggleMic}
+              onToggleCam={call.toggleCam}
+              onStartScreenShare={call.startScreenShare}
+              onStopScreenShare={call.stopScreenShare}
+              isScreenSharing={call.isScreenSharing}
+              isMuted={call.isMuted}
+              isVideoEnabled={call.isVideoEnabled}
               onMinimize={() => call.setIsMaximized(false)}
               onMaximize={() => call.setIsMaximized(true)}
               onClose={call.endCall}

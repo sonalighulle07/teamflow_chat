@@ -4,10 +4,11 @@ import { io } from "socket.io-client";
 
 export default function ChatWindow({
   selectedUser,
+  messages,
+  setMessages,
   currentUserId,
   searchQuery,
 }) {
-  const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [file, setFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
@@ -22,7 +23,6 @@ export default function ChatWindow({
     socketRef.current = io("http://localhost:3000");
     socketRef.current.emit("register", { userId: currentUserId });
 
-    // Receive messages from server
     socketRef.current.on("privateMessage", (msg) => {
       if (
         selectedUser &&
@@ -34,26 +34,7 @@ export default function ChatWindow({
     });
 
     return () => socketRef.current.disconnect();
-  }, [currentUserId, selectedUser]);
-
-  // Fetch chat history
-  useEffect(() => {
-    if (!selectedUser) return;
-
-    const fetchChatHistory = async () => {
-      try {
-        const res = await fetch(
-          `/api/chats/${currentUserId}/${selectedUser.id}`
-        );
-        const data = await res.json();
-        setMessages(data);
-      } catch (err) {
-        console.error("Failed to fetch chat history:", err);
-      }
-    };
-
-    fetchChatHistory();
-  }, [selectedUser, currentUserId]);
+  }, [currentUserId, selectedUser, setMessages]);
 
   // Auto scroll
   useEffect(() => {
@@ -81,10 +62,8 @@ export default function ChatWindow({
       const newMessage = await res.json();
       setMessages((prev) => [...prev, newMessage]);
 
-      // Emit to Socket.IO
       socketRef.current.emit("privateMessage", newMessage);
 
-      // Reset
       setText("");
       setFile(null);
       setFilePreview(null);
@@ -128,7 +107,7 @@ export default function ChatWindow({
           messages.length > 0 ? (
             messages.map((msg, index) => (
               <Message
-                key={msg.id ? `msg-${msg.id}` : `msg-${index}`} // unique key
+                key={msg.id ? `msg-${msg.id}` : `msg-${index}`}
                 message={msg}
                 isOwn={msg.sender_id === currentUserId}
                 searchQuery={searchQuery}

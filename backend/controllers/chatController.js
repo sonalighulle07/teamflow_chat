@@ -25,12 +25,14 @@ exports.getConversation = async (req, res) => {
 exports.sendMessage = async (req, res) => {
   try {
     const { senderId, receiverId, text, type } = req.body;
-    const fileUrl = req.file ? `/uploads/${req.file.filename}` : null;
-    const fileType = req.file ? req.file.mimetype : null;
 
     if (!senderId || !receiverId) {
       return res.status(400).json({ error: "Missing required fields" });
     }
+
+    const fileUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const fileType = req.file ? req.file.mimetype : null;
+    const msgType = fileUrl ? fileType.split("/")[0] : "text";
 
     const newMessage = await chatModel.insertMessage(
       senderId,
@@ -38,10 +40,9 @@ exports.sendMessage = async (req, res) => {
       text || "",
       fileUrl,
       fileType,
-      type || (fileUrl ? fileType.split("/")[0] : "text")
+      type || msgType
     );
 
-    // Emit via Socket.IO
     if (req.io) {
       req.io.to(`user_${senderId}`).emit('privateMessage', newMessage);
       req.io.to(`user_${receiverId}`).emit('privateMessage', newMessage);
