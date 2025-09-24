@@ -1,3 +1,4 @@
+// src/components/calls/CallOverlay.js
 import React from "react";
 
 export default function CallOverlay({
@@ -7,6 +8,11 @@ export default function CallOverlay({
   onEndCall,
   onToggleMic,
   onToggleCam,
+  onStartScreenShare,
+  onStopScreenShare,
+  isScreenSharing,
+  isMuted,
+  isVideoEnabled,
   onMinimize,
   onMaximize,
   onClose,
@@ -31,7 +37,7 @@ export default function CallOverlay({
         zIndex: 2000,
       }}
     >
-      {/* Top bar */}
+      {/* Top Bar */}
       <div
         style={{
           height: "40px",
@@ -44,7 +50,9 @@ export default function CallOverlay({
           fontSize: "14px",
         }}
       >
-        <span>{callType === "video" ? "Video Call" : "Audio Call"}</span>
+        <span>
+          {callType === "video" ? "Video Call" : "Audio Call"}
+        </span>
         <div style={{ display: "flex", gap: "10px" }}>
           <button onClick={onMinimize}>➖</button>
           <button onClick={onMaximize}>⬜</button>
@@ -72,10 +80,15 @@ export default function CallOverlay({
         ref={(el) => {
           if (el && remoteStream) el.srcObject = remoteStream;
         }}
-        style={{ flex: 1, width: "100%", height: "100%", objectFit: "cover" }}
+        style={{
+          flex: 1,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+        }}
       />
 
-      {/* Local Video (only for video calls) */}
+      {/* Local Video (video calls only) */}
       {callType === "video" && (
         <video
           autoPlay
@@ -97,7 +110,7 @@ export default function CallOverlay({
         />
       )}
 
-      {/* Controls */}
+      {/* Control Bar */}
       <div
         style={{
           position: "absolute",
@@ -111,15 +124,35 @@ export default function CallOverlay({
           borderRadius: "30px",
         }}
       >
+        {/* Mute / Unmute */}
         <button onClick={onToggleMic} style={controlButtonStyle}>
-          🎤
+          {isMuted ? "🔇" : "🎤"}
         </button>
+
+        {/* Video On / Off */}
         <button onClick={onToggleCam} style={controlButtonStyle}>
-          📹
+          {isVideoEnabled ? "📹" : "🚫"}
         </button>
+
+        {/* Screen Share */}
+        <button
+          onClick={
+            isScreenSharing
+              ? onStopScreenShare
+              : onStartScreenShare
+          }
+          style={controlButtonStyle}
+        >
+          {isScreenSharing ? "🛑" : "🖥️"}
+        </button>
+
+        {/* End Call */}
         <button
           onClick={onEndCall}
-          style={{ ...controlButtonStyle, background: "#d93025" }}
+          style={{
+            ...controlButtonStyle,
+            background: "#d93025",
+          }}
         >
           ✖️
         </button>
@@ -137,3 +170,4 @@ const controlButtonStyle = {
   color: "white",
   cursor: "pointer",
 };
+

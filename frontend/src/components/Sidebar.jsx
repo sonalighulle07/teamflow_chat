@@ -42,15 +42,16 @@ export default function Sidebar({ selectedUser, onSelectUser }) {
   ];
 
   return (
-    <div className="flex h-screen">
-      {/* Left Sidebar */}
-      <div className="flex flex-col justify-between w-20 bg-slate-200 shadow-md px-4 py-6 h-[665px] ">
+    <div className="flex relative">
+      {/* Left Sidebar (fixed under header) */}
+      {/* top-16 assumes header height = 4rem; adjust if needed */}
+      <div className="fixed left-0 top-16 w-20 h-[calc(100vh-4rem)] flex flex-col justify-between bg-slate-200 shadow-md px-4 py-6 overflow-hidden">
         {/* Top Icons */}
         <div className="flex flex-col items-center gap-6">
           <img
             src="/logo - no background.png"
             alt="Logo"
-            className="w-12 h-12  object-contain"
+            className="w-12 h-12 object-contain"
           />
           {navItems.map(({ icon, label }) => {
             const isActive = activeNav === label;
@@ -60,7 +61,6 @@ export default function Sidebar({ selectedUser, onSelectUser }) {
                 className="group flex flex-col items-center cursor-pointer relative"
                 onClick={() => setActiveNav(label)}
               >
-                {/* Icon */}
                 <div
                   className={`text-xl transition-colors ${
                     isActive
@@ -70,7 +70,6 @@ export default function Sidebar({ selectedUser, onSelectUser }) {
                 >
                   {icon}
                 </div>
-                {/* Label */}
                 <span
                   className={`mt-1 text-xs font-semibold transition-colors ${
                     isActive
@@ -80,7 +79,6 @@ export default function Sidebar({ selectedUser, onSelectUser }) {
                 >
                   {label}
                 </span>
-                {/* Tooltip right side */}
                 <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 whitespace-nowrap rounded bg-white text-gray-800 text-xs px-2 py-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-20">
                   {label}
                 </span>
@@ -106,8 +104,8 @@ export default function Sidebar({ selectedUser, onSelectUser }) {
         </div>
       </div>
 
-      {/* User List */}
-      <div className="flex-1 bg-gray-100 border-l border-gray-300 overflow-y-auto relative">
+      {/* Main content (user list area) - pushed right of sidebar and below header */}
+      <div className="ml-20 mt-16 flex-1 bg-gray-100 border-l border-gray-300 relative h-[calc(100vh-4rem)]">
         <UserList
           users={users}
           selectedUser={selectedUser}

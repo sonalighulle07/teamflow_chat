@@ -3,8 +3,6 @@ import {
   FaSearch,
   FaPhone,
   FaVideo,
-  FaUsersCog,
-  FaEllipsisV,
 } from "react-icons/fa";
 
 export default function Header({ activeUser, selectedUser, onStartCall }) {

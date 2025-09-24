@@ -1,6 +1,5 @@
-// -------------------- UserList.jsx --------------------
 function getInitials(name) {
-  const parts = name.split(" ");
+  const parts = name?.split(" ") || [];
   return (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
 }
 
@@ -13,21 +12,23 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
     );
   }
 
-
-  const showSelectedUSer = (user) =>{
-    console.log(user)
-    onSelectUser(user)
-  }
+  const showSelectedUser = (user) => {
+    onSelectUser(user);
+  };
 
   return (
-    <ul className="flex flex-col h-[100%] overflow-y-auto bg-slate-200 w-7xl">
+    // h-full uses the parent container height (calc(100vh - header))
+    // overflow-y-auto -> vertical scrolling only
+    // overflow-x-hidden -> remove horizontal scrollbar
+    // scrollbar-none -> hides the visible scrollbar while keeping scroll usable
+    <ul className="flex flex-col h-full overflow-y-auto overflow-x-hidden scrollbar-none bg-slate-200 pr-2">
       {users.map((user) => {
         const isSelected = selectedUser?.id === user.id;
 
         return (
           <li
             key={user.id}
-            onClick={() => showSelectedUSer(user)}
+            onClick={() => showSelectedUser(user)}
             className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition mb-1
               ${
                 isSelected
@@ -58,19 +59,15 @@ export default function UserList({ users = [], selectedUser, onSelectUser }) {
 
               {/* Online indicator */}
               {user.isOnline && (
-                <span className="absolute bottom-0 right-0 w-3 h-3  bg-green-400 border-2 border-white rounded-full" />
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full" />
               )}
             </div>
 
             {/* Name & status */}
             <div className="flex flex-col truncate">
-              <span className={`text-gray-900 font-medium truncate`}>
-                {user.username}
-              </span>
+              <span className="text-gray-900 font-medium truncate">{user.username}</span>
               {user.status && (
-                <span className="text-xs text-gray-500 truncate">
-                  {user.status}
-                </span>
+                <span className="text-xs text-gray-500 truncate">{user.status}</span>
               )}
             </div>
           </li>

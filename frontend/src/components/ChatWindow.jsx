@@ -1,84 +1,86 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Message from "./Message";
- 
-export default function ChatWindow({
-  selectedUser,
-  currentUserId,
-  onNewMessage,
-}) {
+import { io } from "socket.io-client";
+
+export default function ChatWindow({ selectedUser, currentUserId, onNewMessage }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const messagesEndRef = useRef(null);
- 
-  // Fetch conversation when selectedUser changes
+  const socketRef = useRef(null);
+
+  // Initialize Socket.IO
+  useEffect(() => {
+    socketRef.current = io("http://localhost:3000"); // your backend URL
+    socketRef.current.emit("register", { userId: currentUserId });
+
+    // Listen for incoming messages
+    socketRef.current.on("privateMessage", (msg) => {
+      // Only show messages relevant to the current conversation
+      if (
+        selectedUser &&
+        (msg.sender_id === selectedUser.id || msg.receiver_id === selectedUser.id)
+      ) {
+        setMessages((prev) => [...prev, msg]);
+        if (onNewMessage) onNewMessage(msg);
+      }
+    });
+
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, [currentUserId, selectedUser, onNewMessage]);
+
+  // Fetch initial conversation
   useEffect(() => {
     if (!selectedUser) return;
- 
+
     const fetchConversation = async () => {
       try {
-        const res = await fetch(
-          `/api/chats/${currentUserId}/${selectedUser.id}`
-        );
+        const res = await fetch(`/api/chats/${currentUserId}/${selectedUser.id}`);
         if (!res.ok) throw new Error("Failed to fetch conversation");
         const data = await res.json();
         setMessages(data);
       } catch (err) {
-        console.error("Fetch conversation error:", err);
+        console.error(err);
       }
     };
- 
+
     fetchConversation();
   }, [selectedUser, currentUserId]);
- 
+
   const handleSend = async () => {
     if (!text.trim() || !selectedUser) return;
- 
-    try {
-      const res = await fetch("/api/chats/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          senderId: currentUserId,
-          receiverId: selectedUser.id,
-          text,
-          type: "text",
-        }),
-      });
- 
-      const data = await res.json();
- 
-      // update frontend messages
-      setMessages((prev) => [...prev, data]);
-      if (onNewMessage) onNewMessage(data);
-      setText("");
-    } catch (err) {
-      console.error("Failed to send message", err);
-    }
+
+    const msg = {
+      senderId: currentUserId,
+      receiverId: selectedUser.id,
+      text,
+      type: "text",
+    };
+
+    // Emit message via socket
+    socketRef.current.emit("privateMessage", msg);
+    setText(""); // clear input
   };
- 
+
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
- 
-  // Auto-scroll to bottom when new messages arrive
+
+  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
- 
+
   return (
     <div className="flex-1 flex flex-col">
-      {/* Chat messages area */}
       <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
         {selectedUser ? (
           messages.map((msg) => (
-            <Message
-              key={msg.id}
-              message={msg}
-              isOwn={msg.sender_id === currentUserId}
-            />
+            <Message key={msg.id} message={msg} isOwn={msg.sender_id === currentUserId} />
           ))
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-400">
@@ -87,16 +89,11 @@ export default function ChatWindow({
         )}
         <div ref={messagesEndRef} />
       </div>
- 
-      {/* Input area */}
+
       <div className="p-3 border-t flex gap-2 bg-white">
         <input
           type="text"
-          placeholder={
-            selectedUser
-              ? "Type a message..."
-              : "Select a user to start chatting..."
-          }
+          placeholder={selectedUser ? "Type a message..." : "Select a user..."}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyPress}
@@ -106,7 +103,7 @@ export default function ChatWindow({
         <button
           onClick={handleSend}
           disabled={!selectedUser}
-          className={`bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed`}
+          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           Send
         </button>
@@ -114,4 +111,3 @@ export default function ChatWindow({
     </div>
   );
 }
-//chatwindow
