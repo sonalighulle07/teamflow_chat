@@ -25,7 +25,8 @@ function App() {
   );
   const userId = activeUser?.id;
 
-  const call = userId ? useCall(userId) : null;
+  // Always invoke the hook so it can register incomingCall handlers
+  const call = useCall(userId);
 
   // Fetch users
   useEffect(() => {
@@ -78,7 +79,7 @@ function App() {
           <Header
             activeUser={activeUser}
             selectedUser={selectedUser}
-            onStartCall={call?.startCall}
+            onStartCall={(type) => call.startCall(type, selectedUser)}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
           />
@@ -96,13 +97,14 @@ function App() {
               <ChatWindow
                 selectedUser={selectedUser}
                 messages={messages}
-                setMessages={setMessages} // 👈 important for real-time updates
+                setMessages={setMessages}
                 currentUserId={userId}
                 searchQuery={searchQuery}
               />
             </div>
           </div>
 
+          {/* Incoming-call modal will now show */}
           {call.callState.incoming && (
             <IncomingCallModal
               visible
@@ -113,6 +115,7 @@ function App() {
             />
           )}
 
+          {/* Active call overlay */}
           {call.callState.type && (
             <CallOverlay
               callType={call.callState.type}
