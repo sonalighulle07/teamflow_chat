@@ -18,15 +18,16 @@ function App() {
     !!sessionStorage.getItem("chatToken")
   );
   const [showRegister, setShowRegister] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const activeUser = JSON.parse(
     sessionStorage.getItem("chatUser") || "null"
   );
   const userId = activeUser?.id;
 
-  // always call the hook
-  const call = useCall(userId);
+  const call = userId ? useCall(userId) : null;
 
+  // Fetch users
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
     fetch("/api/users")
@@ -34,11 +35,21 @@ function App() {
       .then((data) => setUsers(data.filter((u) => u.id !== userId)));
   }, [isAuthenticated, userId]);
 
+  // Fetch messages for selected user
   useEffect(() => {
     if (!isAuthenticated || !selectedUser) return;
-    fetch(`/api/chats/${userId}/${selectedUser.id}`)
-      .then((r) => r.json())
-      .then(setMessages);
+
+    async function fetchChat() {
+      try {
+        const res = await fetch(`/api/chats/${userId}/${selectedUser.id}`);
+        const data = await res.json();
+        setMessages(data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    fetchChat();
   }, [isAuthenticated, selectedUser, userId]);
 
   const handleAuthSuccess = () => {
@@ -67,20 +78,29 @@ function App() {
           <Header
             activeUser={activeUser}
             selectedUser={selectedUser}
-            onStartCall={(type) => call.startCall(type, selectedUser)}
+            onStartCall={call?.startCall}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
           />
 
-          <div className="flex flex-1 overflow-hidden">
-            <Sidebar
-              users={users}
-              selectedUser={selectedUser}
-              onSelectUser={setSelectedUser}
-            />
-            <ChatWindow
-              selectedUser={selectedUser}
-              messages={messages}
-              currentUserId={userId}
-            />
+          <div className="flex flex-1 overflow-hidden w-full">
+            <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
+              <Sidebar
+                users={users}
+                selectedUser={selectedUser}
+                onSelectUser={setSelectedUser}
+              />
+            </div>
+
+            <div className="flex-1 flex flex-col overflow-hidden w-full">
+              <ChatWindow
+                selectedUser={selectedUser}
+                messages={messages}
+                setMessages={setMessages} // 👈 important for real-time updates
+                currentUserId={userId}
+                searchQuery={searchQuery}
+              />
+            </div>
           </div>
 
           {call.callState.incoming && (

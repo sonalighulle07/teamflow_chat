@@ -7,12 +7,15 @@ import {
   FaCalendar,
   FaBell,
   FaGem,
+  FaSearch,
 } from "react-icons/fa";
 
 export default function Sidebar({ selectedUser, onSelectUser }) {
   const [users, setUsers] = useState([]);
   const [activeNav, setActiveNav] = useState("Chat");
+  const [searchQuery, setSearchQuery] = useState("");
 
+  // Fetch users from API
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -28,11 +31,6 @@ export default function Sidebar({ selectedUser, onSelectUser }) {
     return () => clearInterval(interval);
   }, []);
 
-  const logout = () => {
-    sessionStorage.clear();
-    window.location.href = "/login.html";
-  };
-
   const navItems = [
     { icon: <FaCommentDots />, label: "Chat" },
     { icon: <FaVideo />, label: "Meet" },
@@ -41,12 +39,15 @@ export default function Sidebar({ selectedUser, onSelectUser }) {
     { icon: <FaBell />, label: "Activity" },
   ];
 
+  // Filter users based on search query
+  const filteredUsers = users.filter((user) =>
+    user.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="flex relative">
-      {/* Left Sidebar (fixed under header) */}
-      {/* top-16 assumes header height = 4rem; adjust if needed */}
-      <div className="fixed left-0 top-16 w-20 h-[calc(100vh-4rem)] flex flex-col justify-between bg-slate-200 shadow-md px-4 py-6 overflow-hidden">
-        {/* Top Icons */}
+    <div className="flex h-screen overflow-hidden">
+      {/* Left Sidebar */}
+      <div className="flex flex-col justify-between w-20 bg-slate-200 shadow-md px-4 py-6 h-full">
         <div className="flex flex-col items-center gap-6">
           <img
             src="/logo - no background.png"
@@ -86,31 +87,33 @@ export default function Sidebar({ selectedUser, onSelectUser }) {
             );
           })}
         </div>
-
-        {/* Bottom Icons */}
-        <div className="flex flex-col items-center gap-4">
-          <div className="group relative flex flex-col items-center cursor-pointer">
-            <FaGem className="text-yellow-400 text-xl" />
-            <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 whitespace-nowrap rounded bg-white text-gray-800 text-xs px-2 py-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-20">
-              Premium
-            </span>
-          </div>
-          <button
-            onClick={logout}
-            className="bg-red-600 text-white text-sm px-3 py-1 rounded hover:bg-red-700 transition"
-          >
-            Logout
-          </button>
-        </div>
       </div>
 
-      {/* Main content (user list area) - pushed right of sidebar and below header */}
-      <div className="ml-20 mt-16 flex-1 bg-gray-100 border-l border-gray-300 relative h-[calc(100vh-4rem)]">
-        <UserList
-          users={users}
-          selectedUser={selectedUser}
-          onSelectUser={onSelectUser}
-        />
+      {/* User List Section */}
+      <div className="flex-1 bg-gray-100 border-l border-gray-500 relative overflow-hidden flex flex-col">
+        {/* Search Input */}
+        <div className="p-2">
+          <div className="relative">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search users..."
+              className="w-full pl-10 pr-3 py-1.5 rounded bg-white border border-gray-300 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* User List */}
+        <div className="flex-1 overflow-y-auto">
+          <UserList
+            users={filteredUsers}
+            selectedUser={selectedUser}
+            onSelectUser={onSelectUser}
+            searchQuery={searchQuery}
+          />
+        </div>
       </div>
     </div>
   );

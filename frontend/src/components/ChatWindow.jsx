@@ -1,54 +1,56 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Message from "./Message";
 import { io } from "socket.io-client";
 
-export default function ChatWindow({ selectedUser, currentUserId, onNewMessage }) {
+export default function ChatWindow({
+  selectedUser,
+  currentUserId,
+  searchQuery,
+}) {
   const [messages, setMessages] = useState([]);
-  const [text, setText] = useState("");
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
 
-  // Initialize Socket.IO
+  // Initialize Socket.IO once
   useEffect(() => {
-    socketRef.current = io("http://localhost:3000"); // your backend URL
+    if (!currentUserId) return;
+
+    socketRef.current = io("http://localhost:3000");
     socketRef.current.emit("register", { userId: currentUserId });
 
-    // Listen for incoming messages
-    socketRef.current.on("privateMessage", (msg) => {
-      // Only show messages relevant to the current conversation
+    socketRef.current.on("receiveMessage", (msg) => {
       if (
         selectedUser &&
-        (msg.sender_id === selectedUser.id || msg.receiver_id === selectedUser.id)
+        (msg.sender_id === selectedUser.id ||
+          msg.receiver_id === selectedUser.id)
       ) {
         setMessages((prev) => [...prev, msg]);
-        if (onNewMessage) onNewMessage(msg);
       }
     });
 
-    return () => {
-      socketRef.current.disconnect();
-    };
-  }, [currentUserId, selectedUser, onNewMessage]);
+    return () => socketRef.current.disconnect();
+  }, [currentUserId, selectedUser]);
 
-  // Fetch initial conversation
+  // Fetch chat history when selectedUser changes
   useEffect(() => {
     if (!selectedUser) return;
 
-    const fetchConversation = async () => {
+    const fetchChatHistory = async () => {
       try {
-        const res = await fetch(`/api/chats/${currentUserId}/${selectedUser.id}`);
-        if (!res.ok) throw new Error("Failed to fetch conversation");
+        const res = await fetch(
+          `/api/chats/${currentUserId}/${selectedUser.id}`
+        );
         const data = await res.json();
-        setMessages(data);
+        setMessages(data); // ← store fetched messages
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch chat history:", err);
       }
     };
 
-    fetchConversation();
+    fetchChatHistory();
   }, [selectedUser, currentUserId]);
 
-  const handleSend = async () => {
+  const handleSend = async (text) => {
     if (!text.trim() || !selectedUser) return;
 
     const msg = {
@@ -58,30 +60,54 @@ export default function ChatWindow({ selectedUser, currentUserId, onNewMessage }
       type: "text",
     };
 
-    // Emit message via socket
-    socketRef.current.emit("privateMessage", msg);
-    setText(""); // clear input
+    try {
+      const res = await fetch("/api/chats/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(msg),
+      });
+      const newMessage = await res.json();
+
+      setMessages((prev) => [...prev, newMessage]);
+      socketRef.current.emit("sendMessage", newMessage);
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
   };
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      handleSend(e.target.value);
+      e.target.value = "";
     }
   };
 
-  // Auto-scroll to bottom
+  // Auto scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   return (
-    <div className="flex-1 flex flex-col">
-      <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
+    <div className="flex-1 flex flex-col h-full">
+      <div className="flex-1 p-4 bg-gray-50 overflow-y-auto">
         {selectedUser ? (
-          messages.map((msg) => (
-            <Message key={msg.id} message={msg} isOwn={msg.sender_id === currentUserId} />
-          ))
+          messages.length > 0 ? (
+            messages.map((msg) => (
+              <Message
+                key={
+                  msg.id || `${msg.sender_id}-${msg.receiver_id}-${msg.text}`
+                }
+                message={msg}
+                isOwn={msg.sender_id === currentUserId}
+                searchQuery={searchQuery}
+              />
+            ))
+          ) : (
+            <div className="text-center text-gray-400 mt-10">
+              No messages yet
+            </div>
+          )
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-400">
             Select a user to start chatting
@@ -94,14 +120,20 @@ export default function ChatWindow({ selectedUser, currentUserId, onNewMessage }
         <input
           type="text"
           placeholder={selectedUser ? "Type a message..." : "Select a user..."}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyPress}
           disabled={!selectedUser}
           className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
         />
         <button
-          onClick={handleSend}
+          onClick={() => {
+            const input = document.querySelector(
+              'input[placeholder="Type a message..."]'
+            );
+            if (input) {
+              handleSend(input.value);
+              input.value = "";
+            }
+          }}
           disabled={!selectedUser}
           className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
