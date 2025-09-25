@@ -1,4 +1,10 @@
-// socket.js
 import { io } from "socket.io-client";
-const socket = io("http://localhost:3000", { autoConnect: false });
+
+// Vite picks up VITE_ env vars via import.meta.env
+const SIGNALING_SERVER =
+  import.meta.env.VITE_SIGNALING_URL || "http://localhost:3000";
+
+const socket = io(SIGNALING_SERVER, { autoConnect: false });
+
 export default socket;
+

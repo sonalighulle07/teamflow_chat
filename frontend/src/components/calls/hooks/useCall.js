@@ -1,51 +1,26 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import socket from "./socket";
 
 export function useCall(userId) {
   const [callType, setCallType] = useState(null);
   const [incoming, setIncoming] = useState(null);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [localStream, setLocalStream] = useState(null);
-  const [remoteStream, setRemoteStream] = useState(null);
-  const [remoteUserId, setRemoteUserId] = useState(null);
 
-  const peerRef = useRef(null);
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStreams, setRemoteStreams] = useState([]);
+
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+
+  const peerMap = useRef(new Map());
+  const screenTrackRef = useRef(null);
   const hasCleanedUp = useRef(false);
 
   useEffect(() => {
+    if (!userId) return;
     if (!socket.connected) socket.connect();
     socket.emit("register", { userId });
-
-    const handleIncomingCall = ({ from, offer, callType }) => {
-      setIncoming({ from, offer, callType });
-    };
-
-    const handleCallAccepted = async ({ answer }) => {
-      if (peerRef.current) {
-        try {
-          await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-        } catch (err) {
-          console.warn("Failed to set remote description:", err);
-        }
-      }
-    };
-
-    const handleIceCandidate = ({ candidate }) => {
-      const peer = peerRef.current;
-      if (!peer || peer.signalingState === "closed") return;
-      if (candidate) peer.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.warn);
-    };
-
-    const handleEndCall = ({ from }) => {
-      alert(`Call ended by user: ${from}`);
-      cleanup();
-    };
-
-    const handleCallCancelled = ({ from }) => {
-      alert(`Call cancelled by user: ${from}`);
-      setIncoming(null);
-      cleanup();
-    };
 
     socket.on("incomingCall", handleIncomingCall);
     socket.on("callAccepted", handleCallAccepted);
@@ -62,40 +37,94 @@ export function useCall(userId) {
     };
   }, [userId]);
 
-  function createPeerConnection(remoteId) {
-    const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-    const remote = new MediaStream();
-    setRemoteStream(remote);
+  function handleIncomingCall({ from, offer, callType }) {
+    setIncoming({ from, offer, callType });
+  }
 
-    peer.ontrack = (e) => remote.addTrack(e.track);
+  async function handleCallAccepted({ answer }) {
+    const peer = peerMap.current.get(incoming?.from);
+    if (peer) await peer.setRemoteDescription(answer);
+  }
+
+  function handleIceCandidate({ from, candidate }) {
+    const peer = peerMap.current.get(from);
+    if (peer && candidate) peer.addIceCandidate(candidate);
+  }
+
+  function handleEndCall({ from }) {
+    alert(`Call ended by user: ${from}`);
+    cleanup();
+  }
+
+  function handleCallCancelled({ from }) {
+    alert(`Call cancelled by user: ${from}`);
+    setIncoming(null);
+    cleanup();
+  }
+
+  function createPeer(remoteUserId) {
+    const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+
+    localStream?.getTracks().forEach((track) => peer.addTrack(track, localStream));
+
     peer.onicecandidate = (e) => {
-      if (e.candidate) socket.emit("iceCandidate", { to: remoteId, candidate: e.candidate });
+      if (e.candidate) {
+        socket.emit("iceCandidate", {
+          to: remoteUserId,
+          from: userId,
+          candidate: e.candidate,
+        });
+      }
     };
+
+    peer.ontrack = (e) => {
+  const stream = e.streams[0];
+  console.log("📡 Received remote stream:", stream.id);
+  setRemoteStreams((prev) => {
+    const exists = prev.some((s) => s.id === stream.id);
+    return exists ? prev : [...prev, stream];
+  });
+};
+
 
     peer.onconnectionstatechange = () => {
-      if (["disconnected", "failed", "closed"].includes(peer.connectionState)) cleanup();
+      if (["disconnected", "failed", "closed"].includes(peer.connectionState)) {
+        peerMap.current.delete(remoteUserId);
+        setRemoteStreams((prev) =>
+          prev.filter((s) => s.id !== peer.remoteStream?.id)
+        );
+      }
     };
 
-    peerRef.current = peer;
     return peer;
   }
 
   async function startCall(type, remoteUser) {
+    if (!remoteUser) return;
     hasCleanedUp.current = false;
-    setRemoteUserId(remoteUser.id);
     setCallType(type);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === "video" });
+      const stream =
+        localStream ||
+        (await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: type === "video",
+        }));
       setLocalStream(stream);
 
-      const peer = createPeerConnection(remoteUser.id);
-      stream.getTracks().forEach((t) => peer.addTrack(t, stream));
+      const peer = createPeer(remoteUser.id);
+      peerMap.current.set(remoteUser.id, peer);
 
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
 
-      socket.emit("callUser", { from: userId, to: remoteUser.id, offer, callType: type });
+      socket.emit("callUser", {
+        from: userId,
+        to: remoteUser.id,
+        offer,
+        callType: type,
+      });
     } catch (err) {
       console.error("Error accessing media devices:", err);
       cleanup();
@@ -105,17 +134,21 @@ export function useCall(userId) {
   async function acceptCall() {
     if (!incoming) return;
     hasCleanedUp.current = false;
-    setRemoteUserId(incoming.from);
     setCallType(incoming.callType);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: incoming.callType === "video" });
+      const stream =
+        localStream ||
+        (await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: incoming.callType === "video",
+        }));
       setLocalStream(stream);
 
-      const peer = createPeerConnection(incoming.from);
-      stream.getTracks().forEach((t) => peer.addTrack(t, stream));
+      const peer = createPeer(incoming.from);
+      peerMap.current.set(incoming.from, peer);
 
-      await peer.setRemoteDescription(new RTCSessionDescription(incoming.offer));
+      await peer.setRemoteDescription(incoming.offer);
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
 
@@ -128,14 +161,63 @@ export function useCall(userId) {
   }
 
   function rejectCall() {
-    if (incoming) socket.emit("cancelCall", { to: incoming.from, from: userId });
+    if (incoming) {
+      socket.emit("cancelCall", { to: incoming.from, from: userId });
+    }
     setIncoming(null);
     cleanup();
   }
 
   function endCall() {
-    if (remoteUserId) socket.emit("endCall", { to: remoteUserId, from: userId });
+    socket.emit("endCall", { from: userId });
     cleanup();
+  }
+
+  function joinMeetingRoom(meetingCode) {
+    if (!userId || !meetingCode) return;
+    socket.emit("joinMeeting", { code: meetingCode, userId });
+
+    socket.on("userJoined", async ({ userId: otherUserId }) => {
+      if (otherUserId === userId || peerMap.current.has(otherUserId)) return;
+
+      const peer = createPeer(otherUserId);
+      peerMap.current.set(otherUserId, peer);
+
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+
+      socket.emit("offer", { to: otherUserId, from: userId, offer });
+    });
+
+    socket.on("offer", async ({ from, offer }) => {
+      if (peerMap.current.has(from)) return;
+
+      const peer = createPeer(from);
+      peerMap.current.set(from, peer);
+
+      await peer.setRemoteDescription(offer);
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+
+      socket.emit("answer", { to: from, from: userId, answer });
+    });
+
+    socket.on("answer", async ({ from, answer }) => {
+      const peer = peerMap.current.get(from);
+      if (peer) await peer.setRemoteDescription(answer);
+    });
+
+    socket.on("iceCandidate", ({ from, candidate }) => {
+      const peer = peerMap.current.get(from);
+      if (peer && candidate) peer.addIceCandidate(candidate);
+    });
+
+    socket.on("userJoined", ({ userId }) => {
+  console.log("👥 User joined:", userId);
+});
+
+
+
   }
 
   function stopTracks(stream) {
@@ -143,49 +225,79 @@ export function useCall(userId) {
     stream.getTracks().forEach((t) => t.stop());
   }
 
-function cleanup(force = false) {
-  if (hasCleanedUp.current && !force) return;
-
-  const delay = remoteStream?.getTracks().length ? 0 : 1000;
-
-  setTimeout(() => {
+  function cleanup(force = false) {
     if (hasCleanedUp.current && !force) return;
-    hasCleanedUp.current = true;
-    console.log("Running cleanup");
 
-    stopTracks(localStream);
-    stopTracks(remoteStream);
+    setTimeout(() => {
+      hasCleanedUp.current = true;
+      stopTracks(localStream);
+      remoteStreams.forEach(stopTracks);
+      if (screenTrackRef.current) screenTrackRef.current.stop();
 
-    setLocalStream(null);
-    setRemoteStream(null);
-    setCallType(null);
-    setRemoteUserId(null);
-    setIncoming(null);
+      setLocalStream(null);
+      setRemoteStreams([]);
+      setCallType(null);
+      setIncoming(null);
+      setIsScreenSharing(false);
 
-    if (peerRef.current) {
-      peerRef.current.onicecandidate = null;
-      peerRef.current.ontrack = null;
-      peerRef.current.onconnectionstatechange = null;
-      peerRef.current.close();
-      peerRef.current = null;
+      peerMap.current.forEach((peer) => peer.close());
+      peerMap.current.clear();
+    }, 500);
+  }
+
+  function toggleMic() {
+    if (!localStream) return;
+    localStream.getAudioTracks().forEach((t) => {
+      t.enabled = !t.enabled;
+      setIsMuted(!t.enabled);
+    });
+  }
+
+  function toggleCam() {
+    if (!localStream) return;
+    const track = localStream.getVideoTracks()[0];
+    if (track) {
+      track.enabled = !track.enabled;
+      setIsVideoEnabled(track.enabled);
     }
-  }, delay);
+  }
 
-  // Fallback cleanup after 3 seconds if nothing else worked
-  setTimeout(() => {
-    if (!hasCleanedUp.current) {
-      console.warn("Force cleanup triggered");
-      cleanup(true);
+  async function startScreenShare() {
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const screenTrack = screenStream.getVideoTracks()[0];
+      screenTrackRef.current = screenTrack;
+
+      peerMap.current.forEach((peer) => {
+        const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+        if (sender) sender.replaceTrack(screenTrack);
+      });
+
+      screenTrack.onended = stopScreenShare;
+      setIsScreenSharing(true);
+    } catch (err) {
+      console.error("Screen share failed:", err);
     }
-  }, 3000);
-}
+  }
+
+ function stopScreenShare() {
+    const localVideo = localStream?.getVideoTracks()[0];
+    peerMap.current.forEach((peer) => {
+      const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+      if (sender && localVideo) sender.replaceTrack(localVideo);
+    });
+
+    screenTrackRef.current?.stop();
+    screenTrackRef.current = null;
+    setIsScreenSharing(false);
+  }
 
   return {
     callState: {
       incoming,
       caller: incoming?.from,
       type: callType,
-      active: !!remoteStream || !!localStream,
+      active: !!localStream || remoteStreams.length > 0,
     },
     startCall,
     acceptCall,
@@ -193,8 +305,17 @@ function cleanup(force = false) {
     endCall,
     cleanup,
     localStream,
-    remoteStream,
+    remoteStreams,
     isMaximized,
     setIsMaximized,
+    toggleMic,
+    toggleCam,
+    startScreenShare,
+    stopScreenShare,
+    isScreenSharing,
+    isMuted,
+    isVideoEnabled,
+    joinMeetingRoom,
   };
 }
+

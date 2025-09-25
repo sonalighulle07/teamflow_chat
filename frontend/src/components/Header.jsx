@@ -1,10 +1,10 @@
 import { useState } from "react";
 import {
+  FaUserCog,
   FaSearch,
   FaPhone,
   FaVideo,
-  FaUsersCog,
-  FaEllipsisV,
+  FaEllipsisV
 } from "react-icons/fa";
 
 export default function Header({
@@ -100,7 +100,7 @@ export default function Header({
           className="p-1 hover:bg-gray-100 rounded-full"
           title="Manage Group"
         >
-          <FaUsersCog />
+          <FaUserCog />
         </button>
 
         {/* More Options */}

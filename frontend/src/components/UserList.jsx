@@ -1,6 +1,6 @@
-// -------------------- UserList.jsx --------------------
+// src/components/UserList.jsx
 function getInitials(name) {
-  const parts = name.split(" ");
+  const parts = name?.split(" ") || [];
   return (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
 }
 
@@ -39,7 +39,7 @@ export default function UserList({
   };
 
   return (
-    <ul className="flex flex-col h-[100%] overflow-y-auto bg-slate-200 w-full">
+    <ul className="flex flex-col h-full overflow-y-auto overflow-x-hidden bg-slate-200 w-full">
       {users.length === 0 && (
         <div className="flex items-center justify-center text-gray-500 font-medium mt-4">
           No users found
@@ -88,7 +88,7 @@ export default function UserList({
 
             {/* Name & status */}
             <div className="flex flex-col truncate">
-              <span className={`text-gray-900 font-medium truncate`}>
+              <span className="text-gray-900 font-medium truncate">
                 {highlightMatch(user.username)}
               </span>
               {user.status && (
@@ -103,3 +103,4 @@ export default function UserList({
     </ul>
   );
 }
+
