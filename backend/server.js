@@ -4,6 +4,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+
+
  
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -21,12 +23,12 @@ const io = socketIo(server, {
     methods: ["GET", "POST"]
   }
 });
- 
+ app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
+
  
 app.use((req, res, next) => { req.io = io; next(); });
  
