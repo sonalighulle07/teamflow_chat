@@ -4,7 +4,10 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
- 
+require("dotenv").config();
+
+
+const meetingRoutes = require("./routes/meetingRoutes");
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
@@ -12,6 +15,10 @@ const reactionRoutes = require('./routes/reactionRoutes');
  
 const callHandlers = require('./Utils/socket/callHandlers');
 const Chat = require('./models/chatModel');
+const webpush = require("web-push");
+
+const notificationRoutes = require("./routes/notificationRoutes");
+
  
 const app = express();
 const server = http.createServer(app);
@@ -21,12 +28,12 @@ const io = socketIo(server, {
     methods: ["GET", "POST"]
   }
 });
- 
+ app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
+
  
 app.use((req, res, next) => { req.io = io; next(); });
  
@@ -34,8 +41,18 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/reactions', reactionRoutes);
- 
- 
+
+app.use("/api/subscribe", notificationRoutes);
+
+app.use("/api/meetings", meetingRoutes);
+
+
+// Push notification Keys
+// console.log(webpush.generateVAPIDKeys());
+
+// Set the keys in .env file
+// console.log("VAPID_PUBLIC_KEY:", process.env.VAPID_PUBLIC_KEY);
+
  
 // Socket.io logic
 io.on('connection', (socket) => {

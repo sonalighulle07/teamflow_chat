@@ -1,10 +1,9 @@
-// src/components/calls/CallOverlay.js
 import React from "react";
 
 export default function CallOverlay({
   callType,
   localStream,
-  remoteStream,
+  remoteStreams = [],
   onEndCall,
   onToggleMic,
   onToggleCam,
@@ -50,9 +49,7 @@ export default function CallOverlay({
           fontSize: "14px",
         }}
       >
-        <span>
-          {callType === "video" ? "Video Call" : "Audio Call"}
-        </span>
+        <span>{callType === "video" ? "Meeting (Video)" : "Meeting (Audio)"}</span>
         <div style={{ display: "flex", gap: "10px" }}>
           <button onClick={onMinimize}>➖</button>
           <button onClick={onMaximize}>⬜</button>
@@ -73,20 +70,52 @@ export default function CallOverlay({
         </div>
       </div>
 
-      {/* Remote Video */}
-      <video
-        autoPlay
-        playsInline
-        ref={(el) => {
-          if (el && remoteStream) el.srcObject = remoteStream;
-        }}
+      {/* Remote Participants Grid */}
+      <div
         style={{
           flex: 1,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: "4px",
+          padding: "4px",
+          background: "#000",
         }}
-      />
+      >
+        {remoteStreams.map((stream, idx) => (
+          <div key={idx} style={{ position: "relative" }}>
+            <video
+              autoPlay
+              playsInline
+              ref={(el) => {
+                if (el && stream && el.srcObject !== stream) {
+                  el.srcObject = stream;
+                }
+              }}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                borderRadius: "6px",
+              }}
+            />
+            {/* Optional: Participant label */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: "4px",
+                left: "4px",
+                background: "rgba(0,0,0,0.6)",
+                color: "#fff",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                fontSize: "12px",
+              }}
+            >
+              Participant {idx + 1}
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Local Video (video calls only) */}
       {callType === "video" && (
@@ -95,7 +124,9 @@ export default function CallOverlay({
           playsInline
           muted
           ref={(el) => {
-            if (el && localStream) el.srcObject = localStream;
+            if (el && localStream && el.srcObject !== localStream) {
+              el.srcObject = localStream;
+            }
           }}
           style={{
             width: "100px",
@@ -124,29 +155,18 @@ export default function CallOverlay({
           borderRadius: "30px",
         }}
       >
-        {/* Mute / Unmute */}
         <button onClick={onToggleMic} style={controlButtonStyle}>
           {isMuted ? "🔇" : "🎤"}
         </button>
-
-        {/* Video On / Off */}
         <button onClick={onToggleCam} style={controlButtonStyle}>
           {isVideoEnabled ? "📹" : "🚫"}
         </button>
-
-        {/* Screen Share */}
         <button
-          onClick={
-            isScreenSharing
-              ? onStopScreenShare
-              : onStartScreenShare
-          }
+          onClick={isScreenSharing ? onStopScreenShare : onStartScreenShare}
           style={controlButtonStyle}
         >
           {isScreenSharing ? "🛑" : "🖥️"}
         </button>
-
-        {/* End Call */}
         <button
           onClick={onEndCall}
           style={{
