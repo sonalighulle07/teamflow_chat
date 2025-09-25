@@ -1,3 +1,8 @@
+const User = require("../../models/User");
+const { sendPushNotification } = require("../../Utils/pushService");
+
+
+
 module.exports = function callHandlers(io, socket) {
   socket.on("register", ({ userId }) => {
     if (!userId) return;
@@ -5,13 +10,24 @@ module.exports = function callHandlers(io, socket) {
     socket.join(`user_${userId}`);
   });
 
-  socket.on("callUser", ({ from, to, offer, callType }) => {
-    io.to(`user_${to}`).emit("incomingCall", {
-      from,
-      offer,
-      callType,
-    });
-  });
+socket.on("callUser", async ({ from, to, offer, callType }) => {
+  // Emit to callee’s socket
+  io.to(`user_${to}`).emit("incomingCall", { from, offer, callType });
+
+  // Send push notification to callee
+  try {
+    const subscription = await User.getPushSubscription(to);
+    if (subscription) {
+      await sendPushNotification(subscription, {
+        title: "Incoming Call",
+        body: `📞 ${callType} call from ${from}`,
+        icon: "/icons/call.png",
+      });
+    }
+  } catch (err) {
+    console.error("Push notification failed:", err);
+  }
+});
 
   socket.on("answerCall", ({ to, answer }) => {
     io.to(`user_${to}`).emit("callAccepted", { answer });

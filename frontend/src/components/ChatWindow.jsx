@@ -40,6 +40,7 @@ export default function ChatWindow({
   useEffect(() => {
     if (!selectedUser) return;
 
+
     const fetchChatHistory = async () => {
       try {
         const res = await fetch(
@@ -47,6 +48,12 @@ export default function ChatWindow({
         );
         const data = await res.json();
         setMessages(data);
+        if(messages.length > 0) 
+          {
+            for(msg in messages){
+              console.log("URL:"+msg.file_url);
+            }
+          }
       } catch (err) {
         console.error("Failed to fetch chat history:", err);
       }

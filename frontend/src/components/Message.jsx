@@ -1,10 +1,19 @@
 import React from "react";
 
 export default function Message({ message, isOwn, searchQuery }) {
+  const BASE_URL = "http://localhost:3000"; // backend server
+
   const bubbleClasses = isOwn
     ? "bg-purple-600 text-white self-end rounded-tr-none"
     : "bg-gray-200 text-gray-900 self-start rounded-tl-none";
 
+  // Build full file URL
+  const getFileUrl = (url) => {
+    if (!url) return "";
+    return url.startsWith("http") ? url : `${BASE_URL}${url}`;
+  };
+
+  // Highlight search text
   const highlightText = (text) => {
     if (!searchQuery) return text;
     const regex = new RegExp(`(${searchQuery})`, "gi");
@@ -24,7 +33,7 @@ export default function Message({ message, isOwn, searchQuery }) {
       case "image":
         return (
           <img
-            src={message.file_url}
+            src={getFileUrl(message.file_url)}
             alt="Sent image"
             className="max-w-xs rounded-lg shadow-md cursor-pointer hover:scale-105 transition-transform"
           />
@@ -34,14 +43,14 @@ export default function Message({ message, isOwn, searchQuery }) {
           <video
             controls
             className="max-w-xs rounded-lg shadow-md"
-            src={message.file_url}
+            src={getFileUrl(message.file_url)}
           />
         );
       case "audio":
         return (
           <audio controls className="w-48 mt-1">
             <source
-              src={message.file_url}
+              src={getFileUrl(message.file_url)}
               type={message.file_type || "audio/mpeg"}
             />
             Your browser does not support audio.
@@ -50,7 +59,7 @@ export default function Message({ message, isOwn, searchQuery }) {
       case "file":
         return (
           <a
-            href={message.file_url}
+            href={getFileUrl(message.file_url)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 p-2 border rounded-lg bg-white text-blue-600 hover:underline hover:bg-gray-100 transition"

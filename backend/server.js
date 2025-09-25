@@ -4,6 +4,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+require("dotenv").config();
+
  
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -12,6 +14,10 @@ const reactionRoutes = require('./routes/reactionRoutes');
  
 const callHandlers = require('./Utils/socket/callHandlers');
 const Chat = require('./models/chatModel');
+const webpush = require("web-push");
+
+const notificationRoutes = require("./routes/notificationRoutes");
+
  
 const app = express();
 const server = http.createServer(app);
@@ -34,8 +40,16 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/reactions', reactionRoutes);
- 
- 
+
+app.use("/api/subscribe", notificationRoutes);
+
+
+// Push notification Keys
+// console.log(webpush.generateVAPIDKeys());
+
+// Set the keys in .env file
+// console.log("VAPID_PUBLIC_KEY:", process.env.VAPID_PUBLIC_KEY);
+
  
 // Socket.io logic
 io.on('connection', (socket) => {

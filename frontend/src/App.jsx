@@ -5,6 +5,7 @@ import ChatWindow from "./components/ChatWindow";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Header from "./components/Header";
+import { urlBase64ToUint8Array } from "./utils/pushUtils";
 
 import IncomingCallModal from "./components/calls/IncomingCallModal";
 import CallOverlay from "./components/calls/CallOverlay";
@@ -27,6 +28,15 @@ function App() {
 
   // Always invoke the hook so it can register incomingCall handlers
   const call = useCall(userId);
+
+  // Registering the notification worker
+  useEffect(() => {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").then((reg) => {
+      console.log("✅ Service Worker registered:", reg);
+    });
+  }
+}, []);
 
   // Fetch users
   useEffect(() => {
@@ -52,6 +62,44 @@ function App() {
 
     fetchChat();
   }, [isAuthenticated, selectedUser, userId]);
+
+
+  useEffect(() => {
+  async function subscribeUser() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidKey) {
+        console.error("❌ VAPID key missing");
+        return;
+      }
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+
+      const user = JSON.parse(sessionStorage.getItem("chatUser"));
+      await fetch("http://localhost:3000/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, subscription: sub }),
+      });
+
+      console.log("✅ Push subscription sent to backend");
+    } catch (err) {
+      console.error("Push subscription failed:", err);
+    }
+  }
+
+  if (isAuthenticated && userId) {
+    subscribeUser();
+  }
+}, [isAuthenticated, userId]); // ✅ Only runs once after login
+
+
 
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);

@@ -1,4 +1,6 @@
-const chatModel = require('../models/chatModel');
+const chatModel = require("../models/chatModel");
+const User = require("../models/User");
+const { sendPushNotification } = require("../Utils/pushService");
 
 exports.getMessages = async (req, res) => {
   try {
@@ -21,7 +23,6 @@ exports.getConversation = async (req, res) => {
   }
 };
 
-// For sending text + file
 exports.sendMessage = async (req, res) => {
   try {
     const { senderId, receiverId, text, type } = req.body;
@@ -43,8 +44,28 @@ exports.sendMessage = async (req, res) => {
 
     // Emit via Socket.IO
     if (req.io) {
-      req.io.to(`user_${senderId}`).emit('privateMessage', newMessage);
-      req.io.to(`user_${receiverId}`).emit('privateMessage', newMessage);
+      req.io.to(`user_${senderId}`).emit("privateMessage", newMessage);
+      req.io.to(`user_${receiverId}`).emit("privateMessage", newMessage);
+    }
+
+    const sender = await User.findById(senderId);
+
+    // Send push notification to receiver
+    try {
+      const subscription = await User.getPushSubscription(receiverId);
+      if (subscription) {
+        await sendPushNotification(subscription, {
+          title: "New Message",
+          body: text
+            ? `💬 ${sender.username}: ${text}`
+            : fileType
+            ? `📎 ${sender.username} sent a ${fileType.split("/")[0]} file`
+            : `${sender.username} sent you a message`,
+          icon: "/icons/message.png",
+        });
+      }
+    } catch (pushErr) {
+      console.error("Push notification failed:", pushErr);
     }
 
     res.json(newMessage);
