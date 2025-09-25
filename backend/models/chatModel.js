@@ -21,10 +21,18 @@ const getMessagesBetweenUsers = async (user1, user2) => {
 };
  
 // नवीन message insert करण्यासाठी
-const insertMessage = async (senderId, receiverId, text, fileUrl = null, fileType = null, type = "text") => {
+const insertMessage = async (
+  senderId,
+  receiverId,
+  text,
+  fileUrl = null,
+  fileType = null,
+  type = "text",
+  fileName = null
+) => {
   const query = `
-    INSERT INTO chats (sender_id, receiver_id, text, file_url, file_type, type)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO chats (sender_id, receiver_id, text, file_url, file_type, type, file_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
   const [result] = await db.query(query, [
     senderId,
@@ -33,15 +41,16 @@ const insertMessage = async (senderId, receiverId, text, fileUrl = null, fileTyp
     fileUrl,
     fileType,
     type,
+    fileName,
   ]);
- 
-  // inserted message परत करा
+
   const [rows] = await db.query("SELECT * FROM chats WHERE id = ?", [
     result.insertId,
   ]);
- 
+
   return rows[0];
 };
+
  
 module.exports = {
   getAllMessages,

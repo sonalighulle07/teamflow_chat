@@ -28,12 +28,12 @@ const io = socketIo(server, {
     methods: ["GET", "POST"]
   }
 });
- 
+ app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
+
  
 app.use((req, res, next) => { req.io = io; next(); });
  

@@ -11,7 +11,8 @@ exports.getMessages = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
-
+ 
+ 
 exports.getConversation = async (req, res) => {
   try {
     const { user1, user2 } = req.params;
@@ -25,22 +26,43 @@ exports.getConversation = async (req, res) => {
 
 exports.sendMessage = async (req, res) => {
   try {
-    const { senderId, receiverId, text, type } = req.body;
-    const fileUrl = req.file ? `/uploads/${req.file.filename}` : null;
-    const fileType = req.file ? req.file.mimetype : null;
-
+    const { senderId, receiverId, text } = req.body;
     if (!senderId || !receiverId) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const newMessage = await chatModel.insertMessage(
-      senderId,
-      receiverId,
-      text || "",
-      fileUrl,
-      fileType,
-      type || (fileUrl ? fileType.split("/")[0] : "text")
-    );
+    let fileUrl = null;
+    let fileType = null;
+    let fileName = null;
+    let msgType = "text";
+
+    if (req.file) {
+      fileUrl = `/uploads/${req.file.filename}`;
+      fileType = req.file.mimetype;
+      fileName = req.file.originalname;
+
+      // set message type properly
+      if (fileType.startsWith("image/")) {
+        msgType = "image";
+      } else if (fileType.startsWith("video/")) {
+        msgType = "video";
+      } else if (fileType.startsWith("audio/")) {
+        msgType = "audio";
+      } else {
+        msgType = "file"; // pdf, docx, excel etc.
+      }
+    }
+
+   const newMessage = await chatModel.insertMessage(
+  senderId,
+  receiverId,
+  text || "",
+  fileUrl,
+  fileType,
+  msgType
+);
+
+
 
     // Emit via Socket.IO
     if (req.io) {

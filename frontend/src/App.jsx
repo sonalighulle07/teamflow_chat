@@ -197,6 +197,7 @@ function App() {
             />
           )}
 
+          {/* Active call overlay */}
           {call.callState.type && (
             <CallOverlay
               callType={call.callState.type}
