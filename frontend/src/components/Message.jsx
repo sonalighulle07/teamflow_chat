@@ -21,9 +21,6 @@ export default function Message({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
 
-export default function Message({ message, isOwn, searchQuery }) {
-  const BASE_URL = "http://localhost:3000"; // backend server
-
   const bubbleClasses = isOwn
     ? "bg-purple-600 text-white self-end rounded-tr-none"
     : "bg-gray-200 text-gray-900 self-start rounded-tl-none";
@@ -31,13 +28,6 @@ export default function Message({ message, isOwn, searchQuery }) {
   const getFileUrl = (url) =>
     url.startsWith("http") ? url : `${BASE_URL}${url}`;
 
-  // Build full file URL
-  const getFileUrl = (url) => {
-    if (!url) return "";
-    return url.startsWith("http") ? url : `${BASE_URL}${url}`;
-  };
-
-  // Highlight search text
   const highlightText = (text) => {
     if (!searchQuery) return text;
     const regex = new RegExp(`(${searchQuery})`, "gi");
@@ -158,12 +148,6 @@ export default function Message({ message, isOwn, searchQuery }) {
           </div>
         );
 
-          <img
-            src={getFileUrl(message.file_url)}
-            alt="Sent image"
-            className="max-w-xs rounded-lg shadow-md cursor-pointer hover:scale-105 transition-transform"
-          />
-        );
       case "video":
         if (!message.file_url) return null;
         const videoProgress = message.uploadProgress || 100;
@@ -205,11 +189,6 @@ export default function Message({ message, isOwn, searchQuery }) {
               </div>
             )}
           </div>
-          <video
-            controls
-            className="max-w-xs rounded-lg shadow-md"
-            src={getFileUrl(message.file_url)}
-          />
         );
 
       case "audio":
@@ -258,13 +237,6 @@ export default function Message({ message, isOwn, searchQuery }) {
               </div>
             )}
           </div>
-          <audio controls className="w-48 mt-1">
-            <source
-              src={getFileUrl(message.file_url)}
-              type={message.file_type || "audio/mpeg"}
-            />
-            Your browser does not support audio.
-          </audio>
         );
 
       case "file":
@@ -306,15 +278,6 @@ export default function Message({ message, isOwn, searchQuery }) {
           </div>
         );
 
-          <a
-            href={getFileUrl(message.file_url)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 p-2 border rounded-lg bg-white text-blue-600 hover:underline hover:bg-gray-100 transition"
-          >
-            📄 {message.file_url.split("/").pop()}
-          </a>
-        );
       default:
         return (
           <p className="break-words">{highlightText(message.text || "")}</p>
