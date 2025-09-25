@@ -6,7 +6,8 @@ const cors = require('cors');
 const path = require('path');
 require("dotenv").config();
 
- 
+
+const meetingRoutes = require("./routes/meetingRoutes");
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
@@ -42,6 +43,8 @@ app.use('/api/chats', chatRoutes);
 app.use('/api/reactions', reactionRoutes);
 
 app.use("/api/subscribe", notificationRoutes);
+
+app.use("/api/meetings", meetingRoutes);
 
 
 // Push notification Keys

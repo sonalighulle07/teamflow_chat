@@ -7,8 +7,12 @@ import Register from "./components/Register";
 import Header from "./components/Header";
 import IncomingCallModal from "./components/calls/IncomingCallModal";
 import CallOverlay from "./components/calls/CallOverlay";
+import CreateMeetingModal from "./components/calls/CreateMeetingModel";
 import { useCall } from "./components/calls/hooks/useCall";
 import { urlBase64ToUint8Array } from "./utils/pushUtils";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import MeetingRoom from "./components/calls/MeetingRoom"; // ✅ Create this component
+
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -26,6 +30,7 @@ function App() {
 
   const call = useCall(userId);
 
+  // register service worker for push
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").then((reg) => {
@@ -34,6 +39,7 @@ function App() {
     }
   }, []);
 
+  // fetch user list
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
     fetch("/api/users")
@@ -41,6 +47,7 @@ function App() {
       .then((data) => setUsers(data.filter((u) => u.id !== userId)));
   }, [isAuthenticated, userId]);
 
+  // fetch chat messages when selecting a user
   useEffect(() => {
     if (!isAuthenticated || !selectedUser) return;
 
@@ -57,6 +64,7 @@ function App() {
     fetchChat();
   }, [isAuthenticated, selectedUser, userId]);
 
+  // subscribe to push notifications
   useEffect(() => {
     async function subscribeUser() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -97,7 +105,8 @@ function App() {
     window.location.reload();
   };
 
-  return (
+ return (
+  <Router>
     <div className="h-screen w-screen flex flex-col">
       {!isAuthenticated ? (
         <div className="flex-1 flex items-center justify-center bg-gradient-to-tl from-white to-purple-600">
@@ -123,49 +132,60 @@ function App() {
             setSearchQuery={setSearchQuery}
           />
 
-          <div className="flex flex-1 overflow-hidden w-full">
-            <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
-              <Sidebar
-                users={users}
-                selectedUser={selectedUser}
-                onSelectUser={setSelectedUser}
-                activeNav={activeNav}
-                setActiveNav={setActiveNav}
-              />
-            </div>
+          <Routes>
+            {/* Main dashboard */}
+            <Route
+              path="/"
+              element={
+                <div className="flex flex-1 overflow-hidden w-full">
+                  <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
+                    <Sidebar
+                      users={users}
+                      selectedUser={selectedUser}
+                      onSelectUser={setSelectedUser}
+                      activeNav={activeNav}
+                      setActiveNav={setActiveNav}
+                    />
+                  </div>
 
-            <div className="flex-1 flex flex-col overflow-hidden w-full">
-              {activeNav === "Chat" && (
-                <ChatWindow
-                  selectedUser={selectedUser}
-                  messages={messages}
-                  setMessages={setMessages}
-                  currentUserId={userId}
-                  searchQuery={searchQuery}
-                />
-              )}
-              {activeNav === "Meet" && (
-                <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                  📹 Meet tab coming soon!
+                  <div className="flex-1 flex flex-col overflow-hidden w-full">
+                    {activeNav === "Chat" && (
+                      <ChatWindow
+                        selectedUser={selectedUser}
+                        messages={messages}
+                        setMessages={setMessages}
+                        currentUserId={userId}
+                        searchQuery={searchQuery}
+                      />
+                    )}
+                    {activeNav === "Meet" && (
+                      <div className="flex items-center justify-center h-full">
+                        <CreateMeetingModal userId={userId} />
+                      </div>
+                    )}
+                    {activeNav === "Communities" && (
+                      <div className="flex items-center justify-center h-full text-gray-500 text-xl">
+                        👥 Communities tab coming soon!
+                      </div>
+                    )}
+                    {activeNav === "Calendar" && (
+                      <div className="flex items-center justify-center h-full text-gray-500 text-xl">
+                        📅 Calendar tab coming soon!
+                      </div>
+                    )}
+                    {activeNav === "Activity" && (
+                      <div className="flex items-center justify-center h-full text-gray-500 text-xl">
+                        🔔 Activity tab coming soon!
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-              {activeNav === "Communities" && (
-                <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                  👥 Communities tab coming soon!
-                </div>
-              )}
-              {activeNav === "Calendar" && (
-                <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                  📅 Calendar tab coming soon!
-                </div>
-              )}
-              {activeNav === "Activity" && (
-                <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                  🔔 Activity tab coming soon!
-                </div>
-              )}
-            </div>
-          </div>
+              }
+            />
+
+            {/* Meeting room route */}
+            <Route path="/meet/:code" element={<MeetingRoom userId={userId} />} />
+          </Routes>
 
           {call.callState.incoming && (
             <IncomingCallModal
@@ -181,7 +201,7 @@ function App() {
             <CallOverlay
               callType={call.callState.type}
               localStream={call.localStream}
-              remoteStream={call.remoteStream}
+              remoteStreams={call.remoteStreams}
               onEndCall={call.endCall}
               onToggleMic={call.toggleMic}
               onToggleCam={call.toggleCam}
@@ -199,7 +219,10 @@ function App() {
         </>
       )}
     </div>
-  );
+  </Router>
+);
+
+
 }
 
 export default App;

@@ -49,5 +49,14 @@ socket.on("callUser", async ({ from, to, offer, callType }) => {
   socket.on("cancelCall", ({ to, from }) => {
     io.to(`user_${to}`).emit("callCancelled", { from });
   });
+
+  socket.on("joinMeeting", ({ code, userId }) => {
+  socket.join(`meeting_${code}`);
+  io.to(`meeting_${code}`).emit("userJoined", { userId });
+});
+
+
+
+
 };
 
