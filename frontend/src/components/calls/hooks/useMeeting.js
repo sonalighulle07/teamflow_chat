@@ -1,17 +1,17 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import socket from "./socket";
 
 export function useMeeting(userId, roomCode) {
   const [localStream, setLocalStream] = useState(null);
-  const [peers, setPeers] = useState(new Map()); // Map<remoteId, MediaStream>
+  const [peers, setPeers] = useState(new Map());
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
 
   const peerMap = useRef(new Map());
+  const iceBufferMap = useRef(new Map()); // buffer ICE candidates if needed
   const hasJoinedRef = useRef(false);
 
-  // Join the meeting
   async function joinMeeting() {
     if (hasJoinedRef.current) return;
     hasJoinedRef.current = true;
@@ -23,22 +23,24 @@ export function useMeeting(userId, roomCode) {
     setLocalStream(stream);
     console.log("🟢 Local stream ready:", stream);
 
-    // Existing users
+    // Existing users in the room
     socket.off("existingUsers").on("existingUsers", ({ users }) => {
       console.log("🌍 Existing users in room:", users);
       users.forEach((remoteId) => {
         if (!peerMap.current.has(remoteId)) {
+          // Only joining user is initiator
           const peer = createPeer(remoteId, stream, true);
           peerMap.current.set(remoteId, peer);
         }
       });
     });
 
-    // New user joined
+    // New user joined after you
     socket.off("userJoined").on("userJoined", ({ userId: remoteId }) => {
       console.log("👋 New user joined:", remoteId);
       if (!peerMap.current.has(remoteId)) {
-        const peer = createPeer(remoteId, stream, true);
+        // Existing user answers offer
+        const peer = createPeer(remoteId, stream, false);
         peerMap.current.set(remoteId, peer);
       }
     });
@@ -46,26 +48,43 @@ export function useMeeting(userId, roomCode) {
     // Receive offer
     socket.off("offer").on("offer", async ({ from, offer }) => {
       console.log("📩 Offer received from", from);
-      const peer = createPeer(from, stream, false);
-      peerMap.current.set(from, peer);
-      await peer.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await peer.createAnswer();
-      await peer.setLocalDescription(answer);
-      socket.emit("answer", { to: from, answer });
+      let peer = peerMap.current.get(from);
+      if (!peer) {
+        peer = createPeer(from, stream, false);
+        peerMap.current.set(from, peer);
+      }
+      try {
+        await peer.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+        socket.emit("answer", { to: from, answer });
+      } catch (err) {
+        console.error("❌ Error handling offer:", err);
+      }
     });
 
     // Receive answer
     socket.off("answer").on("answer", async ({ from, answer }) => {
       const peer = peerMap.current.get(from);
-      if (peer) await peer.setRemoteDescription(new RTCSessionDescription(answer));
+      if (peer) {
+        try {
+          await peer.setRemoteDescription(new RTCSessionDescription(answer));
+        } catch (err) {
+          console.error("❌ Error setting remote description (answer):", err);
+        }
+      }
     });
 
     // ICE candidates
-    socket.off("iceCandidate").on("iceCandidate", ({ from, candidate }) => {
+    socket.off("iceCandidate").on("iceCandidate", async ({ from, candidate }) => {
       const peer = peerMap.current.get(from);
-      if (peer && candidate && peer.remoteDescription) {
-        peer.addIceCandidate(new RTCIceCandidate(candidate));
-        console.log("📡 Adding ICE candidate from", from, candidate);
+      if (peer && candidate) {
+        try {
+          await peer.addIceCandidate(new RTCIceCandidate(candidate));
+          console.log("📡 Added ICE candidate from", from, candidate);
+        } catch (err) {
+          console.error("❌ Error adding ICE candidate:", err);
+        }
       }
     });
 
@@ -86,21 +105,20 @@ export function useMeeting(userId, roomCode) {
     console.log("🚪 Joined room:", roomCode);
   }
 
-  // Create peer connection
   function createPeer(remoteId, stream, initiator) {
-    const peer = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    });
+    const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
     // Add local tracks
     stream.getTracks().forEach((track) => peer.addTrack(track, stream));
 
-    // Handle ICE candidates
+    // ICE candidates
     peer.onicecandidate = (e) => {
-      if (e.candidate) socket.emit("iceCandidate", { to: remoteId, candidate: e.candidate });
+      if (e.candidate) {
+        socket.emit("iceCandidate", { to: remoteId, candidate: e.candidate });
+      }
     };
 
-    // Handle remote stream
+    // Remote stream
     peer.ontrack = (e) => {
       const remoteStream = e.streams[0];
       if (remoteStream) {
@@ -112,18 +130,22 @@ export function useMeeting(userId, roomCode) {
       }
     };
 
-    // Create offer if initiator
+    // Initiator creates offer
     if (initiator) {
-      peer.createOffer().then((offer) => {
-        peer.setLocalDescription(offer);
-        socket.emit("offer", { to: remoteId, offer });
-      });
+      (async () => {
+        try {
+          const offer = await peer.createOffer();
+          await peer.setLocalDescription(offer);
+          socket.emit("offer", { to: remoteId, offer });
+        } catch (err) {
+          console.error("❌ Error creating offer:", err);
+        }
+      })();
     }
 
     return peer;
   }
 
-  // Leave meeting
   function leaveMeeting() {
     console.log("🚪 Leaving meeting");
     socket.emit("leaveRoom", { userId, roomCode });
@@ -163,7 +185,6 @@ export function useMeeting(userId, roomCode) {
       if (sender) sender.replaceTrack(screenTrack);
     });
 
-    // Update local stream for self-view
     setLocalStream(screenStream);
     screenTrack.onended = stopScreenShare;
     setIsScreenSharing(true);

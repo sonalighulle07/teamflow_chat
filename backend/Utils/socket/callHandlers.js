@@ -1,17 +1,32 @@
 const User = require("../../models/User");
 const { sendPushNotification } = require("../../Utils/pushService");
 
-const activeRooms = new Map(); // roomCode => Set of userIds
+// Multi-user meeting room tracking
+const activeRooms = new Map(); // roomCode => Set<userIds>
+const meetingSockets = new Map(); // userId => socket.id
 
 module.exports = function callHandlers(io, socket) {
+  // -------------------
+  // COMMON: REGISTER SOCKET
+  // -------------------
   socket.on("register", ({ userId }) => {
     if (!userId) return;
     socket.userId = userId;
+
+    // 1:1 call registration
     socket.join(`user_${userId}`);
+
+    // Meeting flow registration
+    meetingSockets.set(userId, socket.id);
+
+    console.log(`✅ Registered socket for user: ${userId}`);
   });
 
-  // 1:1 Call Flow
+  // -------------------
+  // 1:1 CALL FLOW
+  // -------------------
   socket.on("callUser", async ({ from, to, offer, callType }) => {
+    console.log(`📞 callUser from ${from} to ${to}`);
     io.to(`user_${to}`).emit("incomingCall", { from, offer, callType });
 
     try {
@@ -47,7 +62,9 @@ module.exports = function callHandlers(io, socket) {
     if (to) io.to(`user_${to}`).emit("callCancelled", { from });
   });
 
-  // Multi-user Meeting Flow
+  // -------------------
+  // MULTI-USER MEETING FLOW
+  // -------------------
   socket.on("joinRoom", ({ userId, roomCode }) => {
     socket.userId = userId;
     socket.roomCode = roomCode;
@@ -59,30 +76,32 @@ module.exports = function callHandlers(io, socket) {
     console.log(`👥 User ${userId} joined room ${roomCode}`);
     console.log(`Room ${roomCode} now has:`, Array.from(activeRooms.get(roomCode)));
 
+    // Notify other users in the room
     socket.to(roomCode).emit("userJoined", { userId });
 
+    // Send existing users to this client
     const existingUsers = Array.from(activeRooms.get(roomCode)).filter((id) => id !== userId);
     socket.emit("existingUsers", { users: existingUsers });
   });
 
   socket.on("offer", ({ to, offer }) => {
-    const targetSocket = findSocketByUserId(io, to);
-    if (targetSocket) {
-      targetSocket.emit("offer", { from: socket.userId, offer });
+    const targetSocketId = meetingSockets.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit("offer", { from: socket.userId, offer });
     }
   });
 
   socket.on("answer", ({ to, answer }) => {
-    const targetSocket = findSocketByUserId(io, to);
-    if (targetSocket) {
-      targetSocket.emit("answer", { from: socket.userId, answer });
+    const targetSocketId = meetingSockets.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit("answer", { from: socket.userId, answer });
     }
   });
 
   socket.on("iceCandidate", ({ to, candidate }) => {
-    const targetSocket = findSocketByUserId(io, to);
-    if (targetSocket) {
-      targetSocket.emit("iceCandidate", { from: socket.userId, candidate });
+    const targetSocketId = meetingSockets.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit("iceCandidate", { from: socket.userId, candidate });
     }
   });
 
@@ -94,22 +113,19 @@ module.exports = function callHandlers(io, socket) {
       activeRooms.get(roomCode).delete(userId);
       if (activeRooms.get(roomCode).size === 0) activeRooms.delete(roomCode);
     }
+
+    meetingSockets.delete(userId);
   });
 
   socket.on("disconnect", () => {
     const { userId, roomCode } = socket;
+
     if (roomCode && activeRooms.has(roomCode)) {
       activeRooms.get(roomCode).delete(userId);
       socket.to(roomCode).emit("userLeft", { userId });
       if (activeRooms.get(roomCode).size === 0) activeRooms.delete(roomCode);
     }
+
+    if (userId) meetingSockets.delete(userId);
   });
 };
-
-function findSocketByUserId(io, userId) {
-  for (const [id, socket] of io.of("/").sockets) {
-    if (socket.userId === userId) return socket;
-  }
-  return null;
-}
-
