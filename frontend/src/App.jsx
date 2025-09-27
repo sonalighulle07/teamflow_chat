@@ -1,4 +1,3 @@
-// src/App.jsx
 import React, { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
@@ -9,10 +8,11 @@ import IncomingCallModal from "./components/calls/IncomingCallModal";
 import CallOverlay from "./components/calls/CallOverlay";
 import CreateMeetingModal from "./components/calls/CreateMeetingModel";
 import { useCall } from "./components/calls/hooks/useCall";
+import socket from "./components/calls/hooks/socket";
 import { urlBase64ToUint8Array } from "./utils/pushUtils";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import MeetingRoom from "./components/calls/MeetingRoom"; // ✅ Create this component
-
+import MeetingRoom from "./components/calls/MeetingRoom";
+import MyCalendar from "./components/calender/MyCalender";
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -30,7 +30,7 @@ function App() {
 
   const call = useCall(userId);
 
-  // register service worker for push
+  // Service Worker Registration
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").then((reg) => {
@@ -39,7 +39,14 @@ function App() {
     }
   }, []);
 
-  // fetch user list
+  // Connect socket
+  useEffect(() => {
+    if (isAuthenticated && userId && !socket.connected) {
+      socket.connect();
+    }
+  }, [isAuthenticated, userId]);
+
+  // Fetch users
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
     fetch("/api/users")
@@ -47,7 +54,7 @@ function App() {
       .then((data) => setUsers(data.filter((u) => u.id !== userId)));
   }, [isAuthenticated, userId]);
 
-  // fetch chat messages when selecting a user
+  // Fetch messages for selected user
   useEffect(() => {
     if (!isAuthenticated || !selectedUser) return;
 
@@ -64,7 +71,7 @@ function App() {
     fetchChat();
   }, [isAuthenticated, selectedUser, userId]);
 
-  // subscribe to push notifications
+  // Push Notifications subscription
   useEffect(() => {
     async function subscribeUser() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -72,10 +79,7 @@ function App() {
       try {
         const reg = await navigator.serviceWorker.ready;
         const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-        if (!vapidKey) {
-          console.error("❌ VAPID key missing");
-          return;
-        }
+        if (!vapidKey) return;
 
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
@@ -89,15 +93,13 @@ function App() {
           body: JSON.stringify({ userId: user.id, subscription: sub }),
         });
 
-        console.log("✅ Push subscription sent to backend");
+        console.log("✅ Push subscription sent");
       } catch (err) {
         console.error("Push subscription failed:", err);
       }
     }
 
-    if (isAuthenticated && userId) {
-      subscribeUser();
-    }
+    if (isAuthenticated && userId) subscribeUser();
   }, [isAuthenticated, userId]);
 
   const handleAuthSuccess = () => {
@@ -105,126 +107,123 @@ function App() {
     window.location.reload();
   };
 
- return (
-  <Router>
-    <div className="h-screen w-screen flex flex-col">
-      {!isAuthenticated ? (
-        <div className="flex-1 flex items-center justify-center bg-gradient-to-tl from-white to-purple-600">
-          {!showRegister ? (
-            <Login
-              onLogin={handleAuthSuccess}
-              onSwitch={() => setShowRegister(true)}
+  return (
+    <Router>
+      <div className="h-screen w-screen flex flex-col">
+        {!isAuthenticated ? (
+          <div className="flex-1 flex items-center justify-center bg-gradient-to-tl from-white to-purple-600">
+            {!showRegister ? (
+              <Login
+                onLogin={handleAuthSuccess}
+                onSwitch={() => setShowRegister(true)}
+              />
+            ) : (
+              <Register
+                onRegister={handleAuthSuccess}
+                onSwitch={() => setShowRegister(false)}
+              />
+            )}
+          </div>
+        ) : (
+          <>
+            <Header
+              activeUser={activeUser}
+              selectedUser={selectedUser}
+              onStartCall={(type) => call.startCall(type, selectedUser)}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
             />
-          ) : (
-            <Register
-              onRegister={handleAuthSuccess}
-              onSwitch={() => setShowRegister(false)}
-            />
-          )}
-        </div>
-      ) : (
-        <>
-          <Header
-            activeUser={activeUser}
-            selectedUser={selectedUser}
-            onStartCall={(type) => call.startCall(type, selectedUser)}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-          />
 
-          <Routes>
-            {/* Main dashboard */}
-            <Route
-              path="/"
-              element={
-                <div className="flex flex-1 overflow-hidden w-full">
-                  <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
-                    <Sidebar
-                      users={users}
-                      selectedUser={selectedUser}
-                      onSelectUser={setSelectedUser}
-                      activeNav={activeNav}
-                      setActiveNav={setActiveNav}
-                    />
-                  </div>
-
-                  <div className="flex-1 flex flex-col overflow-hidden w-full">
-                    {activeNav === "Chat" && (
-                      <ChatWindow
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <div className="flex flex-1 overflow-hidden w-full">
+                    <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
+                      <Sidebar
+                        users={users}
                         selectedUser={selectedUser}
-                        messages={messages}
-                        setMessages={setMessages}
-                        currentUserId={userId}
-                        searchQuery={searchQuery}
+                        onSelectUser={setSelectedUser}
+                        activeNav={activeNav}
+                        setActiveNav={setActiveNav}
                       />
-                    )}
-                    {activeNav === "Meet" && (
-                      <div className="flex items-center justify-center h-full">
-                        <CreateMeetingModal userId={userId} />
-                      </div>
-                    )}
-                    {activeNav === "Communities" && (
-                      <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                        👥 Communities tab coming soon!
-                      </div>
-                    )}
-                    {activeNav === "Calendar" && (
-                      <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                        📅 Calendar tab coming soon!
-                      </div>
-                    )}
-                    {activeNav === "Activity" && (
-                      <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                        🔔 Activity tab coming soon!
-                      </div>
-                    )}
+                    </div>
+
+                    <div className="flex-1 flex flex-col overflow-hidden w-full">
+                      {activeNav === "Chat" && (
+                        <ChatWindow
+                          selectedUser={selectedUser}
+                          messages={messages}
+                          setMessages={setMessages}
+                          currentUserId={userId}
+                          searchQuery={searchQuery}
+                        />
+                      )}
+                      {activeNav === "Meet" && (
+                        <div className="flex items-center justify-center h-full">
+                          <CreateMeetingModal userId={userId} />
+                        </div>
+                      )}
+                      {activeNav === "Communities" && (
+                        <div className="flex items-center justify-center h-full text-gray-500 text-xl">
+                          👥 Communities tab coming soon!
+                        </div>
+                      )}
+                      {activeNav === "Calendar" && (
+  <div className="flex flex-col items-center justify-center h-full w-full">
+    <MyCalendar />
+  </div>
+)}
+                      {activeNav === "Activity" && (
+                        <div className="flex items-center justify-center h-full text-gray-500 text-xl">
+                          🔔 Activity tab coming soon!
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              }
-            />
+                }
+              />
 
-            {/* Meeting room route */}
-            <Route path="/meet/:code" element={<MeetingRoom userId={userId} />} />
-          </Routes>
+              {/* Meeting Room */}
+              <Route path="/meet/:code" element={<MeetingRoom userId={userId} />} />
+            </Routes>
 
-          {call.callState.incoming && (
-            <IncomingCallModal
-              visible
-              fromUser={call.callState.caller}
-              callType={call.callState.type}
-              onAccept={call.acceptCall}
-              onReject={call.rejectCall}
-            />
-          )}
+            {/* Incoming Call */}
+            {call.callState.incoming && (
+              <IncomingCallModal
+                visible
+                fromUser={call.callState.caller}
+                callType={call.callState.type}
+                onAccept={call.acceptCall}
+                onReject={call.rejectCall}
+              />
+            )}
 
-          {/* Active call overlay */}
-          {call.callState.type && (
-            <CallOverlay
-              callType={call.callState.type}
-              localStream={call.localStream}
-              remoteStreams={call.remoteStreams}
-              onEndCall={call.endCall}
-              onToggleMic={call.toggleMic}
-              onToggleCam={call.toggleCam}
-              onStartScreenShare={call.startScreenShare}
-              onStopScreenShare={call.stopScreenShare}
-              isScreenSharing={call.isScreenSharing}
-              isMuted={call.isMuted}
-              isVideoEnabled={call.isVideoEnabled}
-              onMinimize={() => call.setIsMaximized(false)}
-              onMaximize={() => call.setIsMaximized(true)}
-              onClose={call.endCall}
-              isMaximized={call.isMaximized}
-            />
-          )}
-        </>
-      )}
-    </div>
-  </Router>
-);
-
-
+            {/* Active Call Overlay */}
+            {call.callState.type && (
+              <CallOverlay
+                callType={call.callState.type}
+                localStream={call.localStream}
+                remoteStreams={call.remoteStreams}
+                onEndCall={call.endCall}
+                onToggleMic={call.toggleMic}
+                onToggleCam={call.toggleCam}
+                onStartScreenShare={call.startScreenShare}
+                onStopScreenShare={call.stopScreenShare}
+                isScreenSharing={call.isScreenSharing}
+                isMuted={call.isMuted}
+                isVideoEnabled={call.isVideoEnabled}
+                onMinimize={() => call.setIsMaximized(false)}
+                onMaximize={() => call.setIsMaximized(true)}
+                onClose={call.endCall}
+                isMaximized={call.isMaximized}
+              />
+            )}
+          </>
+        )}
+      </div>
+    </Router>
+  );
 }
 
 export default App;
-

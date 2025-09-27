@@ -1,0 +1,86 @@
+/* Container */
+.calendar-container {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  height: 100%;
+  min-height: 600px;
+  padding: 12px;
+  background-color: #f3f2f1;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* Toolbar */
+.rbc-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.rbc-toolbar-label {
+  font-weight: 600;
+  font-size: 18px;
+  color: #323130;
+}
+
+.rbc-btn-group button {
+  background-color: #0078d4;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  margin: 0 2px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.rbc-btn-group button:hover {
+  background-color: #005a9e;
+}
+
+/* Header row (days) */
+.rbc-header {
+  background-color: #ffffff;
+  color: #323130;
+  border-bottom: 1px solid #e6e6e6;
+  font-weight: 600;
+  text-align: center;
+  padding: 8px 0;
+}
+
+/* Horizontal time grid */
+.rbc-time-content {
+  background-color: #f9f9f9;
+}
+
+.rbc-time-gutter {
+  background-color: #e6e6e6;
+  width: 60px;
+}
+
+/* Event style (will show when events are added) */
+.rbc-event {
+  background-color: #0078d4;
+  color: white;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  cursor: pointer;
+}
+
+.rbc-event:hover {
+  background-color: #005a9e;
+}
+
+/* Current time indicator */
+.rbc-current-time-indicator {
+  background-color: #ff4d4f;
+  height: 2px;
+}
+
+/* Grid lines */
+.rbc-row-bg {
+  border-bottom: 1px solid #e6e6e6;
+}
