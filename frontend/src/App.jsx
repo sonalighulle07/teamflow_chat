@@ -170,10 +170,10 @@ function App() {
                         </div>
                       )}
                       {activeNav === "Calendar" && (
-  <div className="flex flex-col items-center justify-center h-full w-full">
-    <MyCalendar />
-  </div>
-)}
+                        <div className="flex flex-col items-center justify-center h-full w-full">
+                          <MyCalendar />
+                        </div>
+                      )}
                       {activeNav === "Activity" && (
                         <div className="flex items-center justify-center h-full text-gray-500 text-xl">
                           🔔 Activity tab coming soon!
@@ -185,7 +185,10 @@ function App() {
               />
 
               {/* Meeting Room */}
-              <Route path="/meet/:code" element={<MeetingRoom userId={userId} />} />
+              <Route
+                path="/meet/:code"
+                element={<MeetingRoom userId={userId} />}
+              />
             </Routes>
 
             {/* Incoming Call */}

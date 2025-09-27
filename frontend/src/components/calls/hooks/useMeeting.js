@@ -9,7 +9,6 @@ export function useMeeting(userId, roomCode) {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
 
   const peerMap = useRef(new Map());
-  const iceBufferMap = useRef(new Map()); // buffer ICE candidates if needed
   const hasJoinedRef = useRef(false);
 
   async function joinMeeting() {
@@ -23,74 +22,49 @@ export function useMeeting(userId, roomCode) {
     setLocalStream(stream);
     console.log("🟢 Local stream ready:", stream);
 
-    // Existing users in the room
     socket.off("existingUsers").on("existingUsers", ({ users }) => {
-      console.log("🌍 Existing users in room:", users);
       users.forEach((remoteId) => {
         if (!peerMap.current.has(remoteId)) {
-          // Only joining user is initiator
           const peer = createPeer(remoteId, stream, true);
           peerMap.current.set(remoteId, peer);
         }
       });
     });
 
-    // New user joined after you
     socket.off("userJoined").on("userJoined", ({ userId: remoteId }) => {
-      console.log("👋 New user joined:", remoteId);
       if (!peerMap.current.has(remoteId)) {
-        // Existing user answers offer
         const peer = createPeer(remoteId, stream, false);
         peerMap.current.set(remoteId, peer);
       }
     });
 
-    // Receive offer
     socket.off("offer").on("offer", async ({ from, offer }) => {
-      console.log("📩 Offer received from", from);
       let peer = peerMap.current.get(from);
       if (!peer) {
         peer = createPeer(from, stream, false);
         peerMap.current.set(from, peer);
       }
-      try {
-        await peer.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peer.createAnswer();
-        await peer.setLocalDescription(answer);
-        socket.emit("answer", { to: from, answer });
-      } catch (err) {
-        console.error("❌ Error handling offer:", err);
-      }
+      await peer.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      socket.emit("answer", { to: from, answer });
     });
 
-    // Receive answer
     socket.off("answer").on("answer", async ({ from, answer }) => {
       const peer = peerMap.current.get(from);
       if (peer) {
-        try {
-          await peer.setRemoteDescription(new RTCSessionDescription(answer));
-        } catch (err) {
-          console.error("❌ Error setting remote description (answer):", err);
-        }
+        await peer.setRemoteDescription(new RTCSessionDescription(answer));
       }
     });
 
-    // ICE candidates
     socket.off("iceCandidate").on("iceCandidate", async ({ from, candidate }) => {
       const peer = peerMap.current.get(from);
       if (peer && candidate) {
-        try {
-          await peer.addIceCandidate(new RTCIceCandidate(candidate));
-          console.log("📡 Added ICE candidate from", from, candidate);
-        } catch (err) {
-          console.error("❌ Error adding ICE candidate:", err);
-        }
+        await peer.addIceCandidate(new RTCIceCandidate(candidate));
       }
     });
 
-    // User left
     socket.off("userLeft").on("userLeft", ({ userId: remoteId }) => {
-      console.log("👋 User left:", remoteId);
       const peer = peerMap.current.get(remoteId);
       if (peer) peer.close();
       peerMap.current.delete(remoteId);
@@ -102,23 +76,20 @@ export function useMeeting(userId, roomCode) {
     });
 
     socket.emit("joinRoom", { userId, roomCode });
-    console.log("🚪 Joined room:", roomCode);
   }
 
   function createPeer(remoteId, stream, initiator) {
     const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
-    // Add local tracks
+    // Attach current tracks
     stream.getTracks().forEach((track) => peer.addTrack(track, stream));
 
-    // ICE candidates
     peer.onicecandidate = (e) => {
       if (e.candidate) {
         socket.emit("iceCandidate", { to: remoteId, candidate: e.candidate });
       }
     };
 
-    // Remote stream
     peer.ontrack = (e) => {
       const remoteStream = e.streams[0];
       if (remoteStream) {
@@ -130,16 +101,11 @@ export function useMeeting(userId, roomCode) {
       }
     };
 
-    // Initiator creates offer
     if (initiator) {
       (async () => {
-        try {
-          const offer = await peer.createOffer();
-          await peer.setLocalDescription(offer);
-          socket.emit("offer", { to: remoteId, offer });
-        } catch (err) {
-          console.error("❌ Error creating offer:", err);
-        }
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        socket.emit("offer", { to: remoteId, offer });
       })();
     }
 
@@ -147,7 +113,6 @@ export function useMeeting(userId, roomCode) {
   }
 
   function leaveMeeting() {
-    console.log("🚪 Leaving meeting");
     socket.emit("leaveRoom", { userId, roomCode });
     peerMap.current.forEach((peer) => peer.close());
     peerMap.current.clear();
@@ -159,21 +124,99 @@ export function useMeeting(userId, roomCode) {
     hasJoinedRef.current = false;
   }
 
-  function toggleMic() {
-    const track = localStream?.getAudioTracks()[0];
-    if (track) {
-      track.enabled = !track.enabled;
-      setIsMuted(!track.enabled);
-    }
-  }
+  function createBlackTrack({ width = 640, height = 480 } = {}) {
+  const canvas = Object.assign(document.createElement("canvas"), { width, height });
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, width, height);
 
-  function toggleCam() {
-    const track = localStream?.getVideoTracks()[0];
-    if (track) {
-      track.enabled = !track.enabled;
-      setIsVideoEnabled(track.enabled);
+  const stream = canvas.captureStream(1); // 1 fps
+  return stream.getVideoTracks()[0];
+}
+
+
+
+async function toggleMic() {
+  if (!localStream) return;
+
+  const audioTrack = localStream.getAudioTracks()[0];
+
+  if (audioTrack) {
+    // Mic is ON → turn it OFF
+    audioTrack.stop();
+    localStream.removeTrack(audioTrack);
+    setIsMuted(true);
+
+    peerMap.current.forEach((peer) => {
+      const sender = peer.getSenders().find((s) => s.track?.kind === "audio");
+      if (sender) sender.replaceTrack(null);
+    });
+  } else {
+    // Mic is OFF → turn it ON
+    const newStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const newTrack = newStream.getAudioTracks()[0];
+
+    localStream.addTrack(newTrack);
+    setIsMuted(false);
+
+    peerMap.current.forEach((peer) => {
+      const sender = peer.getSenders().find((s) => s.track?.kind === "audio");
+      if (sender) sender.replaceTrack(newTrack);
+      else peer.addTrack(newTrack, localStream);
+    });
+  }
+}
+
+async function toggleCam() {
+  if (!localStream) return;
+
+  const videoTracks = localStream.getVideoTracks();
+  const isCameraOn = videoTracks.length > 0 && isVideoEnabled;
+
+  if (isCameraOn) {
+    // 🔥 Stop and remove all video tracks
+    videoTracks.forEach((track) => {
+      track.stop(); // releases camera hardware
+      localStream.removeTrack(track);
+    });
+
+    setIsVideoEnabled(false);
+
+    // 🕶️ Create and use black stream
+    const blackTrack = createBlackTrack();
+    const blackStream = new MediaStream([blackTrack]);
+    setLocalStream(blackStream);
+
+    // 🔄 Update peers with black track
+    peerMap.current.forEach((peer) => {
+      const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+      if (sender) sender.replaceTrack(blackTrack);
+      else peer.addTrack(blackTrack, blackStream);
+    });
+
+    console.log("📷 Camera OFF — black stream sent, light should be OFF");
+  } else {
+    // 🎥 Get fresh camera stream
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const newTrack = newStream.getVideoTracks()[0];
+
+      setLocalStream(newStream);
+      setIsVideoEnabled(true);
+
+      // 🔄 Update peers with new track
+      peerMap.current.forEach((peer) => {
+        const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+        if (sender) sender.replaceTrack(newTrack);
+        else peer.addTrack(newTrack, newStream);
+      });
+
+      console.log("📷 Camera ON — live stream restored");
+    } catch (err) {
+      console.error("🚫 Failed to access camera:", err);
     }
   }
+}
 
   async function startScreenShare() {
     if (!localStream) return;
@@ -181,25 +224,25 @@ export function useMeeting(userId, roomCode) {
     const screenTrack = screenStream.getVideoTracks()[0];
 
     peerMap.current.forEach((peer) => {
-      const sender = peer.getSenders().find((s) => s.track.kind === "video");
+      const sender = peer.getSenders().find((s) => s.track?.kind === "video");
       if (sender) sender.replaceTrack(screenTrack);
     });
 
-    setLocalStream(screenStream);
     screenTrack.onended = stopScreenShare;
     setIsScreenSharing(true);
   }
 
   async function stopScreenShare() {
-    if (!localStream) return;
+    const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const camTrack = camStream.getVideoTracks()[0];
 
-    const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     peerMap.current.forEach((peer) => {
-      const sender = peer.getSenders().find((s) => s.track.kind === "video");
-      if (sender) sender.replaceTrack(camStream.getVideoTracks()[0]);
+      const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+      if (sender) sender.replaceTrack(camTrack);
     });
 
-    setLocalStream(camStream);
+    // ensure track is added back to localStream
+    localStream.addTrack(camTrack);
     setIsScreenSharing(false);
   }
 

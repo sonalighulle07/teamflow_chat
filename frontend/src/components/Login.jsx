@@ -69,8 +69,8 @@ export default function Login({ onLogin, onSwitch }) {
       );
 
       if (res.ok && data.success) {
-        console.log("after login user : "+JSON.stringify(data.user))
-        console.log("after login token : "+data.token)
+        console.log("after login user : "+JSON.stringify(data.user));
+        console.log("after login token : "+data.token);
 
         sessionStorage.setItem("chatUser", JSON.stringify(data.user));
         sessionStorage.setItem("chatToken", data.token);
