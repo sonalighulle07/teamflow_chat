@@ -7,7 +7,6 @@ export function useMeeting(userId, roomCode) {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-
   const peerMap = useRef(new Map());
   const hasJoinedRef = useRef(false);
 
