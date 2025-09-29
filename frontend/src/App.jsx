@@ -1,5 +1,7 @@
 // src/App.jsx
 import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
 import Login from "./components/Login";
@@ -10,9 +12,8 @@ import CallOverlay from "./components/calls/CallOverlay";
 import CreateMeetingModal from "./components/calls/CreateMeetingModel";
 import { useCall } from "./components/calls/hooks/useCall";
 import { urlBase64ToUint8Array } from "./utils/pushUtils";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import MeetingRoom from "./components/calls/MeetingRoom"; // ✅ Create this component
-
+import MeetingRoom from "./components/calls/MeetingRoom";
+import ForwardModal from "./components/ForwardModal";
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -25,12 +26,15 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeNav, setActiveNav] = useState("Chat");
 
+  const [forwardModalOpen, setForwardModalOpen] = useState(false);
+  const [messageToForward, setMessageToForward] = useState(null);
+
   const activeUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
   const userId = activeUser?.id;
 
   const call = useCall(userId);
 
-  // register service worker for push
+  // register service worker
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").then((reg) => {
@@ -72,10 +76,7 @@ function App() {
       try {
         const reg = await navigator.serviceWorker.ready;
         const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-        if (!vapidKey) {
-          console.error("❌ VAPID key missing");
-          return;
-        }
+        if (!vapidKey) return;
 
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
@@ -95,9 +96,7 @@ function App() {
       }
     }
 
-    if (isAuthenticated && userId) {
-      subscribeUser();
-    }
+    if (isAuthenticated && userId) subscribeUser();
   }, [isAuthenticated, userId]);
 
   const handleAuthSuccess = () => {
@@ -105,126 +104,144 @@ function App() {
     window.location.reload();
   };
 
- return (
-  <Router>
-    <div className="h-screen w-screen flex flex-col">
-      {!isAuthenticated ? (
-        <div className="flex-1 flex items-center justify-center bg-gradient-to-tl from-white to-purple-600">
-          {!showRegister ? (
-            <Login
-              onLogin={handleAuthSuccess}
-              onSwitch={() => setShowRegister(true)}
-            />
-          ) : (
-            <Register
-              onRegister={handleAuthSuccess}
-              onSwitch={() => setShowRegister(false)}
-            />
-          )}
-        </div>
-      ) : (
-        <>
-          <Header
-            activeUser={activeUser}
-            selectedUser={selectedUser}
-            onStartCall={(type) => call.startCall(type, selectedUser)}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-          />
+  const handleOpenForwardModal = (message) => {
+    setMessageToForward(message);
+    setForwardModalOpen(true);
+  };
 
-          <Routes>
-            {/* Main dashboard */}
-            <Route
-              path="/"
-              element={
-                <div className="flex flex-1 overflow-hidden w-full">
-                  <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
-                    <Sidebar
-                      users={users}
-                      selectedUser={selectedUser}
-                      onSelectUser={setSelectedUser}
-                      activeNav={activeNav}
-                      setActiveNav={setActiveNav}
-                    />
-                  </div>
+  const handleForwardComplete = () => {
+    setMessageToForward(null);
+    setForwardModalOpen(false);
+  };
 
-                  <div className="flex-1 flex flex-col overflow-hidden w-full">
-                    {activeNav === "Chat" && (
-                      <ChatWindow
+  return (
+    <Router>
+      <div className="h-screen w-screen flex flex-col">
+        {!isAuthenticated ? (
+          <div className="flex-1 flex items-center justify-center bg-gradient-to-tl from-white to-purple-600">
+            {!showRegister ? (
+              <Login
+                onLogin={handleAuthSuccess}
+                onSwitch={() => setShowRegister(true)}
+              />
+            ) : (
+              <Register
+                onRegister={handleAuthSuccess}
+                onSwitch={() => setShowRegister(false)}
+              />
+            )}
+          </div>
+        ) : (
+          <>
+            <Header
+              activeUser={activeUser}
+              selectedUser={selectedUser}
+              onStartCall={(type) => call.startCall(type, selectedUser)}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+            />
+
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <div className="flex flex-1 overflow-hidden w-full">
+                    <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
+                      <Sidebar
+                        users={users}
                         selectedUser={selectedUser}
-                        messages={messages}
-                        setMessages={setMessages}
-                        currentUserId={userId}
-                        searchQuery={searchQuery}
+                        onSelectUser={setSelectedUser}
+                        activeNav={activeNav}
+                        setActiveNav={setActiveNav}
                       />
-                    )}
-                    {activeNav === "Meet" && (
-                      <div className="flex items-center justify-center h-full">
-                        <CreateMeetingModal userId={userId} />
-                      </div>
-                    )}
-                    {activeNav === "Communities" && (
-                      <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                        👥 Communities tab coming soon!
-                      </div>
-                    )}
-                    {activeNav === "Calendar" && (
-                      <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                        📅 Calendar tab coming soon!
-                      </div>
-                    )}
-                    {activeNav === "Activity" && (
-                      <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                        🔔 Activity tab coming soon!
-                      </div>
-                    )}
+                    </div>
+
+                    <div className="flex-1 flex flex-col overflow-hidden w-full">
+                      {activeNav === "Chat" && (
+                        <ChatWindow
+                          selectedUser={selectedUser}
+                          messages={messages}
+                          setMessages={setMessages}
+                          currentUserId={userId}
+                          searchQuery={searchQuery}
+                          usersList={users}
+                          onForward={handleOpenForwardModal} // ✅ Pass forward function
+                        />
+                      )}
+                      {activeNav === "Meet" && (
+                        <div className="flex items-center justify-center h-full">
+                          <CreateMeetingModal userId={userId} />
+                        </div>
+                      )}
+                      {activeNav === "Communities" && (
+                        <div className="flex items-center justify-center h-full text-gray-500 text-xl">
+                          👥 Communities tab coming soon!
+                        </div>
+                      )}
+                      {activeNav === "Calendar" && (
+                        <div className="flex items-center justify-center h-full text-gray-500 text-xl">
+                          📅 Calendar tab coming soon!
+                        </div>
+                      )}
+                      {activeNav === "Activity" && (
+                        <div className="flex items-center justify-center h-full text-gray-500 text-xl">
+                          🔔 Activity tab coming soon!
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              }
-            />
+                }
+              />
+              <Route
+                path="/meet/:code"
+                element={<MeetingRoom userId={userId} />}
+              />
+            </Routes>
 
-            {/* Meeting room route */}
-            <Route path="/meet/:code" element={<MeetingRoom userId={userId} />} />
-          </Routes>
+            {forwardModalOpen && messageToForward && (
+              <ForwardModal
+                open={forwardModalOpen}
+                onClose={handleForwardComplete}
+                message={messageToForward}
+                users={users}
+                onForward={handleForwardComplete}
+              />
+            )}
 
-          {call.callState.incoming && (
-            <IncomingCallModal
-              visible
-              fromUser={call.callState.caller}
-              callType={call.callState.type}
-              onAccept={call.acceptCall}
-              onReject={call.rejectCall}
-            />
-          )}
+            {call.callState.incoming && (
+              <IncomingCallModal
+                visible
+                fromUser={call.callState.caller}
+                callType={call.callState.type}
+                onAccept={call.acceptCall}
+                onReject={call.rejectCall}
+              />
+            )}
 
-          {/* Active call overlay */}
-          {call.callState.type && (
-            <CallOverlay
-              callType={call.callState.type}
-              localStream={call.localStream}
-              remoteStreams={call.remoteStreams}
-              onEndCall={call.endCall}
-              onToggleMic={call.toggleMic}
-              onToggleCam={call.toggleCam}
-              onStartScreenShare={call.startScreenShare}
-              onStopScreenShare={call.stopScreenShare}
-              isScreenSharing={call.isScreenSharing}
-              isMuted={call.isMuted}
-              isVideoEnabled={call.isVideoEnabled}
-              onMinimize={() => call.setIsMaximized(false)}
-              onMaximize={() => call.setIsMaximized(true)}
-              onClose={call.endCall}
-              isMaximized={call.isMaximized}
-            />
-          )}
-        </>
-      )}
-    </div>
-  </Router>
-);
-
-
+            {call.callState.type && (
+              <CallOverlay
+                callType={call.callState.type}
+                localStream={call.localStream}
+                remoteStreams={call.remoteStreams}
+                onEndCall={call.endCall}
+                onToggleMic={call.toggleMic}
+                onToggleCam={call.toggleCam}
+                onStartScreenShare={call.startScreenShare}
+                onStopScreenShare={call.stopScreenShare}
+                isScreenSharing={call.isScreenSharing}
+                isMuted={call.isMuted}
+                isVideoEnabled={call.isVideoEnabled}
+                onMinimize={() => call.setIsMaximized(false)}
+                onMaximize={() => call.setIsMaximized(true)}
+                onClose={call.endCall}
+                isMaximized={call.isMaximized}
+              />
+            )}
+          </>
+        )}
+      </div>
+    </Router>
+  );
 }
 
 export default App;
-

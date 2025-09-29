@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { FaSmile, FaEllipsisV } from "react-icons/fa";
-import EmojiPicker from "emoji-picker-react"; // ✅ emoji-picker-react वापरलं
+import EmojiPicker from "emoji-picker-react";
 
 export default function Message({
   message,
@@ -10,23 +10,63 @@ export default function Message({
   onDelete,
   onEdit,
   onForward,
-  onReply,
+  socket,
 }) {
   const BASE_URL = "http://localhost:3000";
+
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [previewImage, setPreviewImage] = useState(null);
-  const [previewVideo, setPreviewVideo] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const reactedEmojis = Object.keys(message.reactions || {});
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(message.text || "");
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const audioRef = useRef(null);
+  const hoverTimeoutRef = useRef(null);
+
+  // Hover logic
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    setHovered(true);
+  };
+  const handleMouseLeave = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHovered(false);
+      setMenuOpen(false);
+      setShowEmojiPicker(false);
+    }, 100);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
+
+  // Socket listener for reactions
+  useEffect(() => {
+    if (!socket) return;
+    const handleReactionEvent = ({ messageId, reactions }) => {
+      if (message.id === messageId) {
+        // Only store emoji keys
+        setReactedEmojis(Object.keys(reactions));
+      }
+    };
+    socket.on("reaction", handleReactionEvent);
+    return () => socket.off("reaction", handleReactionEvent);
+  }, [socket, message.id]);
 
   const bubbleClasses = isOwn
     ? "bg-purple-600 text-white self-end rounded-tr-none"
     : "bg-gray-200 text-gray-900 self-start rounded-tl-none";
 
   const getFileUrl = (url) =>
-    url.startsWith("http") ? url : `${BASE_URL}${url}`;
+    url?.startsWith("http") ? url : `${BASE_URL}${url}`;
 
   const highlightText = (text) => {
     if (!searchQuery) return text;
@@ -41,79 +81,88 @@ export default function Message({
       )
     );
   };
+
   const handleDoubleClick = () => {
     setIsFullscreen(true);
     setZoom(1);
   };
-  const handleReaction = (emoji) => {
-    if (onReact) onReact(message.id, emoji);
-  };
-
-  const handleZoomIn = () => setZoom((z) => z + 0.2);
+  const handleZoomIn = () => setZoom((z) => Math.min(3, z + 0.2));
   const handleZoomOut = () => setZoom((z) => Math.max(1, z - 0.2));
   const handleCloseFullscreen = () => {
     setIsFullscreen(false);
     setZoom(1);
   };
 
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) audioRef.current.pause();
+    else audioRef.current.play();
+    setIsPlaying(!isPlaying);
+  };
+  const toggleMute = () => {
+    if (!audioRef.current) return;
+    const newMuted = !isMuted;
+    audioRef.current.muted = newMuted;
+    setIsMuted(newMuted);
+  };
+
   const renderContent = () => {
+    if (isEditing) {
+      return (
+        <div className="bg-white p-4 rounded-xl shadow-md flex flex-col gap-3">
+          <input
+            type="text"
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            className="border border-gray-300 text-black px-3 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            autoFocus
+          />
+          <div className="flex gap-3 justify-end">
+            <button
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg shadow-sm hover:bg-purple-700 transition-colors"
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/chats/${message.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: editText }),
+                  });
+                  if (res.ok) {
+                    const updated = await res.json();
+                    setIsEditing(false);
+                    onEdit?.(updated);
+                  } else {
+                    console.error("Edit failed on server");
+                  }
+                } catch (err) {
+                  console.error("Edit failed:", err);
+                }
+              }}
+            >
+              Save
+            </button>
+            <button
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow-sm hover:bg-gray-200 transition-colors"
+              onClick={() => setIsEditing(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     switch (message.type) {
       case "image":
         if (!message.file_url) return null;
-        const imgProgress = message.uploadProgress || 100;
         return (
           <div className="relative inline-block">
-            {/* Image thumbnail */}
             <img
               src={getFileUrl(message.file_url)}
-              alt="Sent image"
+              alt="Sent"
               className="max-w-xs rounded-lg shadow-md cursor-pointer hover:scale-105 transition-transform"
-              onClick={() => {
-                setPreviewImage(getFileUrl(message.file_url));
-                setMenuOpen(false);
-              }}
-              onDoubleClick={handleDoubleClick} // ✅ Correct
+              onDoubleClick={handleDoubleClick}
             />
-
-            {/* 3 dots menu */}
-            <div className="absolute top-2 right-2">
-              <button
-                className="p-1 rounded-full text-black hover:bg-gray-100 bg-white"
-                onClick={() => {
-                  setPreviewImage(getFileUrl(message.file_url));
-                  setMenuOpen(false);
-                  onDoubleClick = { handleDoubleClick };
-                }}
-              >
-                ⋮
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 mt-2 w-32 bg-white shadow-lg rounded-lg z-10 border border-gray-100">
-                  <a
-                    href={getFileUrl(message.file_url)}
-                    download={
-                      message.file_name || message.file_url.split("/").pop()
-                    }
-                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-purple-50"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Download
-                  </a>
-                </div>
-              )}
-            </div>
-
-            {/* Progress bar */}
-            {imgProgress < 100 && (
-              <div className="w-full h-1 bg-gray-200 rounded mt-1">
-                <div
-                  className="h-1 bg-purple-600 rounded"
-                  style={{ width: `${imgProgress}%` }}
-                ></div>
-              </div>
-            )}
-
-            {/* Fullscreen */}
             {isFullscreen && (
               <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
                 <img
@@ -122,7 +171,6 @@ export default function Message({
                   className="max-h-full max-w-full rounded-lg shadow-lg transition-transform"
                   style={{ transform: `scale(${zoom})` }}
                 />
-
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 bg-black bg-opacity-50 px-4 py-2 rounded-full">
                   <button
                     className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
@@ -150,137 +198,74 @@ export default function Message({
 
       case "video":
         if (!message.file_url) return null;
-        const videoProgress = message.uploadProgress || 100;
         return (
-          <div className="relative inline-block max-w-xs rounded-lg shadow-lg overflow-hidden bg-black group">
-            <video
-              src={getFileUrl(message.file_url)}
-              className="w-full h-auto rounded-lg cursor-pointer"
-              controls
-              muted={true}
-              onClick={() => setPreviewVideo(getFileUrl(message.file_url))}
-            />
-
-            {/* 3 dots menu */}
-            <div className="absolute top-2 right-2">
-              {menuOpen && (
-                <div className="absolute right-0 mt-1 w-32 bg-white shadow-lg rounded-lg z-10 border border-gray-100">
-                  <a
-                    href={getFileUrl(message.file_url)}
-                    download={
-                      message.file_name || message.file_url.split("/").pop()
-                    }
-                    className="block px-3 py-1.5 text-sm text-gray-700 hover:bg-purple-50"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Download
-                  </a>
-                </div>
-              )}
-            </div>
-
-            {/* Progress bar */}
-            {videoProgress < 100 && (
-              <div className="w-full h-1 bg-gray-200 rounded mt-1">
-                <div
-                  className="h-1 bg-purple-600 rounded"
-                  style={{ width: `${videoProgress}%` }}
-                ></div>
-              </div>
-            )}
-          </div>
+          <video
+            src={getFileUrl(message.file_url)}
+            className="max-w-xs rounded-lg shadow-md cursor-pointer"
+            controls
+            muted
+          />
         );
 
       case "audio":
         if (!message.file_url) return null;
-        const audioProgress = message.uploadProgress || 100;
         return (
-          <div className="flex items-center gap-3 p-2 bg-gray-100 rounded-xl shadow-sm max-w-xs w-full">
+          <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-xl shadow-sm max-w-md w-full">
             <span className="text-2xl">🎵</span>
             <audio
-              controls
-              className="w-full h-10 rounded-md"
+              ref={audioRef}
               src={getFileUrl(message.file_url)}
+              className="w-full"
+              onEnded={() => setIsPlaying(false)}
+            />
+            <button
+              onClick={togglePlay}
+              className="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700"
             >
-              <source
-                src={getFileUrl(message.file_url)}
-                type={message.file_type || "audio/mpeg"}
-              />
-              Your browser does not support audio.
-            </audio>
-
-            {/* 3 dots menu */}
-            <div className="relative group">
-              <button className="p-1 rounded-full text-gray-600 hover:bg-gray-200 bg-white/80 shadow-sm">
-                ⋮
-              </button>
-              <div className="absolute right-0 mt-1 w-32 bg-white shadow-lg rounded-lg opacity-0 group-hover:opacity-100 transition pointer-events-none group-hover:pointer-events-auto z-10 border border-gray-100">
-                <a
-                  href={getFileUrl(message.file_url)}
-                  download={
-                    message.file_name || message.file_url.split("/").pop()
-                  }
-                  className="block px-3 py-1.5 text-sm text-gray-700 hover:bg-purple-50"
-                >
-                  Download
-                </a>
-              </div>
-            </div>
-
-            {/* Progress bar */}
-            {audioProgress < 100 && (
-              <div className="absolute bottom-1 left-12 right-2 h-1 bg-gray-200 rounded">
-                <div
-                  className="h-1 bg-purple-600 rounded"
-                  style={{ width: `${audioProgress}%` }}
-                ></div>
-              </div>
-            )}
+              {isPlaying ? "Pause" : "Play"}
+            </button>
+            <button
+              onClick={toggleMute}
+              className="px-2 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
+            >
+              {isMuted ? "Unmute" : "Mute"}
+            </button>
           </div>
         );
 
       case "file":
       case "application":
         if (!message.file_url) return null;
-        const fileName = message.file_name || message.file_url.split("/").pop();
-        const fileExt = fileName.split(".").pop().toLowerCase();
-
+        const fileName =
+          message.file_name || message.file_url?.split("/").pop();
+        const fileExt = fileName?.split(".").pop()?.toLowerCase();
         const getFileIcon = () => {
           if (fileExt === "pdf") return "📕";
           if (["doc", "docx"].includes(fileExt)) return "📘";
           if (["xls", "xlsx"].includes(fileExt)) return "📊";
           return "📄";
         };
-
         return (
-          <div className="flex items-center justify-between p-1 rounded-xl shadow-sm bg-white border border-gray-200 w-55">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <span className="text-2xl">{getFileIcon()}</span>
-              <span className="truncate text-sm font-medium text-gray-800">
-                {fileName}
-              </span>
-            </div>
-
-            <div className="relative group">
-              <button className="p-1 rounded-full text-black  hover:bg-gray-100">
-                ⋮
-              </button>
-              <div className="absolute right-0 mt-1 w-32 bg-white shadow-lg rounded-lg opacity-0 group-hover:opacity-100 transition pointer-events-none group-hover:pointer-events-auto z-10 border border-gray-100">
-                <a
-                  href={getFileUrl(message.file_url)}
-                  download={fileName}
-                  className="block px-3 py-1.5 text-sm text-gray-700 hover:bg-purple-50"
-                >
-                  Download
-                </a>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 p-2 bg-white border rounded-xl shadow-sm max-w-xs">
+            <span className="text-2xl">{getFileIcon()}</span>
+            <span className="truncate">{fileName}</span>
           </div>
         );
 
       default:
         return (
-          <p className="break-words">{highlightText(message.text || "")}</p>
+          <div>
+            {message.forwarded_from && (
+              <span className="text-xs italic text-gray-900">Forwarded</span>
+            )}
+
+            <p className="break-words">
+              {highlightText(message.text || "")}
+              {message.edited === 1 && (
+                <span className="text-xs text-gray-900 ml-1">(edited)</span>
+              )}
+            </p>
+          </div>
         );
     }
   };
@@ -290,36 +275,32 @@ export default function Message({
       className={`flex flex-col mb-3 max-w-[75%] relative ${
         isOwn ? "items-end ml-auto" : "items-start mr-auto"
       }`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => {
-        setHovered(false);
-        setMenuOpen(false);
-        setShowEmojiPicker(false);
-      }}
     >
       <div
         className={`px-4 py-2 rounded-2xl shadow-md ${bubbleClasses} relative`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {renderContent()}
-        {/* Hover action bar */}
+
         {hovered && (
           <div
-            className="absolute -top-9 right-2 flex items-center gap-1 bg-white rounded-full shadow-md px-2 py-1 z-20"
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
+            className={`absolute -top-9 ${
+              isOwn ? "right-2" : "left-2"
+            } flex items-center gap-1 bg-white rounded-full shadow-md px-2 py-1 z-20`}
           >
-            {/* Quick reactions */}
+            {/* Quick emojis */}
             {["👍", "❤️", "😆", "😮", "😂"].map((emoji) => (
               <button
                 key={emoji}
                 className="px-1 hover:bg-gray-100 rounded-full"
-                onClick={() => handleReaction(emoji)}
+                onClick={() => onReact?.(message.id, emoji)}
               >
                 {emoji}
               </button>
             ))}
 
-            {/* Emoji picker button */}
+            {/* Emoji picker */}
             <div className="relative">
               <button
                 className="p-1 text-gray-600 hover:bg-gray-100 rounded-full"
@@ -330,46 +311,58 @@ export default function Message({
               {showEmojiPicker && (
                 <div className="absolute top-8 right-0 z-30">
                   <EmojiPicker
-                    onEmojiClick={(emoji) => handleReaction(emoji.emoji)}
+                    onEmojiClick={(emojiObject) =>
+                      onReact?.(message.id, emojiObject.emoji)
+                    }
                     theme="light"
                   />
                 </div>
               )}
             </div>
 
-            {/* 3-dot menu */}
+            {/* Options menu */}
             <div className="relative">
               <button
                 className="p-1 text-gray-600 hover:bg-gray-100 rounded-full"
-                onClick={() => setMenuOpen(!menuOpen)}
+                onClick={() => setMenuOpen((prev) => !prev)}
               >
                 <FaEllipsisV />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-8 w-40 bg-white shadow-lg rounded-lg z-30 border border-gray-200 text-gray-600">
+                <div className="absolute right-0 top-8 w-48 bg-white shadow-lg rounded-lg z-30 border border-gray-200 text-gray-700">
+                  {/* Forwarded label (if message is forwarded) */}
+                  {message.forwarded_from && (
+                    <div className="px-3 py-1 text-xs text-gray-400 border-b border-gray-200">
+                      Forwarded
+                    </div>
+                  )}
+
+                  {/* Edit */}
+                  {isOwn && (
+                    <button
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-purple-100 rounded transition-colors"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      ✏️ <span>Edit</span>
+                    </button>
+                  )}
+
+                  {/* Delete */}
+                  {isOwn && (
+                    <button
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-red-100 text-red-600 rounded transition-colors"
+                      onClick={() => onDelete?.(message.id)}
+                    >
+                      🗑️ <span>Delete</span>
+                    </button>
+                  )}
+
+                  {/* Forward */}
                   <button
-                    className="block w-full text-left px-3 py-2 hover:bg-purple-50"
-                    onClick={() => onReply && onReply(message.id)}
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-blue-100 rounded transition-colors"
+                    onClick={() => onForward?.(message)}
                   >
-                    Reply
-                  </button>
-                  <button
-                    className="block w-full text-left px-3 py-2 hover:bg-purple-50"
-                    onClick={() => onEdit && onEdit(message.id)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="block w-full text-left px-3 py-2 hover:bg-purple-50"
-                    onClick={() => onDelete && onDelete(message.id)}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    className="block w-full text-left px-3 py-2 hover:bg-purple-50"
-                    onClick={() => onForward && onForward(message.id)}
-                  >
-                    Forward
+                    🔄 <span>Forward</span>
                   </button>
                 </div>
               )}
@@ -377,9 +370,12 @@ export default function Message({
           </div>
         )}
       </div>
-
       {/* Timestamp */}
-      <span className="text-xs text-gray-400 mt-1 self-end">
+      <span
+        className={`text-xs text-gray-400 mt-1 ${
+          isOwn ? "self-end" : "self-start"
+        }`}
+      >
         {new Date(message.created_at || message.timestamp).toLocaleTimeString(
           [],
           { hour: "2-digit", minute: "2-digit" }

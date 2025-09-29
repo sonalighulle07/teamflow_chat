@@ -17,21 +17,77 @@ export default function Sidebar({
 }) {
   const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [recentChats, setRecentChats] = useState([]);
 
+  // Load recentChats from localStorage on mount
+  useEffect(() => {
+    const storedChats = localStorage.getItem("recentChats");
+    if (storedChats) setRecentChats(JSON.parse(storedChats));
+  }, []);
+
+  // Save recentChats to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("recentChats", JSON.stringify(recentChats));
+  }, [recentChats]);
+
+  // Fetch users from API and merge with recentChats
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const res = await fetch("http://localhost:3000/api/users");
         const data = await res.json();
-        setUsers(data);
+
+        setUsers((prevUsers) => {
+          // Merge: keep recentChats order first, append remaining users
+          const merged = [
+            ...recentChats,
+            ...data.filter((u) => !recentChats.find((r) => r.id === u.id)),
+          ];
+          return merged;
+        });
       } catch (err) {
         console.error("Failed to fetch users:", err);
       }
     };
+
     fetchUsers();
     const interval = setInterval(fetchUsers, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [recentChats]);
+
+  const handleSelectUser = (user) => {
+    // Update recentChats
+    setRecentChats((prev) => {
+      const filtered = prev.filter((u) => u.id !== user.id);
+      return [user, ...filtered];
+    });
+    onSelectUser(user);
+  };
+
+  // Merge users for display: selected user first, then recentChats, then others
+  const mergedUsers = users
+    .map((user) => ({
+      ...user,
+      isSelected: selectedUser?.id === user.id,
+    }))
+    .sort((a, b) => {
+      if (selectedUser?.id === a.id) return -1;
+      if (selectedUser?.id === b.id) return 1;
+
+      const indexA = recentChats.findIndex((u) => u.id === a.id);
+      const indexB = recentChats.findIndex((u) => u.id === b.id);
+
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+
+      return 0;
+    });
+
+  // Filter users by search
+  const filteredUsers = mergedUsers.filter((user) =>
+    user.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const navItems = [
     { icon: <FaCommentDots />, label: "Chat" },
@@ -41,13 +97,9 @@ export default function Sidebar({
     { icon: <FaBell />, label: "Activity" },
   ];
 
-  const filteredUsers = users.filter((user) =>
-    user.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
     <div className="flex h-full w-full overflow-hidden">
-      {/* Fixed Sidebar Navigation */}
+      {/* Sidebar Navigation */}
       <div className="flex flex-col justify-between w-20 min-w-[5rem] bg-slate-200 shadow-md px-4 py-6 flex-shrink-0">
         <div className="flex flex-col items-center gap-6">
           <img
@@ -90,7 +142,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Right Panel: User List (only for Chat tab) */}
+      {/* Right Panel: Chat Users */}
       {activeNav === "Chat" && (
         <div className="flex-1 bg-gray-100 border-l border-gray-300 flex flex-col overflow-hidden">
           {/* Search Input */}
@@ -112,7 +164,7 @@ export default function Sidebar({
             <UserList
               users={filteredUsers}
               selectedUser={selectedUser}
-              onSelectUser={onSelectUser}
+              onSelectUser={handleSelectUser}
               searchQuery={searchQuery}
             />
           </div>

@@ -3,6 +3,7 @@ import Message from "./Message";
 import { io } from "socket.io-client";
 import Picker from "emoji-picker-react";
 import { PaperClipIcon } from "@heroicons/react/24/outline";
+import ForwardModal from "./ForwardModal";
 
 export default function ChatWindow({
   selectedUser,
@@ -10,15 +11,128 @@ export default function ChatWindow({
   setMessages,
   currentUserId,
   searchQuery,
+  usersList,
 }) {
   const [text, setText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [forwardMsg, setForwardMsg] = useState(null);
 
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
-  const messageRefs = useRef({}); // for scrolling to searched message
+  const messageRefs = useRef({});
+
+  // Fetch messages from server
+  const fetchMessages = async () => {
+    if (!selectedUser) return;
+    try {
+      const res = await fetch(`/api/chats/${currentUserId}/${selectedUser.id}`);
+      const data = await res.json();
+      setMessages(data);
+    } catch (err) {
+      console.error("Failed to fetch messages:", err);
+    }
+  };
+  const handleReact = async (messageId, emoji) => {
+    try {
+      const res = await fetch(`/api/chats/${messageId}/react`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emoji }),
+      });
+      const data = await res.json();
+
+      // Update message in state
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, reactions: data.reactions } : msg
+        )
+      );
+
+      // Optionally emit via socket
+      socketRef.current?.emit("reaction", {
+        messageId,
+        reactions: data.reactions,
+      });
+    } catch (err) {
+      console.error("Reaction error:", err);
+    }
+  };
+
+  // Delete message
+  const BASE_URL = "http://localhost:3000"; // backend server
+  const handleDelete = async (messageId) => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/chats/${messageId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        // Remove message from state
+        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      } else {
+        console.error("Delete failed on server");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
+  };
+
+  // Edit message
+  const handleEdit = async (updatedMsg) => {
+    try {
+      const res = await fetch(`/api/chats/${updatedMsg.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: updatedMsg.text }),
+      });
+
+      if (res.ok) {
+        const updated = await res.json(); // updated message with edited = 1
+        setMessages((prev) =>
+          prev.map((m) => (m.id === updated.id ? updated : m))
+        );
+      }
+    } catch (err) {
+      console.error("Edit failed:", err);
+    }
+  };
+
+  const handleForward = async (messageId, toUserIds) => {
+    if (!messageId || !toUserIds?.length) return;
+
+    try {
+      const currentUser = JSON.parse(sessionStorage.getItem("chatUser"));
+      const senderId = currentUser?.id;
+      if (!senderId) return console.error("No senderId found");
+
+      const res = await fetch(`${BASE_URL}/api/chats/${messageId}/forward`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toUserIds, senderId }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        console.log("Forwarded successfully to recipients");
+        alert("Message forwarded successfully! ✅"); // ✅ Added alert
+        // ❌ Do NOT update sender's chat state
+      } else {
+        console.error("Forward failed", data);
+        alert("Forward failed! ❌");
+      }
+    } catch (err) {
+      console.error("Forward failed", err);
+      alert("Forward failed due to server error! ");
+    }
+  };
+
+  // Fetch messages when user changes
+  useEffect(() => {
+    fetchMessages();
+  }, [selectedUser]);
 
   // Socket setup
   useEffect(() => {
@@ -27,6 +141,7 @@ export default function ChatWindow({
     socketRef.current.emit("register", { userId: currentUserId });
 
     socketRef.current.on("privateMessage", (msg) => {
+      // Check if message belongs to this conversation
       if (
         selectedUser &&
         (msg.sender_id === selectedUser.id ||
@@ -34,17 +149,22 @@ export default function ChatWindow({
       ) {
         setMessages((prev) => [...prev, msg]);
       }
+      // Optional: handle messages for other users for notifications/unread count
     });
 
     return () => socketRef.current.disconnect();
   }, [currentUserId, selectedUser, setMessages]);
 
-  // Scroll to bottom on new messages
+  useEffect(() => {
+    fetchMessages();
+  }, [selectedUser]);
+
+  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Scroll to first message matching searchQuery
+  // Scroll to search result
   useEffect(() => {
     if (!searchQuery) return;
     const lowerQuery = searchQuery.toLowerCase();
@@ -60,7 +180,7 @@ export default function ChatWindow({
     }
   }, [searchQuery, messages]);
 
-  // File selection & preview
+  // File selection
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -81,7 +201,7 @@ export default function ChatWindow({
     setFilePreview(null);
   };
 
-  // Emoji click
+  // Emoji
   const onEmojiClick = (emojiObject) => {
     setText((prev) => prev + emojiObject.emoji);
   };
@@ -107,11 +227,11 @@ export default function ChatWindow({
         body: formData,
       });
       const newMessage = await res.json();
-      setMessages((prev) => [...prev, newMessage]);
       socketRef.current.emit("privateMessage", newMessage);
       setText("");
       removeFile();
       setShowEmoji(false);
+      fetchMessages(); // refresh chat after sending
     } catch (err) {
       console.error("Failed to send message:", err);
     }
@@ -126,20 +246,40 @@ export default function ChatWindow({
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      {/* Messages */}
+      {/* Chat messages */}
       <div className="flex-1 p-4 bg-gray-50 overflow-y-auto">
         {selectedUser ? (
           messages.length > 0 ? (
             messages.map((msg, index) => {
               const key = msg.id || index;
+              const prevMsg = messages[index - 1];
+              const msgDate = new Date(
+                msg.created_at || msg.timestamp
+              ).toDateString();
+              const prevDate = prevMsg
+                ? new Date(
+                    prevMsg.created_at || prevMsg.timestamp
+                  ).toDateString()
+                : null;
+              const showDateSeparator = msgDate !== prevDate;
               messageRefs.current[key] =
                 messageRefs.current[key] || React.createRef();
+
               return (
                 <div key={key} ref={messageRefs.current[key]}>
+                  {showDateSeparator && (
+                    <div className="flex justify-center my-3">
+                      <span className="text-gray-500 text-xs">{msgDate}</span>
+                    </div>
+                  )}
                   <Message
+                    key={msg.id}
                     message={msg}
                     isOwn={msg.sender_id === currentUserId}
-                    searchQuery={searchQuery}
+                    onDelete={handleDelete}
+                    onEdit={handleEdit}
+                    onReact={handleReact}
+                    onForward={(msg) => setForwardMsg(msg)} // ✅ open modal
                   />
                 </div>
               );
@@ -216,7 +356,7 @@ export default function ChatWindow({
             className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
 
-          {/* Emoji button */}
+          {/* Emoji */}
           <button
             type="button"
             onClick={() => setShowEmoji((prev) => !prev)}
@@ -239,7 +379,6 @@ export default function ChatWindow({
             </svg>
           </button>
 
-          {/* Emoji picker */}
           {showEmoji && (
             <div className="absolute bottom-14 right-12 z-50">
               <Picker onEmojiClick={onEmojiClick} />
@@ -256,7 +395,7 @@ export default function ChatWindow({
             />
           </label>
 
-          {/* Send button */}
+          {/* Send */}
           <button
             onClick={handleSend}
             disabled={!selectedUser}
@@ -266,6 +405,17 @@ export default function ChatWindow({
           </button>
         </div>
       </div>
+
+      {/* Forward Modal */}
+      {forwardMsg && (
+        <ForwardModal
+          open={!!forwardMsg}
+          message={forwardMsg}
+          users={usersList.filter((u) => u.id !== currentUserId)}
+          onClose={() => setForwardMsg(null)}
+          onForward={handleForward} // pass correct handler
+        />
+      )}
     </div>
   );
 }
