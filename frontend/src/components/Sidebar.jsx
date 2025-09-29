@@ -8,7 +8,7 @@ import {
   FaBell,
   FaSearch,
 } from "react-icons/fa";
-
+ 
 export default function Sidebar({
   selectedUser,
   onSelectUser,
@@ -36,7 +36,6 @@ export default function Sidebar({
       try {
         const res = await fetch("http://localhost:3000/api/users");
         const data = await res.json();
-
         setUsers((prevUsers) => {
           // Merge: keep recentChats order first, append remaining users
           const merged = [
@@ -54,7 +53,6 @@ export default function Sidebar({
     const interval = setInterval(fetchUsers, 5000);
     return () => clearInterval(interval);
   }, [recentChats]);
-
   const handleSelectUser = (user) => {
     // Update recentChats
     setRecentChats((prev) => {
@@ -83,6 +81,7 @@ export default function Sidebar({
 
       return 0;
     });
+
 
   // Filter users by search
   const filteredUsers = mergedUsers.filter((user) =>
@@ -158,7 +157,7 @@ export default function Sidebar({
               />
             </div>
           </div>
-
+ 
           {/* Scrollable User List */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <UserList

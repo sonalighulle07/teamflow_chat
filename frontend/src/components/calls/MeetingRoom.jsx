@@ -1,71 +1,116 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getMeeting } from "../../utils/meetingUtils";
-import { useCall } from "./hooks/useCall";
-import CallOverlay from "./CallOverlay";
+import { useMeeting } from "./hooks/useMeeting";
+import PeerTile from "./PeerTile";
+import MeetingControls from "./MeetingControls";
 
 export default function MeetingRoom({ userId }) {
   const { code } = useParams();
-  const [meeting, setMeeting] = useState(null);
-  const call = useCall(userId);
+  const {
+    peers,
+    localStream,
+    joinMeeting,
+    leaveMeeting,
+    toggleMic,
+    toggleCam,
+    startScreenShare,
+    stopScreenShare,
+    isMuted,
+    isVideoEnabled,
+    isScreenSharing,
+  } = useMeeting(userId, code);
+
+  const [pinnedId, setPinnedId] = useState(null);
+
+  // Auto-pin local if sharing
+  useEffect(() => {
+    if (isScreenSharing) setPinnedId("local");
+  }, [isScreenSharing]);
 
   useEffect(() => {
-    let isMounted = true;
+    joinMeeting();
+    return leaveMeeting;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    async function init() {
-      const data = await getMeeting(code);
-      if (!isMounted) return;
+  // Combine streams
+  const allStreams = [
+    ...(localStream ? [["local", localStream]] : []),
+    ...Array.from(peers.entries()),
+  ];
 
-      setMeeting(data);
-      call.joinMeetingRoom(code);
-
-      // Wait for local media before starting call
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: data.type === "video",
-      });
-
-      if (!isMounted) return;
-      call.startCall(data.type, { id: "meeting", name: data.title });
-    }
-
-    init();
-
-    return () => {
-      isMounted = false;
-      call.cleanup();
-    };
-  }, [code]);
-
-  if (!meeting) return <div className="p-4 text-white">Loading meeting...</div>;
+  const handlePin = (id) => {
+    setPinnedId((prev) => (prev === id ? null : id));
+  };
 
   return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-900 text-white">
-      <h2 className="text-xl font-semibold mb-2">{meeting.title}</h2>
-      <p className="text-sm text-gray-300 mb-4">
-        Scheduled at {new Date(meeting.scheduled_at).toLocaleString()}
-      </p>
+    <div className="h-screen w-screen bg-black text-white flex flex-col">
+      <div className="text-xs text-gray-500 text-center py-1">Room: {code}</div>
 
-      {call.callState.type && (
-        <CallOverlay
-          callType={call.callState.type}
-          localStream={call.localStream}
-          remoteStreams={call.remoteStreams}
-          onEndCall={call.endCall}
-          onToggleMic={call.toggleMic}
-          onToggleCam={call.toggleCam}
-          onStartScreenShare={call.startScreenShare}
-          onStopScreenShare={call.stopScreenShare}
-          isScreenSharing={call.isScreenSharing}
-          isMuted={call.isMuted}
-          isVideoEnabled={call.isVideoEnabled}
-          onMinimize={() => call.setIsMaximized(false)}
-          onMaximize={() => call.setIsMaximized(true)}
-          onClose={call.endCall}
-          isMaximized={call.isMaximized}
-        />
-      )}
+      <div className="flex-1 flex flex-col p-2 gap-2">
+        {pinnedId ? (
+          <>
+            {/* Pinned stream */}
+            <div className="flex-1 relative" onClick={() => handlePin(pinnedId)}>
+              {allStreams
+                .filter(([id]) => id === pinnedId)
+                .map(([id, stream]) => (
+                  <PeerTile
+                    key={id}
+                    stream={stream}
+                    label={id === "local" ? "You" : id}
+                    isLocal={id === "local"}
+                  />
+                ))}
+            </div>
+
+            {/* Other streams in a horizontal row */}
+            {allStreams.filter(([id]) => id !== pinnedId).length > 0 && (
+              <div className="flex gap-2 mt-2 h-32 overflow-x-auto">
+                {allStreams
+                  .filter(([id]) => id !== pinnedId)
+                  .map(([id, stream]) => (
+                    <div
+                      key={id}
+                      className="flex-none w-32 cursor-pointer"
+                      onClick={() => handlePin(id)}
+                    >
+                      <PeerTile
+                        stream={stream}
+                        label={id === "local" ? "You" : id}
+                        isLocal={id === "local"}
+                      />
+                    </div>
+                  ))}
+              </div>
+            )}
+          </>
+        ) : (
+          // Default grid layout
+          <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-2">
+            {allStreams.map(([id, stream]) => (
+              <div key={id} className="cursor-pointer" onClick={() => handlePin(id)}>
+                <PeerTile
+                  stream={stream}
+                  label={id === "local" ? "You" : id}
+                  isLocal={id === "local"}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <MeetingControls
+        onLeave={leaveMeeting}
+        onToggleMic={toggleMic}
+        onToggleCam={toggleCam}
+        onStartScreenShare={startScreenShare}
+        onStopScreenShare={stopScreenShare}
+        isMuted={isMuted}
+        isVideoEnabled={isVideoEnabled}
+        isScreenSharing={isScreenSharing}
+      />
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 export default function CallOverlay({
   callType,
@@ -17,6 +17,23 @@ export default function CallOverlay({
   onClose,
   isMaximized,
 }) {
+  const localVideoRef = useRef(null);
+  const remoteVideoRefs = useRef([]);
+
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  useEffect(() => {
+    remoteVideoRefs.current.forEach((ref, idx) => {
+      if (ref && remoteStreams[idx] && ref.srcObject !== remoteStreams[idx]) {
+        ref.srcObject = remoteStreams[idx];
+      }
+    });
+  }, [remoteStreams]);
+
   return (
     <div
       style={{
@@ -81,40 +98,44 @@ export default function CallOverlay({
           background: "#000",
         }}
       >
-        {remoteStreams.map((stream, idx) => (
-          <div key={idx} style={{ position: "relative" }}>
-            <video
-              autoPlay
-              playsInline
-              ref={(el) => {
-                if (el && stream && el.srcObject !== stream) {
-                  el.srcObject = stream;
-                }
-              }}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                borderRadius: "6px",
-              }}
-            />
-            {/* Optional: Participant label */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: "4px",
-                left: "4px",
-                background: "rgba(0,0,0,0.6)",
-                color: "#fff",
-                padding: "2px 6px",
-                borderRadius: "4px",
-                fontSize: "12px",
-              }}
-            >
-              Participant {idx + 1}
-            </div>
+        {remoteStreams.length > 0 ? (
+          remoteStreams.map((stream, idx) => {
+            remoteVideoRefs.current = remoteVideoRefs.current.slice(0, remoteStreams.length);
+            return (
+              <div key={idx} style={{ position: "relative" }}>
+                <video
+                  autoPlay
+                  playsInline
+                  ref={(el) => (remoteVideoRefs.current[idx] = el)}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    borderRadius: "6px",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "4px",
+                    left: "4px",
+                    background: "rgba(0,0,0,0.6)",
+                    color: "#fff",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                  }}
+                >
+                  Participant {idx + 1}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div style={{ color: "#aaa", textAlign: "center", padding: "20px" }}>
+            Waiting for participant to join…
           </div>
-        ))}
+        )}
       </div>
 
       {/* Local Video (video calls only) */}
@@ -123,11 +144,7 @@ export default function CallOverlay({
           autoPlay
           playsInline
           muted
-          ref={(el) => {
-            if (el && localStream && el.srcObject !== localStream) {
-              el.srcObject = localStream;
-            }
-          }}
+          ref={localVideoRef}
           style={{
             width: "100px",
             height: "75px",
@@ -190,4 +207,5 @@ const controlButtonStyle = {
   color: "white",
   cursor: "pointer",
 };
+
 

@@ -1,4 +1,3 @@
-// src/App.jsx
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
@@ -11,9 +10,14 @@ import IncomingCallModal from "./components/calls/IncomingCallModal";
 import CallOverlay from "./components/calls/CallOverlay";
 import CreateMeetingModal from "./components/calls/CreateMeetingModel";
 import { useCall } from "./components/calls/hooks/useCall";
+import socket from "./components/calls/hooks/socket";
 import { urlBase64ToUint8Array } from "./utils/pushUtils";
-import MeetingRoom from "./components/calls/MeetingRoom";
+
 import ForwardModal from "./components/ForwardModal";
+
+import MeetingRoom from "./components/calls/MeetingRoom";
+import MyCalendar from "./components/calender/MyCalender";
+
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -34,7 +38,10 @@ function App() {
 
   const call = useCall(userId);
 
-  // register service worker
+
+
+  // Service Worker Registration
+
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").then((reg) => {
@@ -43,7 +50,14 @@ function App() {
     }
   }, []);
 
-  // fetch user list
+  // Connect socket
+  useEffect(() => {
+    if (isAuthenticated && userId && !socket.connected) {
+      socket.connect();
+    }
+  }, [isAuthenticated, userId]);
+
+  // Fetch users
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
     fetch("/api/users")
@@ -51,7 +65,7 @@ function App() {
       .then((data) => setUsers(data.filter((u) => u.id !== userId)));
   }, [isAuthenticated, userId]);
 
-  // fetch chat messages when selecting a user
+  // Fetch messages for selected user
   useEffect(() => {
     if (!isAuthenticated || !selectedUser) return;
 
@@ -68,7 +82,7 @@ function App() {
     fetchChat();
   }, [isAuthenticated, selectedUser, userId]);
 
-  // subscribe to push notifications
+  // Push Notifications subscription
   useEffect(() => {
     async function subscribeUser() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -90,7 +104,7 @@ function App() {
           body: JSON.stringify({ userId: user.id, subscription: sub }),
         });
 
-        console.log("✅ Push subscription sent to backend");
+        console.log("✅ Push subscription sent");
       } catch (err) {
         console.error("Push subscription failed:", err);
       }
@@ -165,7 +179,7 @@ function App() {
                           currentUserId={userId}
                           searchQuery={searchQuery}
                           usersList={users}
-                          onForward={handleOpenForwardModal} // ✅ Pass forward function
+
                         />
                       )}
                       {activeNav === "Meet" && (
@@ -179,8 +193,10 @@ function App() {
                         </div>
                       )}
                       {activeNav === "Calendar" && (
-                        <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                          📅 Calendar tab coming soon!
+
+                        <div className="flex flex-col items-center justify-center h-full w-full">
+                          <MyCalendar />
+
                         </div>
                       )}
                       {activeNav === "Activity" && (
@@ -217,7 +233,7 @@ function App() {
                 onReject={call.rejectCall}
               />
             )}
-
+            {/* Active Call Overlay */}
             {call.callState.type && (
               <CallOverlay
                 callType={call.callState.type}

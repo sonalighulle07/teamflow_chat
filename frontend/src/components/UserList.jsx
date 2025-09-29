@@ -2,7 +2,7 @@ function getInitials(name) {
   const parts = name?.split(" ") || [];
   return (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
 }
-
+ 
 export default function UserList({
   users = [],
   onSelectUser,
@@ -33,11 +33,11 @@ export default function UserList({
 
   const handleSelect = (user) => onSelectUser(user);
 
+
   return (
     <ul className="flex flex-col h-full overflow-y-auto overflow-x-hidden bg-slate-200 w-full">
       {users.map((user) => {
         const isSelected = user.isSelected;
-
         return (
           <li
             key={user.id}
@@ -88,3 +88,4 @@ export default function UserList({
     </ul>
   );
 }
+

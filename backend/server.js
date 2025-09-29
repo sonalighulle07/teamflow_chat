@@ -1,4 +1,6 @@
+
 // server.js
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -12,10 +14,15 @@ const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reactionRoutes = require('./routes/reactionRoutes');
 
+const notificationRoutes = require("./routes/notificationRoutes");
+
+
 const callHandlers = require('./Utils/socket/callHandlers');
 const Chat = require('./models/chatModel');
 const webpush = require("web-push");
+
 const notificationRoutes = require("./routes/notificationRoutes");
+
 
 const app = express();
 const server = http.createServer(app);
@@ -26,18 +33,17 @@ const io = socketIo(server, {
   }
 });
 
-// Serve uploaded files
+
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Attach io to req
+
 app.use((req, res, next) => { req.io = io; next(); });
 
-// Routes
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
@@ -49,7 +55,7 @@ app.use("/api/meetings", meetingRoutes);
 io.on('connection', (socket) => {
   console.log('Socket connected:', socket.id);
 
-  // Register userId for private messaging
+
   socket.on('register', ({ userId }) => {
     if (userId) {
       socket.userId = userId;
@@ -58,13 +64,17 @@ io.on('connection', (socket) => {
     }
   });
 
+
   // Private messages (text or file)
+
   socket.on('privateMessage', async (msg) => {
     try {
       const { senderId, receiverId, text, fileUrl, fileType, type, fileName } = msg;
       if (!senderId || !receiverId || (!text && !fileUrl)) return;
 
+
       // Save message to DB
+
       const result = await Chat.insertMessage(
         senderId,
         receiverId,
@@ -75,7 +85,9 @@ io.on('connection', (socket) => {
         fileName || null
       );
 
+
       // Construct message object
+
       const savedMsg = {
         id: result.insertId,
         sender_id: senderId,
@@ -87,13 +99,17 @@ io.on('connection', (socket) => {
         created_at: new Date()
       };
 
+
       // Emit to sender and receiver only
+
+
       io.to(`user_${senderId}`).emit('privateMessage', savedMsg);
       io.to(`user_${receiverId}`).emit('privateMessage', savedMsg);
     } catch (err) {
       console.error('Message save failed:', err);
     }
   });
+
 
   // Message deleted
 socket.on("deleteMessage", ({ messageId }) => {
@@ -106,6 +122,7 @@ socket.on("editMessage", (updatedMsg) => {
 });
 
   // Reaction events
+
   socket.on('sendReaction', async ({ msgId, userId, emoji }) => {
     try {
       const message = await Chat.getMessageById(msgId);
@@ -123,7 +140,9 @@ socket.on("editMessage", (updatedMsg) => {
     }
   });
 
+
   // Attach call handlers (video/audio)
+
   callHandlers(io, socket);
 
   socket.on('disconnect', () => {
@@ -131,6 +150,9 @@ socket.on("editMessage", (updatedMsg) => {
   });
 });
 
-// Start server
+
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+
+

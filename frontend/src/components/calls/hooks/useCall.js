@@ -7,15 +7,13 @@ export function useCall(userId) {
   const [isMaximized, setIsMaximized] = useState(false);
 
   const [localStream, setLocalStream] = useState(null);
-  const [remoteStreams, setRemoteStreams] = useState([]);
+  const [remoteStream, setRemoteStream] = useState(null);
 
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
 
   const peerMap = useRef(new Map());
-  const screenTrackRef = useRef(null);
-  const hasCleanedUp = useRef(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -41,79 +39,60 @@ export function useCall(userId) {
     setIncoming({ from, offer, callType });
   }
 
-  async function handleCallAccepted({ answer }) {
-    const peer = peerMap.current.get(incoming?.from);
-    if (peer) await peer.setRemoteDescription(answer);
+  async function handleCallAccepted({ answer, from }) {
+    const peer = peerMap.current.get(from);
+    if (peer) {
+      await peer.setRemoteDescription(new RTCSessionDescription(answer));
+    }
   }
 
   function handleIceCandidate({ from, candidate }) {
     const peer = peerMap.current.get(from);
-    if (peer && candidate) peer.addIceCandidate(candidate);
+    if (peer && candidate) peer.addIceCandidate(new RTCIceCandidate(candidate));
   }
 
   function handleEndCall({ from }) {
-    alert(`Call ended by user: ${from}`);
     cleanup();
   }
 
   function handleCallCancelled({ from }) {
-    alert(`Call cancelled by user: ${from}`);
-    setIncoming(null);
     cleanup();
-  }
-
-  function createPeer(remoteUserId) {
-    const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-
-    localStream?.getTracks().forEach((track) => peer.addTrack(track, localStream));
-
-    peer.onicecandidate = (e) => {
-      if (e.candidate) {
-        socket.emit("iceCandidate", {
-          to: remoteUserId,
-          from: userId,
-          candidate: e.candidate,
-        });
-      }
-    };
-
-    peer.ontrack = (e) => {
-  const stream = e.streams[0];
-  console.log("📡 Received remote stream:", stream.id);
-  setRemoteStreams((prev) => {
-    const exists = prev.some((s) => s.id === stream.id);
-    return exists ? prev : [...prev, stream];
-  });
-};
-
-
-    peer.onconnectionstatechange = () => {
-      if (["disconnected", "failed", "closed"].includes(peer.connectionState)) {
-        peerMap.current.delete(remoteUserId);
-        setRemoteStreams((prev) =>
-          prev.filter((s) => s.id !== peer.remoteStream?.id)
-        );
-      }
-    };
-
-    return peer;
   }
 
   async function startCall(type, remoteUser) {
     if (!remoteUser) return;
-    hasCleanedUp.current = false;
     setCallType(type);
 
     try {
-      const stream =
-        localStream ||
-        (await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: type === "video",
-        }));
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: type === "video",
+      });
       setLocalStream(stream);
 
-      const peer = createPeer(remoteUser.id);
+      const peer = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      });
+
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+
+      peer.onicecandidate = (e) => {
+        if (e.candidate) {
+          socket.emit("iceCandidate", {
+            to: remoteUser.id,
+            from: userId,
+            candidate: e.candidate,
+          });
+        }
+      };
+
+      peer.ontrack = (e) => {
+        const incomingStream = e.streams[0];
+        if (incomingStream) {
+          setRemoteStream((prev) => prev || incomingStream);
+        }
+      };
+
       peerMap.current.set(remoteUser.id, peer);
 
       const offer = await peer.createOffer();
@@ -126,36 +105,55 @@ export function useCall(userId) {
         callType: type,
       });
     } catch (err) {
-      console.error("Error accessing media devices:", err);
+      console.error(err);
       cleanup();
     }
   }
 
   async function acceptCall() {
     if (!incoming) return;
-    hasCleanedUp.current = false;
     setCallType(incoming.callType);
 
     try {
-      const stream =
-        localStream ||
-        (await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: incoming.callType === "video",
-        }));
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: incoming.callType === "video",
+      });
       setLocalStream(stream);
 
-      const peer = createPeer(incoming.from);
+      const peer = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      });
+
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+
+      peer.onicecandidate = (e) => {
+        if (e.candidate) {
+          socket.emit("iceCandidate", {
+            to: incoming.from,
+            from: userId,
+            candidate: e.candidate,
+          });
+        }
+      };
+
+      peer.ontrack = (e) => {
+        const incomingStream = e.streams[0];
+        if (incomingStream) {
+          setRemoteStream((prev) => prev || incomingStream);
+        }
+      };
+
       peerMap.current.set(incoming.from, peer);
 
-      await peer.setRemoteDescription(incoming.offer);
+      await peer.setRemoteDescription(new RTCSessionDescription(incoming.offer));
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
 
-      socket.emit("answerCall", { to: incoming.from, answer });
+      socket.emit("answerCall", { to: incoming.from, answer, from: userId });
       setIncoming(null);
     } catch (err) {
-      console.error("Error accepting call:", err);
+      console.error(err);
       cleanup();
     }
   }
@@ -173,92 +171,38 @@ export function useCall(userId) {
     cleanup();
   }
 
-  function joinMeetingRoom(meetingCode) {
-    if (!userId || !meetingCode) return;
-    socket.emit("joinMeeting", { code: meetingCode, userId });
-
-    socket.on("userJoined", async ({ userId: otherUserId }) => {
-      if (otherUserId === userId || peerMap.current.has(otherUserId)) return;
-
-      const peer = createPeer(otherUserId);
-      peerMap.current.set(otherUserId, peer);
-
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
-
-      socket.emit("offer", { to: otherUserId, from: userId, offer });
-    });
-
-    socket.on("offer", async ({ from, offer }) => {
-      if (peerMap.current.has(from)) return;
-
-      const peer = createPeer(from);
-      peerMap.current.set(from, peer);
-
-      await peer.setRemoteDescription(offer);
-      const answer = await peer.createAnswer();
-      await peer.setLocalDescription(answer);
-
-      socket.emit("answer", { to: from, from: userId, answer });
-    });
-
-    socket.on("answer", async ({ from, answer }) => {
-      const peer = peerMap.current.get(from);
-      if (peer) await peer.setRemoteDescription(answer);
-    });
-
-    socket.on("iceCandidate", ({ from, candidate }) => {
-      const peer = peerMap.current.get(from);
-      if (peer && candidate) peer.addIceCandidate(candidate);
-    });
-
-    socket.on("userJoined", ({ userId }) => {
-  console.log("👥 User joined:", userId);
-});
-
-
-
-  }
-
-  function stopTracks(stream) {
-    if (!stream) return;
-    stream.getTracks().forEach((t) => t.stop());
-  }
-
-  function cleanup(force = false) {
-    if (hasCleanedUp.current && !force) return;
-
-    setTimeout(() => {
-      hasCleanedUp.current = true;
-      stopTracks(localStream);
-      remoteStreams.forEach(stopTracks);
-      if (screenTrackRef.current) screenTrackRef.current.stop();
-
+  function cleanup() {
+    if (localStream) {
+      localStream.getTracks().forEach((t) => t.stop());
       setLocalStream(null);
-      setRemoteStreams([]);
-      setCallType(null);
-      setIncoming(null);
-      setIsScreenSharing(false);
+    }
+    if (remoteStream) {
+      remoteStream.getTracks().forEach((t) => t.stop());
+      setRemoteStream(null);
+    }
+    peerMap.current.forEach((peer) => peer.close());
+    peerMap.current.clear();
 
-      peerMap.current.forEach((peer) => peer.close());
-      peerMap.current.clear();
-    }, 500);
+    setCallType(null);
+    setIncoming(null);
+    setIsScreenSharing(false);
+    setIsMuted(false);
+    setIsVideoEnabled(true);
   }
 
   function toggleMic() {
-    if (!localStream) return;
-    localStream.getAudioTracks().forEach((t) => {
-      t.enabled = !t.enabled;
-      setIsMuted(!t.enabled);
-    });
+    const audioTrack = localStream?.getAudioTracks()[0];
+    if (audioTrack) {
+      audioTrack.enabled = !audioTrack.enabled;
+      setIsMuted(!audioTrack.enabled);
+    }
   }
 
   function toggleCam() {
-    if (!localStream) return;
-    const track = localStream.getVideoTracks()[0];
-    if (track) {
-      track.enabled = !track.enabled;
-      setIsVideoEnabled(track.enabled);
+    const videoTrack = localStream?.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.enabled = !videoTrack.enabled;
+      setIsVideoEnabled(videoTrack.enabled);
     }
   }
 
@@ -266,7 +210,6 @@ export function useCall(userId) {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       const screenTrack = screenStream.getVideoTracks()[0];
-      screenTrackRef.current = screenTrack;
 
       peerMap.current.forEach((peer) => {
         const sender = peer.getSenders().find((s) => s.track?.kind === "video");
@@ -276,19 +219,16 @@ export function useCall(userId) {
       screenTrack.onended = stopScreenShare;
       setIsScreenSharing(true);
     } catch (err) {
-      console.error("Screen share failed:", err);
+      console.error(err);
     }
   }
 
- function stopScreenShare() {
+  function stopScreenShare() {
     const localVideo = localStream?.getVideoTracks()[0];
     peerMap.current.forEach((peer) => {
       const sender = peer.getSenders().find((s) => s.track?.kind === "video");
       if (sender && localVideo) sender.replaceTrack(localVideo);
     });
-
-    screenTrackRef.current?.stop();
-    screenTrackRef.current = null;
     setIsScreenSharing(false);
   }
 
@@ -297,17 +237,14 @@ export function useCall(userId) {
       incoming,
       caller: incoming?.from,
       type: callType,
-      active: !!localStream || remoteStreams.length > 0,
+      active: !!localStream || !!remoteStream,
     },
+    localStream,
+    remoteStreams: remoteStream ? [remoteStream] : [],
     startCall,
     acceptCall,
     rejectCall,
     endCall,
-    cleanup,
-    localStream,
-    remoteStreams,
-    isMaximized,
-    setIsMaximized,
     toggleMic,
     toggleCam,
     startScreenShare,
@@ -315,7 +252,8 @@ export function useCall(userId) {
     isScreenSharing,
     isMuted,
     isVideoEnabled,
-    joinMeetingRoom,
+    isMaximized,
+    setIsMaximized,
   };
 }
 
