@@ -14,8 +14,6 @@ const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reactionRoutes = require('./routes/reactionRoutes');
 
-const notificationRoutes = require("./routes/notificationRoutes");
-
 
 const callHandlers = require('./Utils/socket/callHandlers');
 const Chat = require('./models/chatModel');
