@@ -17,10 +17,11 @@ import ForwardModal from "./components/ForwardModal";
 
 import MeetingRoom from "./components/calls/MeetingRoom";
 import MyCalendar from "./components/calender/MyCalender";
+import { useSelector } from "react-redux";
 
 
 function App() {
-  const [users, setUsers] = useState([]);
+  const userList = useSelector((state) => state.user);
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -37,8 +38,6 @@ function App() {
   const userId = activeUser?.id;
 
   const call = useCall(userId);
-
-
 
   // Service Worker Registration
 
@@ -57,13 +56,6 @@ function App() {
     }
   }, [isAuthenticated, userId]);
 
-  // Fetch users
-  useEffect(() => {
-    if (!isAuthenticated || !userId) return;
-    fetch("/api/users")
-      .then((r) => r.json())
-      .then((data) => setUsers(data.filter((u) => u.id !== userId)));
-  }, [isAuthenticated, userId]);
 
   // Fetch messages for selected user
   useEffect(() => {
@@ -162,7 +154,6 @@ function App() {
                   <div className="flex flex-1 overflow-hidden w-full">
                     <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
                       <Sidebar
-                        users={users}
                         selectedUser={selectedUser}
                         onSelectUser={setSelectedUser}
                         activeNav={activeNav}
@@ -178,7 +169,7 @@ function App() {
                           setMessages={setMessages}
                           currentUserId={userId}
                           searchQuery={searchQuery}
-                          usersList={users}
+                          usersList={userList}
 
                         />
                       )}
@@ -219,7 +210,7 @@ function App() {
                 open={forwardModalOpen}
                 onClose={handleForwardComplete}
                 message={messageToForward}
-                users={users}
+                users={userList}
                 onForward={handleForwardComplete}
               />
             )}

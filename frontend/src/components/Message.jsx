@@ -6,7 +6,6 @@ export default function Message({
   message,
   isOwn,
   searchQuery,
-  onReact,
   onDelete,
   onEdit,
   onForward,
@@ -19,7 +18,14 @@ export default function Message({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const reactedEmojis = Object.keys(message.reactions || {});
+
+  // Parse reactions JSON string if necessary
+  const initialReactions =
+    typeof message.reactions === "string" && message.reactions
+      ? JSON.parse(message.reactions)
+      : message.reactions || {};
+
+  const [reactedEmojis, setReactedEmojis] = useState(initialReactions);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message.text || "");
@@ -28,6 +34,8 @@ export default function Message({
   const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
+
+  const currentUser = JSON.parse(sessionStorage.getItem("chatUser") || "{}");
 
   // Hover logic
   const handleMouseEnter = () => {
@@ -48,13 +56,14 @@ export default function Message({
     };
   }, []);
 
-  // Socket listener for reactions
+  // Listen to reactions via socket
   useEffect(() => {
     if (!socket) return;
     const handleReactionEvent = ({ messageId, reactions }) => {
       if (message.id === messageId) {
-        // Only store emoji keys
-        setReactedEmojis(Object.keys(reactions));
+        const parsedReactions =
+          typeof reactions === "string" ? JSON.parse(reactions) : reactions;
+        setReactedEmojis(parsedReactions);
       }
     };
     socket.on("reaction", handleReactionEvent);
@@ -106,6 +115,39 @@ export default function Message({
     setIsMuted(newMuted);
   };
 
+  // Handle emoji reaction
+  const handleReact = async (emoji) => {
+    const token = sessionStorage.getItem("chatToken");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`/api/chats/${message.id}/react`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ emoji }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error?.error || "Failed to react");
+      }
+
+      // Get updated reactions from backend
+      const { reactions } = await res.json();
+
+      // Parse if string, otherwise use as is
+      const parsedReactions =
+        typeof reactions === "string" ? JSON.parse(reactions) : reactions;
+
+      setReactedEmojis(parsedReactions);
+    } catch (err) {
+      console.error("Reaction error:", err.message);
+    }
+  };
+
   const renderContent = () => {
     if (isEditing) {
       return (
@@ -131,8 +173,6 @@ export default function Message({
                     const updated = await res.json();
                     setIsEditing(false);
                     onEdit?.(updated);
-                  } else {
-                    console.error("Edit failed on server");
                   }
                 } catch (err) {
                   console.error("Edit failed:", err);
@@ -233,32 +273,12 @@ export default function Message({
           </div>
         );
 
-      case "file":
-      case "application":
-        if (!message.file_url) return null;
-        const fileName =
-          message.file_name || message.file_url?.split("/").pop();
-        const fileExt = fileName?.split(".").pop()?.toLowerCase();
-        const getFileIcon = () => {
-          if (fileExt === "pdf") return "📕";
-          if (["doc", "docx"].includes(fileExt)) return "📘";
-          if (["xls", "xlsx"].includes(fileExt)) return "📊";
-          return "📄";
-        };
-        return (
-          <div className="flex items-center gap-2 p-2 bg-white border rounded-xl shadow-sm max-w-xs">
-            <span className="text-2xl">{getFileIcon()}</span>
-            <span className="truncate">{fileName}</span>
-          </div>
-        );
-
       default:
         return (
           <div>
             {message.forwarded_from && (
               <span className="text-xs italic text-gray-900">Forwarded</span>
             )}
-
             <p className="break-words">
               {highlightText(message.text || "")}
               {message.edited === 1 && (
@@ -283,6 +303,7 @@ export default function Message({
       >
         {renderContent()}
 
+        {/* Hover actions */}
         {hovered && (
           <div
             className={`absolute -top-9 ${
@@ -290,15 +311,29 @@ export default function Message({
             } flex items-center gap-1 bg-white rounded-full shadow-md px-2 py-1 z-20`}
           >
             {/* Quick emojis */}
-            {["👍", "❤️", "😆", "😮", "😂"].map((emoji) => (
-              <button
-                key={emoji}
-                className="px-1 hover:bg-gray-100 rounded-full"
-                onClick={() => onReact?.(message.id, emoji)}
-              >
-                {emoji}
-              </button>
-            ))}
+            {["👍", "❤️", "😆", "😮", "😂"].map((emoji) => {
+              const emojiData = reactedEmojis[emoji] || { users: {} };
+              const reacted =
+                currentUser?.id &&
+                emojiData.users &&
+                emojiData.users[currentUser.id];
+              const count = emojiData.users
+                ? Object.keys(emojiData.users).length
+                : 0;
+
+              return (
+                <button
+                  key={emoji}
+                  className={`px-1 flex items-center gap-1 hover:bg-gray-100 rounded-full ${
+                    reacted ? "bg-gray-200" : ""
+                  }`}
+                  onClick={() => handleReact(emoji)}
+                >
+                  <span>{emoji}</span>
+                  {count > 0 && <span className="text-xs">{count}</span>}
+                </button>
+              );
+            })}
 
             {/* Emoji picker */}
             <div className="relative">
@@ -312,7 +347,7 @@ export default function Message({
                 <div className="absolute top-8 right-0 z-30">
                   <EmojiPicker
                     onEmojiClick={(emojiObject) =>
-                      onReact?.(message.id, emojiObject.emoji)
+                      handleReact(emojiObject.emoji)
                     }
                     theme="light"
                   />
@@ -330,34 +365,22 @@ export default function Message({
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-8 w-48 bg-white shadow-lg rounded-lg z-30 border border-gray-200 text-gray-700">
-                  {/* Forwarded label (if message is forwarded) */}
-                  {message.forwarded_from && (
-                    <div className="px-3 py-1 text-xs text-gray-400 border-b border-gray-200">
-                      Forwarded
-                    </div>
-                  )}
-
-                  {/* Edit */}
                   {isOwn && (
-                    <button
-                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-purple-100 rounded transition-colors"
-                      onClick={() => setIsEditing(true)}
-                    >
-                      ✏️ <span>Edit</span>
-                    </button>
+                    <>
+                      <button
+                        className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-purple-100 rounded transition-colors"
+                        onClick={() => setIsEditing(true)}
+                      >
+                        ✏️ <span>Edit</span>
+                      </button>
+                      <button
+                        className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-red-100 text-red-600 rounded transition-colors"
+                        onClick={() => onDelete?.(message.id)}
+                      >
+                        🗑️ <span>Delete</span>
+                      </button>
+                    </>
                   )}
-
-                  {/* Delete */}
-                  {isOwn && (
-                    <button
-                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-red-100 text-red-600 rounded transition-colors"
-                      onClick={() => onDelete?.(message.id)}
-                    >
-                      🗑️ <span>Delete</span>
-                    </button>
-                  )}
-
-                  {/* Forward */}
                   <button
                     className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-blue-100 rounded transition-colors"
                     onClick={() => onForward?.(message)}
@@ -370,6 +393,29 @@ export default function Message({
           </div>
         )}
       </div>
+      {/* Reactions below message */}
+      {Object.keys(reactedEmojis).length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1 ml-1">
+          {Object.entries(reactedEmojis).map(([emoji, data]) => {
+            const count = data.users ? Object.keys(data.users).length : 0;
+            if (count === 0) return null;
+            const reacted =
+              currentUser?.id && data.users && data.users[currentUser.id];
+            return (
+              <div
+                key={emoji}
+                className={`flex items-center gap-1 px-2 py-1 text-sm rounded-full shadow-sm ${
+                  reacted ? "bg-gray-200" : "bg-gray-100"
+                }`}
+              >
+                <span>{emoji}</span>
+                <span className="text-xs">{count}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Timestamp */}
       <span
         className={`text-xs text-gray-400 mt-1 ${

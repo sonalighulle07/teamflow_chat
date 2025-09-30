@@ -48,7 +48,6 @@ export default function Sidebar({
         console.error("Failed to fetch users:", err);
       }
     };
-
     fetchUsers();
     const interval = setInterval(fetchUsers, 5000);
     return () => clearInterval(interval);

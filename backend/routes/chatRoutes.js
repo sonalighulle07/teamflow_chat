@@ -1,27 +1,28 @@
 const express = require("express");
 const router = express.Router();
 const chatController = require("../controllers/chatController");
-const upload = require("../middlewares/uploadMiddleware"); // your multer middleware
+const upload = require("../middlewares/uploadMiddleware");
+const { authenticateToken } = require("../middlewares/authMiddleware"); // <-- import it
 
 // GET all messages
-router.get("/", chatController.getMessages);
+router.get("/", authenticateToken, chatController.getMessages);
 
 // GET conversation between two users
-router.get("/:user1/:user2", chatController.getConversation);
+router.get("/:user1/:user2",  chatController.getConversation);
 
 // POST send message (text or file)
-router.post("/send", upload.single("file"), chatController.sendMessage);
-router.post("/:messageId/react", chatController.reactMessage);
+router.post("/send", authenticateToken, upload.single("file"), chatController.sendMessage);
 
+// React to a message
+router.post("/:messageId/react", authenticateToken, chatController.reactMessage);
 
 // DELETE
-router.delete("/:messageId", chatController.deleteMessage);
+router.delete("/:messageId", authenticateToken, chatController.deleteMessage);
 
 // PUT edit
-router.put("/:messageId", chatController.editMessage);
+router.put("/:messageId", authenticateToken, chatController.editMessage);
 
 // POST forward
-router.post("/:messageId/forward", chatController.forwardMessage);
-
+router.post("/:messageId/forward", authenticateToken, chatController.forwardMessage);
 
 module.exports = router;

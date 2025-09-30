@@ -1,6 +1,4 @@
-
 // server.js
-
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -26,10 +24,23 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"]
-  }
+    origin: [
+      "http://localhost:5173",
+      "http://192.168.1.29:5173"   // add your LAN IP here
+    ],
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
 });
+
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://192.168.1.29:5173"
+  ],
+  credentials: true,
+}));
+
 
 
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
