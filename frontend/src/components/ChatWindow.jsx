@@ -4,15 +4,17 @@ import { io } from "socket.io-client";
 import Picker from "emoji-picker-react";
 import { PaperClipIcon } from "@heroicons/react/24/outline";
 import ForwardModal from "./ForwardModal";
+import { useSelector } from "react-redux";
  
 export default function ChatWindow({
-  selectedUser,
   messages,
   setMessages,
   currentUserId,
   searchQuery,
-  usersList,
 }) {
+
+  const { selectedUser, currentUser } = useSelector((state) => state.user);
+
   const [text, setText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
@@ -201,8 +203,8 @@ export default function ChatWindow({
     if (!selectedUser) return;
  
     const formData = new FormData();
-    formData.append("senderId", currentUserId);
-    formData.append("receiverId", selectedUser.id);
+    formData.append("senderId", JSON.parse(currentUser.id));
+    formData.append("receiverId", JSON.parse(selectedUser.id));
     formData.append("text", text);
     if (selectedFile) formData.append("file", selectedFile);
     formData.append(

@@ -1,9 +1,22 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { loginUser, fetchUsers } from "./userThunks";
 
+function shallowEqual(objA, objB) {
+  if (objA === objB) return true;
+  if (!objA || !objB) return false;
+  const keysA = Object.keys(objA);
+  const keysB = Object.keys(objB);
+  if (keysA.length !== keysB.length) return false;
+  for (let key of keysA) {
+    if (objA[key] !== objB[key]) return false;
+  }
+  return true;
+}
+
 const initialState = {
   currentUser: null,
   userList: [],
+  selectedUser: null,
   loading: false,
   error: null,
 };
@@ -19,13 +32,30 @@ const userSlice = createSlice({
     logout: (state) => {
       state.currentUser = null;
       state.userList = [];
+      state.selectedUser = null;
       sessionStorage.removeItem("chatUser");
       sessionStorage.removeItem("chatToken");
+    },
+    rehydrateUser: (state) => {
+      const saved = sessionStorage.getItem("chatUser");
+      if (saved) state.currentUser = JSON.parse(saved);
+    },
+    setSelectedUser: (state, action) => {
+      state.selectedUser = action.payload;
+    },
+    setUserList: (state, action) => {
+      const newList = action.payload || [];
+      const merged = newList.map((newUser) => {
+        const existing = state.userList.find((u) => u.id === newUser.id);
+        return existing && shallowEqual(existing, newUser)
+          ? existing
+          : { ...existing, ...newUser };
+      });
+      state.userList = merged;
     },
   },
   extraReducers: (builder) => {
     builder
-      // Login
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -39,15 +69,20 @@ const userSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-
-      // Fetch Users
       .addCase(fetchUsers.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.loading = false;
-        state.userList = action.payload || [];
+        const newList = action.payload || [];
+        const merged = newList.map((newUser) => {
+          const existing = state.userList.find((u) => u.id === newUser.id);
+          return existing && shallowEqual(existing, newUser)
+            ? existing
+            : { ...existing, ...newUser };
+        });
+        state.userList = merged;
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
@@ -56,5 +91,12 @@ const userSlice = createSlice({
   },
 });
 
-export const { setCurrentUser, logout } = userSlice.actions;
+export const {
+  setCurrentUser,
+  logout,
+  rehydrateUser,
+  setSelectedUser,
+  setUserList,
+} = userSlice.actions;
 export default userSlice.reducer;
+

@@ -14,19 +14,23 @@ import socket from "./components/calls/hooks/socket";
 import { urlBase64ToUint8Array } from "./utils/pushUtils";
 
 import ForwardModal from "./components/ForwardModal";
-
 import MeetingRoom from "./components/calls/MeetingRoom";
 import MyCalendar from "./components/calender/MyCalender";
 import { useSelector } from "react-redux";
 
+import { rehydrateUser } from "./Store/Features/Users/userSlice" // adjust path
+
+import { useDispatch } from "react-redux";
+
 
 function App() {
-  const userList = useSelector((state) => state.user);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const { selectedUser,currentUser, userList, loading } = useSelector((state) => state.user);
   const [messages, setMessages] = useState([]);
+
   const [isAuthenticated, setIsAuthenticated] = useState(
     !!sessionStorage.getItem("chatToken")
   );
+
   const [showRegister, setShowRegister] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeNav, setActiveNav] = useState("Chat");
@@ -34,13 +38,11 @@ function App() {
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
 
-  const activeUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
-  const userId = activeUser?.id;
-
+  const dispatch = useDispatch();
+  const userId = currentUser?.id;
   const call = useCall(userId);
 
   // Service Worker Registration
-
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").then((reg) => {
@@ -49,17 +51,16 @@ function App() {
     }
   }, []);
 
-  // Connect socket
+  // Connect socket once authenticated and userId available
   useEffect(() => {
     if (isAuthenticated && userId && !socket.connected) {
       socket.connect();
     }
   }, [isAuthenticated, userId]);
 
-
   // Fetch messages for selected user
   useEffect(() => {
-    if (!isAuthenticated || !selectedUser) return;
+    if (!isAuthenticated || !selectedUser || !userId) return;
 
     async function fetchChat() {
       try {
@@ -74,11 +75,18 @@ function App() {
     fetchChat();
   }, [isAuthenticated, selectedUser, userId]);
 
+
+  useEffect(() => {
+    if (isAuthenticated && !currentUser) {
+      dispatch(rehydrateUser());
+    }
+  }, [isAuthenticated, currentUser, dispatch]);
+
+
   // Push Notifications subscription
   useEffect(() => {
     async function subscribeUser() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-
       try {
         const reg = await navigator.serviceWorker.ready;
         const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
@@ -89,11 +97,10 @@ function App() {
           applicationServerKey: urlBase64ToUint8Array(vapidKey),
         });
 
-        const user = JSON.parse(sessionStorage.getItem("chatUser"));
         await fetch("http://localhost:3000/api/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: user.id, subscription: sub }),
+          body: JSON.stringify({ userId, subscription: sub }),
         });
 
         console.log("✅ Push subscription sent");
@@ -107,7 +114,7 @@ function App() {
 
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
-    window.location.reload();
+    // Don’t reload, let Redux finish setting currentUser
   };
 
   const handleOpenForwardModal = (message) => {
@@ -137,10 +144,15 @@ function App() {
               />
             )}
           </div>
+        ) : !currentUser ? (
+          // Wait until thunk sets currentUser
+          <div className="flex-1 flex items-center justify-center text-xl text-gray-600">
+            Loading your account...
+          </div>
         ) : (
           <>
             <Header
-              activeUser={activeUser}
+              activeUser={currentUser}
               selectedUser={selectedUser}
               onStartCall={(type) => call.startCall(type, selectedUser)}
               searchQuery={searchQuery}
@@ -155,7 +167,6 @@ function App() {
                     <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
                       <Sidebar
                         selectedUser={selectedUser}
-                        onSelectUser={setSelectedUser}
                         activeNav={activeNav}
                         setActiveNav={setActiveNav}
                       />
@@ -170,7 +181,7 @@ function App() {
                           currentUserId={userId}
                           searchQuery={searchQuery}
                           usersList={userList}
-
+                          onForward={handleOpenForwardModal}
                         />
                       )}
                       {activeNav === "Meet" && (
@@ -184,10 +195,8 @@ function App() {
                         </div>
                       )}
                       {activeNav === "Calendar" && (
-
                         <div className="flex flex-col items-center justify-center h-full w-full">
                           <MyCalendar />
-
                         </div>
                       )}
                       {activeNav === "Activity" && (
@@ -224,7 +233,7 @@ function App() {
                 onReject={call.rejectCall}
               />
             )}
-            {/* Active Call Overlay */}
+
             {call.callState.type && (
               <CallOverlay
                 callType={call.callState.type}

@@ -65,13 +65,14 @@ export default function Login({ onLogin, onSwitch }) {
 
     const resultAction = await dispatch(loginUser({ username, password }));
 
-    console.log(JSON.stringify(currentUser));
 
     if (loginUser.fulfilled.match(resultAction)) {
       showToastMessage("Login successful!", "bg-green-500");
+      console.log("current user : "+JSON.stringify(currentUser));
       setTimeout(() => {
         onLogin?.();
-        navigate("/");
+        setTimeout(()=>{navigate("/")},10000);
+        
       }, 1000);
     } else {
       showToastMessage(resultAction.payload || "Login failed!", "bg-red-500");

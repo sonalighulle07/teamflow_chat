@@ -6,16 +6,18 @@ import {
   FaVideo,
   FaEllipsisV,
 } from "react-icons/fa";
+import { useSelector } from "react-redux";
  
 export default function Header({
   activeUser,
-  selectedUser,
   onStartCall,
   searchQuery,
   setSearchQuery,
 }) {
   const [showSearch, setShowSearch] = useState(false);
   const searchInputRef = useRef(null); // Ref for search input
+
+  const {selectedUser} = useSelector((state) => state.user)
  
   const username = activeUser?.username || "Guest";
  

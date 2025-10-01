@@ -1,4 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
+import { setCurrentUser } from "./userSlice";
 
 // Login user
 export const loginUser = createAsyncThunk(
@@ -22,6 +23,7 @@ export const loginUser = createAsyncThunk(
       sessionStorage.setItem("chatToken", data.token);
 
       return data.user; // Pass user back to slice
+
     } catch (err) {
       return rejectWithValue("Server error, try again later.");
     }
@@ -32,6 +34,7 @@ export const loginUser = createAsyncThunk(
 export const fetchUsers = createAsyncThunk(
   "user/fetchUsers",
   async (currentUserId, { rejectWithValue }) => {
+    console.log("Request taken by thunk...")
     try {
       const res = await fetch("/api/users");
       if (!res.ok) {
