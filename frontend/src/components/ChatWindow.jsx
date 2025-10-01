@@ -13,7 +13,7 @@ export default function ChatWindow({
   searchQuery,
 }) {
 
-  const { selectedUser, currentUser } = useSelector((state) => state.user);
+  const { selectedUser, currentUser,userList } = useSelector((state) => state.user);
 
   const [text, setText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -78,6 +78,7 @@ export default function ChatWindow({
   };
  
   const handleForward = async (messageId, toUserIds) => {
+    const token = sessionStorage.getItem('chatToken')
     if (!messageId || !toUserIds?.length) return;
  
     try {
@@ -87,7 +88,9 @@ export default function ChatWindow({
  
       const res = await fetch(`${BASE_URL}/api/chats/${messageId}/forward`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json",
+          Authorization:`Bearer ${token}`
+         },
         body: JSON.stringify({ toUserIds, senderId }),
       });
  
@@ -406,7 +409,7 @@ export default function ChatWindow({
         <ForwardModal
           open={!!forwardMsg}
           message={forwardMsg}
-          users={usersList.filter((u) => u.id !== currentUserId)}
+          users={userList.filter((u) => u.id !== currentUserId)}
           onClose={() => setForwardMsg(null)}
           onForward={handleForward} // pass correct handler
         />
