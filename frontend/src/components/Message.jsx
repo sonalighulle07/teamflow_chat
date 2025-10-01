@@ -19,7 +19,6 @@ export default function Message({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const reactedEmojis = Object.keys(message.reactions || {});
 
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message.text || "");
@@ -48,19 +47,6 @@ export default function Message({
     };
   }, []);
 
-  // Socket listener for reactions
-  useEffect(() => {
-    if (!socket) return;
-    const handleReactionEvent = ({ messageId, reactions }) => {
-      if (message.id === messageId) {
-        // Only store emoji keys
-        setReactedEmojis(Object.keys(reactions));
-      }
-    };
-    socket.on("reaction", handleReactionEvent);
-    return () => socket.off("reaction", handleReactionEvent);
-  }, [socket, message.id]);
-
   const bubbleClasses = isOwn
     ? "bg-purple-600 text-white self-end rounded-tr-none"
     : "bg-gray-200 text-gray-900 self-start rounded-tl-none";
@@ -70,10 +56,15 @@ export default function Message({
 
   const highlightText = (text) => {
     if (!searchQuery) return text;
+
     const regex = new RegExp(`(${searchQuery})`, "gi");
     return text.split(regex).map((part, i) =>
       regex.test(part) ? (
-        <mark key={i} className="bg-yellow-300 px-0.5 rounded">
+        <mark
+          key={i}
+          className="bg-blue-400 text-white px-0.5 rounded transition-colors duration-300 animate-pulse "
+          style={{ animationIterationCount: 2 }}
+        >
           {part}
         </mark>
       ) : (
@@ -256,7 +247,7 @@ export default function Message({
         return (
           <div>
             {message.forwarded_from && (
-              <span className="text-xs italic text-gray-900">Forwarded</span>
+              <span className="text-xs italic text-black">Forwarded</span>
             )}
 
             <p className="break-words">
@@ -265,6 +256,22 @@ export default function Message({
                 <span className="text-xs text-gray-900 ml-1">(edited)</span>
               )}
             </p>
+
+            {/* Display reactions permanently */}
+            <div className={`message ${isOwn ? "own" : ""}`}>
+              <p>{message.text}</p>
+
+              {/* Reactions */}
+              {message.reactions && (
+                <div className="reactions">
+                  {Object.keys(JSON.parse(message.reactions)).map((emoji) => (
+                    <span key={emoji} style={{ marginRight: "5px" }}>
+                      {emoji} {JSON.parse(message.reactions)[emoji]}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         );
     }
@@ -281,8 +288,43 @@ export default function Message({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {renderContent()}
+        {/* Message Content */}
+        <div>
+          {message.forwarded_from && (
+            <span className="text-xs italic text-gray-500">Forwarded</span>
+          )}
+          <p className="break-words">
+            {highlightText(message.text || "")}
+            {message.edited === 1 && (
+              <span className="text-xs text-gray-500 ml-1">(edited)</span>
+            )}
+          </p>
 
+          {/* Reactions Display */}
+          {message.reactions && (
+            <div className="reactions flex flex-wrap gap-1 mt-1">
+              {(() => {
+                let reactionsObj = {};
+                try {
+                  reactionsObj = JSON.parse(message.reactions);
+                } catch {
+                  reactionsObj = {};
+                }
+                return Object.entries(reactionsObj).map(([emoji, count]) => (
+                  <span
+                    key={emoji}
+                    className="flex items-center gap-1 text-sm px-1 py-0.5 bg-gray-100 rounded"
+                  >
+                    <span>{emoji}</span>
+                    <span className="text-black font-semibold">{count}</span>
+                  </span>
+                ));
+              })()}
+            </div>
+          )}
+        </div>
+
+        {/* Hover Actions */}
         {hovered && (
           <div
             className={`absolute -top-9 ${
@@ -300,7 +342,7 @@ export default function Message({
               </button>
             ))}
 
-            {/* Emoji picker */}
+            {/* Emoji Picker */}
             <div className="relative">
               <button
                 className="p-1 text-gray-600 hover:bg-gray-100 rounded-full"
@@ -320,7 +362,7 @@ export default function Message({
               )}
             </div>
 
-            {/* Options menu */}
+            {/* Options Menu */}
             <div className="relative">
               <button
                 className="p-1 text-gray-600 hover:bg-gray-100 rounded-full"
@@ -330,14 +372,12 @@ export default function Message({
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-8 w-48 bg-white shadow-lg rounded-lg z-30 border border-gray-200 text-gray-700">
-                  {/* Forwarded label (if message is forwarded) */}
                   {message.forwarded_from && (
                     <div className="px-3 py-1 text-xs text-gray-400 border-b border-gray-200">
                       Forwarded
                     </div>
                   )}
 
-                  {/* Edit */}
                   {isOwn && (
                     <button
                       className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-purple-100 rounded transition-colors"
@@ -347,7 +387,6 @@ export default function Message({
                     </button>
                   )}
 
-                  {/* Delete */}
                   {isOwn && (
                     <button
                       className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-red-100 text-red-600 rounded transition-colors"
@@ -357,7 +396,6 @@ export default function Message({
                     </button>
                   )}
 
-                  {/* Forward */}
                   <button
                     className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-blue-100 rounded transition-colors"
                     onClick={() => onForward?.(message)}
@@ -370,6 +408,7 @@ export default function Message({
           </div>
         )}
       </div>
+
       {/* Timestamp */}
       <span
         className={`text-xs text-gray-400 mt-1 ${

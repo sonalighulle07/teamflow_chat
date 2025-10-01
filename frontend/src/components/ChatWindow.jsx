@@ -7,6 +7,7 @@ import ForwardModal from "./ForwardModal";
 
 export default function ChatWindow({
   selectedUser,
+  selectedTeam, // ✅ new prop for team chats
   messages,
   setMessages,
   currentUserId,
@@ -18,22 +19,69 @@ export default function ChatWindow({
   const [filePreview, setFilePreview] = useState(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [forwardMsg, setForwardMsg] = useState(null);
+  const [filteredMessages, setFilteredMessages] = useState([]);
 
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const messageRefs = useRef({});
 
+  const BASE_URL = "http://localhost:3000";
+
   // Fetch messages from server
   const fetchMessages = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser && !selectedTeam) return;
+
+    const endpoint = selectedUser
+      ? `/api/chats/${currentUserId}/${selectedUser.id}`
+      : `/api/chats/team/${selectedTeam.id}`;
+
     try {
-      const res = await fetch(`/api/chats/${currentUserId}/${selectedUser.id}`);
+      const res = await fetch(endpoint);
       const data = await res.json();
       setMessages(data);
     } catch (err) {
       console.error("Failed to fetch messages:", err);
     }
   };
+
+  // Socket setup - only once per currentUserId
+  useEffect(() => {
+    if (!currentUserId) return;
+    const socket = io(BASE_URL);
+    socketRef.current = socket;
+    socket.emit("register", { userId: currentUserId });
+
+    socket.on("privateMessage", (msg) => {
+      if (
+        selectedUser &&
+        (msg.sender_id === selectedUser.id ||
+          msg.receiver_id === selectedUser.id)
+      ) {
+        setMessages((prev) => [...prev, msg]);
+      }
+    });
+
+    socket.on("teamMessage", (msg) => {
+      if (selectedTeam && msg.teamId === selectedTeam.id) {
+        setMessages((prev) => [...prev, msg]);
+      }
+    });
+
+    socket.on("reaction", ({ messageId, reactions }) => {
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === messageId ? { ...msg, reactions } : msg))
+      );
+    });
+
+    return () => socket.disconnect();
+  }, [currentUserId, selectedUser, selectedTeam]);
+
+  // Fetch messages on user/team change
+  useEffect(() => {
+    fetchMessages();
+  }, [selectedUser, selectedTeam]);
+
+  // Handle reactions
   const handleReact = async (messageId, emoji) => {
     try {
       const res = await fetch(`/api/chats/${messageId}/react`, {
@@ -43,43 +91,45 @@ export default function ChatWindow({
       });
       const data = await res.json();
 
-      // Update message in state
+      let reactionsCounts = {};
+      if (Array.isArray(data.reactions)) {
+        data.reactions.forEach((em) => {
+          reactionsCounts[em] = (reactionsCounts[em] || 0) + 1;
+        });
+      } else {
+        reactionsCounts = data.reactions || {};
+      }
+
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === messageId ? { ...msg, reactions: data.reactions } : msg
+          msg.id === messageId ? { ...msg, reactions: reactionsCounts } : msg
         )
       );
 
-      // Optionally emit via socket
       socketRef.current?.emit("reaction", {
         messageId,
-        reactions: data.reactions,
+        reactions: reactionsCounts,
       });
     } catch (err) {
       console.error("Reaction error:", err);
     }
   };
 
-  // Delete message
-  const BASE_URL = "http://localhost:3000"; // backend server
+  // Handle delete
   const handleDelete = async (messageId) => {
     try {
       const res = await fetch(`${BASE_URL}/api/chats/${messageId}`, {
         method: "DELETE",
       });
-
-      if (res.ok) {
-        // Remove message from state
+      if (res.ok)
         setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-      } else {
-        console.error("Delete failed on server");
-      }
+      else console.error("Delete failed on server");
     } catch (err) {
       console.error("Delete error:", err);
     }
   };
 
-  // Edit message
+  // Handle edit
   const handleEdit = async (updatedMsg) => {
     try {
       const res = await fetch(`/api/chats/${updatedMsg.id}`, {
@@ -87,9 +137,8 @@ export default function ChatWindow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: updatedMsg.text }),
       });
-
       if (res.ok) {
-        const updated = await res.json(); // updated message with edited = 1
+        const updated = await res.json();
         setMessages((prev) =>
           prev.map((m) => (m.id === updated.id ? updated : m))
         );
@@ -99,9 +148,9 @@ export default function ChatWindow({
     }
   };
 
+  // Handle forward
   const handleForward = async (messageId, toUserIds) => {
     if (!messageId || !toUserIds?.length) return;
-
     try {
       const currentUser = JSON.parse(sessionStorage.getItem("chatUser"));
       const senderId = currentUser?.id;
@@ -114,71 +163,34 @@ export default function ChatWindow({
       });
 
       const data = await res.json();
-
-      if (data.success) {
-        console.log("Forwarded successfully to recipients");
-        alert("Message forwarded successfully! ✅"); // ✅ Added alert
-        // ❌ Do NOT update sender's chat state
-      } else {
-        console.error("Forward failed", data);
-        alert("Forward failed! ❌");
-      }
+      if (data.success) alert("Message forwarded successfully! ✅");
+      else alert("Forward failed! ❌");
     } catch (err) {
       console.error("Forward failed", err);
-      alert("Forward failed due to server error! ");
+      alert("Forward failed due to server error!");
     }
   };
-
-  // Fetch messages when user changes
-  useEffect(() => {
-    fetchMessages();
-  }, [selectedUser]);
-
-  // Socket setup
-  useEffect(() => {
-    if (!currentUserId) return;
-    socketRef.current = io("http://localhost:3000");
-    socketRef.current.emit("register", { userId: currentUserId });
-
-    socketRef.current.on("privateMessage", (msg) => {
-      // Check if message belongs to this conversation
-      if (
-        selectedUser &&
-        (msg.sender_id === selectedUser.id ||
-          msg.receiver_id === selectedUser.id)
-      ) {
-        setMessages((prev) => [...prev, msg]);
-      }
-      // Optional: handle messages for other users for notifications/unread count
-    });
-
-    return () => socketRef.current.disconnect();
-  }, [currentUserId, selectedUser, setMessages]);
-
-  useEffect(() => {
-    fetchMessages();
-  }, [selectedUser]);
 
   // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Scroll to search result
+  // Filter messages for search
   useEffect(() => {
-    if (!searchQuery) return;
-    const lowerQuery = searchQuery.toLowerCase();
-    const matchedMessage = messages.find((msg) =>
-      msg.text?.toLowerCase().includes(lowerQuery)
-    );
-    if (matchedMessage) {
-      const key = matchedMessage.id || messages.indexOf(matchedMessage);
-      messageRefs.current[key]?.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+    if (!searchQuery) {
+      setFilteredMessages(messages);
+    } else {
+      const lowerQuery = searchQuery.toLowerCase();
+      const filtered = messages.filter(
+        (msg) =>
+          msg.text?.toLowerCase().includes(lowerQuery) ||
+          (msg.forwarded_from &&
+            msg.forwarded_from.toLowerCase().includes(lowerQuery))
+      );
+      setFilteredMessages(filtered);
     }
-  }, [searchQuery, messages]);
+  }, [messages, searchQuery]);
 
   // File selection
   const handleFileChange = (e) => {
@@ -201,19 +213,19 @@ export default function ChatWindow({
     setFilePreview(null);
   };
 
-  // Emoji
-  const onEmojiClick = (emojiObject) => {
+  // Emoji picker
+  const onEmojiClick = (emojiObject) =>
     setText((prev) => prev + emojiObject.emoji);
-  };
 
   // Send message
   const handleSend = async () => {
     if (!text.trim() && !selectedFile) return;
-    if (!selectedUser) return;
+    if (!selectedUser && !selectedTeam) return;
 
     const formData = new FormData();
     formData.append("senderId", currentUserId);
-    formData.append("receiverId", selectedUser.id);
+    if (selectedUser) formData.append("receiverId", selectedUser.id);
+    if (selectedTeam) formData.append("teamId", selectedTeam.id);
     formData.append("text", text);
     if (selectedFile) formData.append("file", selectedFile);
     formData.append(
@@ -227,11 +239,18 @@ export default function ChatWindow({
         body: formData,
       });
       const newMessage = await res.json();
-      socketRef.current.emit("privateMessage", newMessage);
+
+      setMessages((prev) => [...prev, newMessage]);
+
+      if (selectedUser) {
+        socketRef.current.emit("privateMessage", newMessage);
+      } else if (selectedTeam) {
+        socketRef.current.emit("teamMessage", newMessage);
+      }
+
       setText("");
       removeFile();
       setShowEmoji(false);
-      fetchMessages(); // refresh chat after sending
     } catch (err) {
       console.error("Failed to send message:", err);
     }
@@ -248,11 +267,13 @@ export default function ChatWindow({
     <div className="flex-1 flex flex-col h-full">
       {/* Chat messages */}
       <div className="flex-1 p-4 bg-gray-50 overflow-y-auto">
-        {selectedUser ? (
-          messages.length > 0 ? (
-            messages.map((msg, index) => {
+        {selectedUser || selectedTeam ? (
+          (searchQuery ? filteredMessages : messages).length > 0 ? (
+            (searchQuery ? filteredMessages : messages).map((msg, index) => {
               const key = msg.id || index;
-              const prevMsg = messages[index - 1];
+              const prevMsg = (searchQuery ? filteredMessages : messages)[
+                index - 1
+              ];
               const msgDate = new Date(
                 msg.created_at || msg.timestamp
               ).toDateString();
@@ -276,10 +297,11 @@ export default function ChatWindow({
                     key={msg.id}
                     message={msg}
                     isOwn={msg.sender_id === currentUserId}
+                    searchQuery={searchQuery}
                     onDelete={handleDelete}
                     onEdit={handleEdit}
                     onReact={handleReact}
-                    onForward={(msg) => setForwardMsg(msg)} // ✅ open modal
+                    onForward={(msg) => setForwardMsg(msg)}
                   />
                 </div>
               );
@@ -291,7 +313,7 @@ export default function ChatWindow({
           )
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-400">
-            Select a user to start chatting
+            Select a user or team to start chatting
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -347,16 +369,18 @@ export default function ChatWindow({
           <input
             type="text"
             placeholder={
-              selectedUser ? "Type a message..." : "Select a user..."
+              selectedUser || selectedTeam
+                ? "Type a message..."
+                : "Select a user or team..."
             }
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyPress}
-            disabled={!selectedUser}
+            disabled={!selectedUser && !selectedTeam}
             className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
 
-          {/* Emoji */}
+          {/* Emoji picker */}
           <button
             type="button"
             onClick={() => setShowEmoji((prev) => !prev)}
@@ -378,7 +402,6 @@ export default function ChatWindow({
               />
             </svg>
           </button>
-
           {showEmoji && (
             <div className="absolute bottom-14 right-12 z-50">
               <Picker onEmojiClick={onEmojiClick} />
@@ -395,10 +418,10 @@ export default function ChatWindow({
             />
           </label>
 
-          {/* Send */}
+          {/* Send button */}
           <button
             onClick={handleSend}
-            disabled={!selectedUser}
+            disabled={!selectedUser && !selectedTeam}
             className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             Send
@@ -406,14 +429,14 @@ export default function ChatWindow({
         </div>
       </div>
 
-      {/* Forward Modal */}
+      {/* Forward modal */}
       {forwardMsg && (
         <ForwardModal
           open={!!forwardMsg}
           message={forwardMsg}
           users={usersList.filter((u) => u.id !== currentUserId)}
           onClose={() => setForwardMsg(null)}
-          onForward={handleForward} // pass correct handler
+          onForward={handleForward}
         />
       )}
     </div>

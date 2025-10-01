@@ -17,12 +17,14 @@ import ForwardModal from "./components/ForwardModal";
 
 import MeetingRoom from "./components/calls/MeetingRoom";
 import MyCalendar from "./components/calender/MyCalender";
-
+import TeamsSidebar from "./components/TeamsSidebar";
 
 function App() {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [userMessages, setUserMessages] = useState([]);
+  const [teamMessages, setTeamMessages] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(
     !!sessionStorage.getItem("chatToken")
   );
@@ -38,10 +40,7 @@ function App() {
 
   const call = useCall(userId);
 
-
-
-  // Service Worker Registration
-
+  // Service Worker
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").then((reg) => {
@@ -50,7 +49,7 @@ function App() {
     }
   }, []);
 
-  // Connect socket
+  // Socket connection
   useEffect(() => {
     if (isAuthenticated && userId && !socket.connected) {
       socket.connect();
@@ -65,7 +64,7 @@ function App() {
       .then((data) => setUsers(data.filter((u) => u.id !== userId)));
   }, [isAuthenticated, userId]);
 
-  // Fetch messages for selected user
+  // Fetch user-to-user chat
   useEffect(() => {
     if (!isAuthenticated || !selectedUser) return;
 
@@ -73,20 +72,36 @@ function App() {
       try {
         const res = await fetch(`/api/chats/${userId}/${selectedUser.id}`);
         const data = await res.json();
-        setMessages(data);
+        setUserMessages(data);
       } catch (err) {
         console.error(err);
       }
     }
 
     fetchChat();
-  }, [isAuthenticated, selectedUser, userId]);
+  }, [selectedUser, isAuthenticated, userId]);
 
-  // Push Notifications subscription
+  // Fetch team chat
+  useEffect(() => {
+    if (!isAuthenticated || !selectedTeam) return;
+
+    async function fetchTeamChat() {
+      try {
+        const res = await fetch(`/api/teams/${selectedTeam.id}/messages`);
+        const data = await res.json();
+        setTeamMessages(data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    fetchTeamChat();
+  }, [selectedTeam, isAuthenticated]);
+
+  // Push Notifications
   useEffect(() => {
     async function subscribeUser() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-
       try {
         const reg = await navigator.serviceWorker.ready;
         const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
@@ -97,11 +112,10 @@ function App() {
           applicationServerKey: urlBase64ToUint8Array(vapidKey),
         });
 
-        const user = JSON.parse(sessionStorage.getItem("chatUser"));
         await fetch("http://localhost:3000/api/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: user.id, subscription: sub }),
+          body: JSON.stringify({ userId, subscription: sub }),
         });
 
         console.log("✅ Push subscription sent");
@@ -160,45 +174,62 @@ function App() {
                 path="/"
                 element={
                   <div className="flex flex-1 overflow-hidden w-full">
+                    {/* Sidebar */}
                     <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
                       <Sidebar
                         users={users}
                         selectedUser={selectedUser}
-                        onSelectUser={setSelectedUser}
+                        onSelectUser={(user) => {
+                          setSelectedUser(user);
+                          setSelectedTeam(null); // Deselect team when user selected
+                        }}
                         activeNav={activeNav}
                         setActiveNav={setActiveNav}
                       />
                     </div>
 
+                    {/* Main Content */}
                     <div className="flex-1 flex flex-col overflow-hidden w-full">
                       {activeNav === "Chat" && (
                         <ChatWindow
+                          selectedTeam={selectedTeam}
                           selectedUser={selectedUser}
-                          messages={messages}
-                          setMessages={setMessages}
+                          messages={selectedTeam ? teamMessages : userMessages}
+                          setMessages={
+                            selectedTeam ? setTeamMessages : setUserMessages
+                          }
                           currentUserId={userId}
                           searchQuery={searchQuery}
                           usersList={users}
-
                         />
                       )}
+
                       {activeNav === "Meet" && (
                         <div className="flex items-center justify-center h-full">
                           <CreateMeetingModal userId={userId} />
                         </div>
                       )}
+
                       {activeNav === "Communities" && (
-                        <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                          👥 Communities tab coming soon!
+                        <div className="flex-1 flex flex-col overflow-hidden w-full">
+                          
+                          <TeamsSidebar
+                            currentUserId={userId}
+                            selectedTeam={selectedTeam}
+                            onSelectTeam={(team) => {
+                              setSelectedTeam(team);
+                              setSelectedUser(null); // Deselect user when team selected
+                            }}
+                          />
                         </div>
                       )}
-                      {activeNav === "Calendar" && (
 
+                      {activeNav === "Calendar" && (
                         <div className="flex flex-col items-center justify-center h-full w-full">
                           <MyCalendar />
-
                         </div>
                       )}
+
                       {activeNav === "Activity" && (
                         <div className="flex items-center justify-center h-full text-gray-500 text-xl">
                           🔔 Activity tab coming soon!
@@ -233,7 +264,7 @@ function App() {
                 onReject={call.rejectCall}
               />
             )}
-            {/* Active Call Overlay */}
+
             {call.callState.type && (
               <CallOverlay
                 callType={call.callState.type}
