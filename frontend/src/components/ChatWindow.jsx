@@ -12,10 +12,13 @@ export default function ChatWindow({
   setMessages,
   currentUserId,
   searchQuery,
-  usersList,
 }) {
-  const { selectedUser, currentUser } = useSelector((state) => state.user);
+  const { selectedUser, currentUser, userList } = useSelector(
+    (state) => state.user
+  );
 
+
+  const token = sessionStorage.getItem('chatToken');
   const [text, setText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
@@ -28,6 +31,11 @@ export default function ChatWindow({
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const messageRefs = useRef({});
+
+  // Clear messageRefs when switching conversation
+  useEffect(() => {
+    messageRefs.current = {};
+  }, [selectedUser, selectedTeam]);
 
   // Fetch messages from server
   const fetchMessages = async () => {
@@ -46,13 +54,10 @@ export default function ChatWindow({
     }
   };
 
+  // Initialize socket once
   useEffect(() => {
-    if (!currentUserId) return;
-
     const socket = io(BASE_URL);
     socketRef.current = socket;
-
-    socket.emit("register", { userId: currentUserId });
 
     // Private messages
     socket.on("privateMessage", (msg) => {
@@ -80,7 +85,14 @@ export default function ChatWindow({
     });
 
     return () => socket.disconnect();
-  }, [currentUserId]); // ✅ only currentUserId
+  }, []); // only once
+
+  // Register userId when it changes
+  useEffect(() => {
+    if (currentUserId && socketRef.current) {
+      socketRef.current.emit("register", { userId: currentUserId });
+    }
+  }, [currentUserId]);
 
   // Fetch messages on user/team change
   useEffect(() => {
@@ -89,10 +101,14 @@ export default function ChatWindow({
 
   // Handle reactions
   const handleReact = async (messageId, emoji) => {
+
     try {
       const res = await fetch(`/api/chats/${messageId}/react`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization:`Bearer ${token}`
+         },
         body: JSON.stringify({ emoji }),
       });
       const data = await res.json();
@@ -139,7 +155,7 @@ export default function ChatWindow({
   // Edit message
   const handleEdit = async (updatedMsg) => {
     try {
-      const res = await fetch(`/api/chats/${updatedMsg.id}`, {
+      const res = await fetch(`${BASE_URL}/api/chats/${updatedMsg.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: updatedMsg.text }),
@@ -161,7 +177,6 @@ export default function ChatWindow({
     if (!messageId || !toUserIds?.length) return;
 
     try {
-      const currentUser = JSON.parse(sessionStorage.getItem("chatUser"));
       const senderId = currentUser?.id;
       if (!senderId) return console.error("No senderId found");
 
@@ -174,10 +189,8 @@ export default function ChatWindow({
       const data = await res.json();
 
       if (data.success) {
-        console.log("Forwarded successfully to recipients");
         alert("Message forwarded successfully! ✅");
       } else {
-        console.error("Forward failed", data);
         alert("Forward failed! ❌");
       }
     } catch (err) {
@@ -207,6 +220,7 @@ export default function ChatWindow({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Scroll to first search match
   useEffect(() => {
     if (!searchQuery) return;
     if (filteredMessages.length > 0) {
@@ -245,11 +259,12 @@ export default function ChatWindow({
 
   const handleSend = async () => {
     if (!text.trim() && !selectedFile) return;
-    if (!selectedUser) return;
+    if (!selectedUser && !selectedTeam) return;
 
     const formData = new FormData();
-    formData.append("senderId", JSON.parse(currentUser.id));
-    formData.append("receiverId", JSON.parse(selectedUser.id));
+    formData.append("senderId", currentUser.id);
+    if (selectedUser) formData.append("receiverId", selectedUser.id);
+    if (selectedTeam) formData.append("teamId", selectedTeam.id);
     formData.append("text", text);
     if (selectedFile) formData.append("file", selectedFile);
     formData.append(
@@ -259,7 +274,7 @@ export default function ChatWindow({
 
     const token = sessionStorage.getItem("chatToken");
     try {
-      const res = await fetch("/api/chats/send", {
+      const res = await fetch(`${BASE_URL}/api/chats/send`, {
         method: "POST",
         body: formData,
         headers: { Authorization: `Bearer ${token}` },
@@ -317,7 +332,6 @@ export default function ChatWindow({
                     </div>
                   )}
                   <Message
-                    key={msg.id}
                     message={msg}
                     isOwn={msg.sender_id === currentUserId}
                     onReact={handleReact}
@@ -455,7 +469,7 @@ export default function ChatWindow({
         <ForwardModal
           open={!!forwardMsg}
           message={forwardMsg}
-          users={usersList.filter((u) => u.id !== currentUserId)}
+          users={userList?.filter((u) => u.id !== currentUserId) || []}
           onClose={() => setForwardMsg(null)}
           onForward={handleForward}
         />

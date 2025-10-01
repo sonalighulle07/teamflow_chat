@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from "react";
+import React, { memo, useMemo, useCallback } from "react";
 
 function getInitials(name) {
   const parts = name?.split(" ") || [];
@@ -63,20 +63,23 @@ export default function UserList({
   }
 
   // Highlight search match
-  const highlightMatch = (name) => {
-    if (!searchQuery) return name;
-    const regex = new RegExp(`(${searchQuery})`, "gi");
-    const parts = name.split(regex);
-    return parts.map((part, idx) =>
-      regex.test(part) ? (
-        <span key={idx} className="bg-yellow-200 text-black px-1 rounded">
-          {part}
-        </span>
-      ) : (
-        <span key={idx}>{part}</span>
-      )
-    );
-  };
+  const highlightMatch = useCallback(
+    (name) => {
+      if (!searchQuery) return name;
+      const regex = new RegExp(`(${searchQuery})`, "gi");
+      const parts = name.split(regex);
+      return parts.map((part, idx) =>
+        regex.test(part) ? (
+          <span key={idx} className="bg-yellow-200 text-black px-1 rounded">
+            {part}
+          </span>
+        ) : (
+          <span key={idx}>{part}</span>
+        )
+      );
+    },
+    [searchQuery]
+  );
 
   const handleSelect = (item) => onSelectUser(item);
 
@@ -86,12 +89,14 @@ export default function UserList({
       ...users.map((u) => ({ ...u, type: "user" })),
       ...teams.map((t) => ({ ...t, type: "team" })),
     ];
-    // Move selected user/team to top
-    allItems.sort((a, b) => {
-      if (selectedUser?.id === a.id) return -1;
-      if (selectedUser?.id === b.id) return 1;
-      return 0;
-    });
+
+    // Move selected item to top
+    if (selectedUser) {
+      return [
+        allItems.find((i) => i.id === selectedUser.id) || [],
+        ...allItems.filter((i) => i.id !== selectedUser.id),
+      ].filter(Boolean);
+    }
     return allItems;
   }, [users, teams, selectedUser]);
 
@@ -116,14 +121,14 @@ export default function UserList({
           <li
             key={`team-${item.id}`}
             onClick={() => handleSelect(item)}
-            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition mb-1
+            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1
               ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
           >
             <div
               className={`w-10 h-10 text-center pt-2 rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-sm text-white overflow-hidden
                 ${isSelected ? "bg-green-600" : "bg-purple-600"}`}
             >
-              {item.name}
+              {item.name[0].toUpperCase()}
             </div>
             <div className="flex flex-col truncate">
               <span className="text-gray-900 font-medium truncate">{highlightMatch(item.name)}</span>
