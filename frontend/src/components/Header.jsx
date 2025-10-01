@@ -6,10 +6,10 @@ import {
   FaVideo,
   FaEllipsisV,
 } from "react-icons/fa";
-
+import { useSelector } from "react-redux";
+ 
 export default function Header({
   activeUser,
-  selectedUser,
   onStartCall,
   searchQuery,
   setSearchQuery,
@@ -17,13 +17,14 @@ export default function Header({
   const [showSearch, setShowSearch] = useState(false);
   const searchInputRef = useRef(null); // Ref for search input
 
+  const {selectedUser} = useSelector((state) => state.user)
+ 
   const username = activeUser?.username || "Guest";
-
+ 
   const logout = () => {
     sessionStorage.clear();
     window.location.href = "/login.html";
   };
-
   // Focus input whenever search popup opens
   useEffect(() => {
     if (showSearch && searchInputRef.current) {
@@ -38,7 +39,6 @@ export default function Header({
     }
     setShowSearch((prev) => !prev);
   };
-
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-slate-200 shadow-md border-b border-gray-200">
       {/* Left section */}
@@ -53,7 +53,7 @@ export default function Header({
           {selectedUser ? selectedUser.username : "Select a chat"}
         </div>
       </div>
-
+ 
       {/* Right actions */}
       <div className="flex items-center gap-3">
         {/* Audio Call */}
@@ -65,7 +65,7 @@ export default function Header({
         >
           <FaPhone />
         </button>
-
+ 
         {/* Video Call */}
         <button
           className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -75,7 +75,6 @@ export default function Header({
         >
           <FaVideo />
         </button>
-
         {/* Search */}
         <div className="relative">
           <button
@@ -85,7 +84,6 @@ export default function Header({
           >
             <FaSearch />
           </button>
-
           {showSearch && (
             <div className="absolute right-0 mt-2 w-72 bg-white/90 backdrop-blur-md border border-gray-200 rounded-2xl shadow-xl p-3 flex flex-col gap-2 transition-all duration-300">
               <label
@@ -109,7 +107,7 @@ export default function Header({
             </div>
           )}
         </div>
-
+ 
         {/* Manage Group */}
         <button
           className="p-1 hover:bg-gray-100 rounded-full"
@@ -117,7 +115,7 @@ export default function Header({
         >
           <FaUserCog />
         </button>
-
+ 
         {/* More Options */}
         <button
           className="p-1 hover:bg-gray-100 rounded-full"
@@ -125,7 +123,6 @@ export default function Header({
         >
           <FaEllipsisV />
         </button>
-
         {/* Logout */}
         <button
           onClick={logout}
@@ -133,7 +130,7 @@ export default function Header({
         >
           Sign Out
         </button>
-
+ 
         {/* User Avatar */}
         <div className="flex flex-col items-center justify-center p-1 rounded hover:rounded-t-full hover:bg-purple-500/50 hover:shadow-lg transition-all duration-300">
           <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">

@@ -14,17 +14,22 @@ import socket from "./components/calls/hooks/socket";
 import { urlBase64ToUint8Array } from "./utils/pushUtils";
 
 import ForwardModal from "./components/ForwardModal";
-
 import MeetingRoom from "./components/calls/MeetingRoom";
 import MyCalendar from "./components/calender/MyCalender";
 import TeamsSidebar from "./components/TeamsSidebar";
 
+import { useSelector, useDispatch } from "react-redux";
+import { rehydrateUser } from "./Store/Features/Users/userSlice";
+
 function App() {
+  const { selectedUser, currentUser, userList } = useSelector((state) => state.user);
+  const dispatch = useDispatch();
+
   const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [userMessages, setUserMessages] = useState([]);
   const [teamMessages, setTeamMessages] = useState([]);
+
   const [isAuthenticated, setIsAuthenticated] = useState(
     !!sessionStorage.getItem("chatToken")
   );
@@ -35,9 +40,7 @@ function App() {
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
 
-  const activeUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
-  const userId = activeUser?.id;
-
+  const userId = currentUser?.id;
   const call = useCall(userId);
 
   // Service Worker
@@ -56,7 +59,7 @@ function App() {
     }
   }, [isAuthenticated, userId]);
 
-  // Fetch users
+  // Fetch users (for user + team list)
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
     fetch("/api/users")
@@ -66,7 +69,7 @@ function App() {
 
   // Fetch user-to-user chat
   useEffect(() => {
-    if (!isAuthenticated || !selectedUser) return;
+    if (!isAuthenticated || !selectedUser || !userId) return;
 
     async function fetchChat() {
       try {
@@ -98,7 +101,14 @@ function App() {
     fetchTeamChat();
   }, [selectedTeam, isAuthenticated]);
 
-  // Push Notifications
+  // Redux rehydrate currentUser
+  useEffect(() => {
+    if (isAuthenticated && !currentUser) {
+      dispatch(rehydrateUser());
+    }
+  }, [isAuthenticated, currentUser, dispatch]);
+
+  // Push Notifications subscription
   useEffect(() => {
     async function subscribeUser() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -129,7 +139,6 @@ function App() {
 
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
-    window.location.reload();
   };
 
   const handleOpenForwardModal = (message) => {
@@ -159,10 +168,14 @@ function App() {
               />
             )}
           </div>
+        ) : !currentUser ? (
+          <div className="flex-1 flex items-center justify-center text-xl text-gray-600">
+            Loading your account...
+          </div>
         ) : (
           <>
             <Header
-              activeUser={activeUser}
+              activeUser={currentUser}
               selectedUser={selectedUser}
               onStartCall={(type) => call.startCall(type, selectedUser)}
               searchQuery={searchQuery}
@@ -177,11 +190,10 @@ function App() {
                     {/* Sidebar */}
                     <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
                       <Sidebar
-                        users={users}
                         selectedUser={selectedUser}
                         onSelectUser={(user) => {
-                          setSelectedUser(user);
-                          setSelectedTeam(null); // Deselect team when user selected
+                          // Deselect team if user selected
+                          setSelectedTeam(null);
                         }}
                         activeNav={activeNav}
                         setActiveNav={setActiveNav}
@@ -200,7 +212,8 @@ function App() {
                           }
                           currentUserId={userId}
                           searchQuery={searchQuery}
-                          usersList={users}
+                          usersList={userList}
+                          onForward={handleOpenForwardModal}
                         />
                       )}
 
@@ -212,13 +225,12 @@ function App() {
 
                       {activeNav === "Communities" && (
                         <div className="flex-1 flex flex-col overflow-hidden w-full">
-                          
                           <TeamsSidebar
                             currentUserId={userId}
                             selectedTeam={selectedTeam}
                             onSelectTeam={(team) => {
                               setSelectedTeam(team);
-                              setSelectedUser(null); // Deselect user when team selected
+                              setSelectedUser(null);
                             }}
                           />
                         </div>
@@ -250,7 +262,7 @@ function App() {
                 open={forwardModalOpen}
                 onClose={handleForwardComplete}
                 message={messageToForward}
-                users={users}
+                users={userList}
                 onForward={handleForwardComplete}
               />
             )}

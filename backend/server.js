@@ -1,9 +1,10 @@
 // server.js
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const cors = require("cors");
-const path = require("path");
+
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+const cors = require('cors');
+const path = require('path');
 require("dotenv").config();
 
 const meetingRoutes = require("./routes/meetingRoutes");
@@ -21,14 +22,25 @@ const notificationRoutes = require("./routes/notificationRoutes");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
+const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "http://192.168.1.29:5173"   // add your LAN IP here
+    ],
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
-// Static folder for uploads
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://192.168.1.29:5173"
+  ],
+  credentials: true,
+}));
+
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
 app.use(cors());

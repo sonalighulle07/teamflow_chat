@@ -56,15 +56,10 @@ export default function Message({
 
   const highlightText = (text) => {
     if (!searchQuery) return text;
-
     const regex = new RegExp(`(${searchQuery})`, "gi");
     return text.split(regex).map((part, i) =>
       regex.test(part) ? (
-        <mark
-          key={i}
-          className="bg-blue-400 text-white px-0.5 rounded transition-colors duration-300 animate-pulse "
-          style={{ animationIterationCount: 2 }}
-        >
+        <mark key={i} className="bg-yellow-300 px-0.5 rounded">
           {part}
         </mark>
       ) : (
@@ -247,7 +242,7 @@ export default function Message({
         return (
           <div>
             {message.forwarded_from && (
-              <span className="text-xs italic text-black">Forwarded</span>
+              <span className="text-xs italic text-gray-900">Forwarded</span>
             )}
 
             <p className="break-words">
@@ -313,10 +308,9 @@ export default function Message({
                 return Object.entries(reactionsObj).map(([emoji, count]) => (
                   <span
                     key={emoji}
-                    className="flex items-center gap-1 text-sm px-1 py-0.5 bg-gray-100 rounded"
+                    className="text-sm px-1 py-0.5 bg-gray-100 rounded"
                   >
-                    <span>{emoji}</span>
-                    <span className="text-black font-semibold">{count}</span>
+                    {emoji} {count}
                   </span>
                 ));
               })()}

@@ -97,31 +97,55 @@ exports.reactMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
     const { emoji } = req.body;
+    const userId = req.user?.id;
 
-    // Fetch current reactions from DB
+    if (!emoji || !userId) {
+      return res.status(400).json({ error: "Emoji and userId are required" });
+    }
+
+    // Fetch current reactions
     const [rows] = await db.execute(
       "SELECT reactions FROM chats WHERE id = ?",
       [messageId]
     );
 
-    if (!rows.length) return res.status(404).json({ error: "Message not found" });
+    if (!rows.length) {
+      return res.status(404).json({ error: "Message not found" });
+    }
 
-    // Parse reactions or initialize
-    const reactions = rows[0].reactions ? JSON.parse(rows[0].reactions) : {};
+    let reactions = {};
+    try {
+      reactions = rows[0].reactions ? JSON.parse(rows[0].reactions) : {};
+    } catch {
+      reactions = {};
+    }
 
-    // Increment emoji count
-    reactions[emoji] = reactions[emoji] ? reactions[emoji] + 1 : 1;
+    // Ensure emoji key exists
+    if (!reactions[emoji]) {
+      reactions[emoji] = { count: 0, users: {} };
+    }
 
-    // Update reactions in DB
+    const emojiData = reactions[emoji];
+
+    // Toggle reaction: add or remove
+    if (emojiData.users[userId]) {
+      delete emojiData.users[userId];
+    } else {
+      emojiData.users[userId] = 1;
+    }
+
+    // Update total count
+    emojiData.count = Object.values(emojiData.users).reduce((sum, c) => sum + c, 0);
+
+    // Save updated reactions
     await db.execute(
       "UPDATE chats SET reactions = ? WHERE id = ?",
       [JSON.stringify(reactions), messageId]
     );
 
-    // Return updated reactions
     res.json({ reactions });
 
-    // Broadcast via Socket.IO to sender & receiver
+    // Broadcast via Socket.IO
     if (req.io) {
       req.io.emit("reaction", { messageId, reactions });
     }
@@ -130,6 +154,12 @@ exports.reactMessage = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+
+
+
+
+
 
 // DELETE message
 exports.deleteMessage = async (req, res) => {

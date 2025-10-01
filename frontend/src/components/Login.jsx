@@ -1,8 +1,16 @@
 import { useState, useEffect } from "react";
 import { FaUser, FaLock } from "react-icons/fa";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { loginUser } from "../Store/Features/Users/userThunks";
 
 export default function Login({ onLogin, onSwitch }) {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const { currentUser, loading, error } = useSelector((state) => state.user);
+
   const [toastMsg, setToastMsg] = useState("");
   const [toastColor, setToastColor] = useState("bg-red-500");
   const [showToast, setShowToast] = useState(false);
@@ -11,11 +19,11 @@ export default function Login({ onLogin, onSwitch }) {
   const [passwordValue, setPasswordValue] = useState("");
   const [usernameValue, setUsernameValue] = useState("");
 
-  // New states for inline validation errors
+  // Validation states
   const [usernameError, setUsernameError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  // Debounce validation (runs after user stops typing)
+  // Debounce username validation
   useEffect(() => {
     const handler = setTimeout(() => {
       if (usernameValue && usernameValue.length < 3) {
@@ -23,11 +31,11 @@ export default function Login({ onLogin, onSwitch }) {
       } else {
         setUsernameError("");
       }
-    }, 800); // 800ms after typing stops
-
+    }, 800);
     return () => clearTimeout(handler);
   }, [usernameValue]);
 
+  // Debounce password validation
   useEffect(() => {
     const handler = setTimeout(() => {
       if (passwordValue && passwordValue.length < 6) {
@@ -36,10 +44,10 @@ export default function Login({ onLogin, onSwitch }) {
         setPasswordError("");
       }
     }, 800);
-
     return () => clearTimeout(handler);
   }, [passwordValue]);
 
+  // Handle submit with thunk
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -55,31 +63,19 @@ export default function Login({ onLogin, onSwitch }) {
       return;
     }
 
-    try {
-      const res = await fetch("http://localhost:3000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-      const color = res.ok && data.success ? "bg-green-500" : "bg-red-500";
-      showToastMessage(
-        data.message || (res.ok ? "Login successful!" : "Login failed!"),
-        color
-      );
+    const resultAction = await dispatch(loginUser({ username, password }));
 
-      if (res.ok && data.success) {
-        console.log("after login user : "+JSON.stringify(data.user));
-        console.log("after login token : "+data.token);
 
-        sessionStorage.setItem("chatUser", JSON.stringify(data.user));
-        sessionStorage.setItem("chatToken", data.token);
-
-        setTimeout(() => onLogin(), 1000);
-      }
-    } catch (err) {
-      console.error(err);
-      showToastMessage("Server error, try again later.", "bg-red-500");
+    if (loginUser.fulfilled.match(resultAction)) {
+      showToastMessage("Login successful!", "bg-green-500");
+      console.log("current user : "+JSON.stringify(currentUser));
+      setTimeout(() => {
+        onLogin?.();
+        setTimeout(()=>{navigate("/")},10000);
+        
+      }, 1000);
+    } else {
+      showToastMessage(resultAction.payload || "Login failed!", "bg-red-500");
     }
   };
 
@@ -161,9 +157,10 @@ export default function Login({ onLogin, onSwitch }) {
           {/* Submit */}
           <button
             type="submit"
-            className="mt-4 w-full rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white shadow-lg hover:scale-105 hover:bg-purple-700 transition duration-300"
+            disabled={loading}
+            className="mt-4 w-full rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white shadow-lg hover:scale-105 hover:bg-purple-700 transition duration-300 disabled:opacity-60"
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 

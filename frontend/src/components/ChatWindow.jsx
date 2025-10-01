@@ -4,16 +4,18 @@ import { io } from "socket.io-client";
 import Picker from "emoji-picker-react";
 import { PaperClipIcon } from "@heroicons/react/24/outline";
 import ForwardModal from "./ForwardModal";
+import { useSelector } from "react-redux";
 
 export default function ChatWindow({
-  selectedUser,
-  selectedTeam, // ✅ new prop for team chats
+  selectedTeam,
   messages,
   setMessages,
   currentUserId,
   searchQuery,
   usersList,
 }) {
+  const { selectedUser, currentUser } = useSelector((state) => state.user);
+
   const [text, setText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
@@ -21,11 +23,11 @@ export default function ChatWindow({
   const [forwardMsg, setForwardMsg] = useState(null);
   const [filteredMessages, setFilteredMessages] = useState([]);
 
+  const BASE_URL = "http://localhost:3000";
+
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const messageRefs = useRef({});
-
-  const BASE_URL = "http://localhost:3000";
 
   // Fetch messages from server
   const fetchMessages = async () => {
@@ -44,13 +46,15 @@ export default function ChatWindow({
     }
   };
 
-  // Socket setup - only once per currentUserId
   useEffect(() => {
     if (!currentUserId) return;
+
     const socket = io(BASE_URL);
     socketRef.current = socket;
+
     socket.emit("register", { userId: currentUserId });
 
+    // Private messages
     socket.on("privateMessage", (msg) => {
       if (
         selectedUser &&
@@ -61,12 +65,14 @@ export default function ChatWindow({
       }
     });
 
+    // Team messages
     socket.on("teamMessage", (msg) => {
       if (selectedTeam && msg.teamId === selectedTeam.id) {
         setMessages((prev) => [...prev, msg]);
       }
     });
 
+    // Reactions
     socket.on("reaction", ({ messageId, reactions }) => {
       setMessages((prev) =>
         prev.map((msg) => (msg.id === messageId ? { ...msg, reactions } : msg))
@@ -74,7 +80,7 @@ export default function ChatWindow({
     });
 
     return () => socket.disconnect();
-  }, [currentUserId, selectedUser, selectedTeam]);
+  }, [currentUserId]); // ✅ only currentUserId
 
   // Fetch messages on user/team change
   useEffect(() => {
@@ -115,21 +121,22 @@ export default function ChatWindow({
     }
   };
 
-  // Handle delete
+  // Delete message
   const handleDelete = async (messageId) => {
     try {
       const res = await fetch(`${BASE_URL}/api/chats/${messageId}`, {
         method: "DELETE",
       });
-      if (res.ok)
+
+      if (res.ok) {
         setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-      else console.error("Delete failed on server");
+      } else console.error("Delete failed on server");
     } catch (err) {
       console.error("Delete error:", err);
     }
   };
 
-  // Handle edit
+  // Edit message
   const handleEdit = async (updatedMsg) => {
     try {
       const res = await fetch(`/api/chats/${updatedMsg.id}`, {
@@ -137,6 +144,7 @@ export default function ChatWindow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: updatedMsg.text }),
       });
+
       if (res.ok) {
         const updated = await res.json();
         setMessages((prev) =>
@@ -148,9 +156,10 @@ export default function ChatWindow({
     }
   };
 
-  // Handle forward
+  // Forward message
   const handleForward = async (messageId, toUserIds) => {
     if (!messageId || !toUserIds?.length) return;
+
     try {
       const currentUser = JSON.parse(sessionStorage.getItem("chatUser"));
       const senderId = currentUser?.id;
@@ -163,18 +172,19 @@ export default function ChatWindow({
       });
 
       const data = await res.json();
-      if (data.success) alert("Message forwarded successfully! ✅");
-      else alert("Forward failed! ❌");
+
+      if (data.success) {
+        console.log("Forwarded successfully to recipients");
+        alert("Message forwarded successfully! ✅");
+      } else {
+        console.error("Forward failed", data);
+        alert("Forward failed! ❌");
+      }
     } catch (err) {
       console.error("Forward failed", err);
       alert("Forward failed due to server error!");
     }
   };
-
-  // Scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   // Filter messages for search
   useEffect(() => {
@@ -191,6 +201,23 @@ export default function ChatWindow({
       setFilteredMessages(filtered);
     }
   }, [messages, searchQuery]);
+
+  // Scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    if (!searchQuery) return;
+    if (filteredMessages.length > 0) {
+      const firstMsg = filteredMessages[0];
+      const key = firstMsg.id || messages.indexOf(firstMsg);
+      messageRefs.current[key]?.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [searchQuery, filteredMessages]);
 
   // File selection
   const handleFileChange = (e) => {
@@ -213,19 +240,16 @@ export default function ChatWindow({
     setFilePreview(null);
   };
 
-  // Emoji picker
   const onEmojiClick = (emojiObject) =>
     setText((prev) => prev + emojiObject.emoji);
 
-  // Send message
   const handleSend = async () => {
     if (!text.trim() && !selectedFile) return;
-    if (!selectedUser && !selectedTeam) return;
+    if (!selectedUser) return;
 
     const formData = new FormData();
-    formData.append("senderId", currentUserId);
-    if (selectedUser) formData.append("receiverId", selectedUser.id);
-    if (selectedTeam) formData.append("teamId", selectedTeam.id);
+    formData.append("senderId", JSON.parse(currentUser.id));
+    formData.append("receiverId", JSON.parse(selectedUser.id));
     formData.append("text", text);
     if (selectedFile) formData.append("file", selectedFile);
     formData.append(
@@ -233,20 +257,19 @@ export default function ChatWindow({
       selectedFile ? selectedFile.type.split("/")[0] : "text"
     );
 
+    const token = sessionStorage.getItem("chatToken");
     try {
       const res = await fetch("/api/chats/send", {
         method: "POST",
         body: formData,
+        headers: { Authorization: `Bearer ${token}` },
       });
       const newMessage = await res.json();
 
       setMessages((prev) => [...prev, newMessage]);
 
-      if (selectedUser) {
-        socketRef.current.emit("privateMessage", newMessage);
-      } else if (selectedTeam) {
-        socketRef.current.emit("teamMessage", newMessage);
-      }
+      if (selectedUser) socketRef.current.emit("privateMessage", newMessage);
+      else if (selectedTeam) socketRef.current.emit("teamMessage", newMessage);
 
       setText("");
       removeFile();
@@ -297,10 +320,10 @@ export default function ChatWindow({
                     key={msg.id}
                     message={msg}
                     isOwn={msg.sender_id === currentUserId}
+                    onReact={handleReact}
                     searchQuery={searchQuery}
                     onDelete={handleDelete}
                     onEdit={handleEdit}
-                    onReact={handleReact}
                     onForward={(msg) => setForwardMsg(msg)}
                   />
                 </div>
@@ -417,8 +440,6 @@ export default function ChatWindow({
               onChange={handleFileChange}
             />
           </label>
-
-          {/* Send button */}
           <button
             onClick={handleSend}
             disabled={!selectedUser && !selectedTeam}
@@ -429,7 +450,7 @@ export default function ChatWindow({
         </div>
       </div>
 
-      {/* Forward modal */}
+      {/* Forward Modal */}
       {forwardMsg && (
         <ForwardModal
           open={!!forwardMsg}

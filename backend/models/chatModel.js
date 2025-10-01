@@ -64,10 +64,9 @@ const getMessageById = async (messageId) => {
 const updateMessageReactions = async (messageId, emoji) => {
   const [rows] = await db.query("SELECT * FROM chats WHERE id = ?", [messageId]);
   if (!rows.length) return null;
-
+ 
   let message = rows[0];
   let reactions;
-
   try {
     reactions = message.reactions ? JSON.parse(message.reactions) : {};
   } catch (err) {
@@ -77,15 +76,12 @@ const updateMessageReactions = async (messageId, emoji) => {
 
   // Increment emoji count
   reactions[emoji] = reactions[emoji] ? reactions[emoji] + 1 : 1;
-
+ 
   // Update in DB
   await db.query("UPDATE chats SET reactions = ? WHERE id = ?", [JSON.stringify(reactions), messageId]);
-
-
+ 
   return { message, reactions };
 };
-
-
 
 module.exports = {
   getAllMessages,

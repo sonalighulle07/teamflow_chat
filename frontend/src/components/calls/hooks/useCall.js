@@ -16,6 +16,7 @@ export function useCall(userId) {
   const peerMap = useRef(new Map());
 
   useEffect(() => {
+    console.log(userId)
     if (!userId) return;
     if (!socket.connected) socket.connect();
     socket.emit("register", { userId });
