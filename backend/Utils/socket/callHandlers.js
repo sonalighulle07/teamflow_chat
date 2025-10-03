@@ -25,42 +25,42 @@ module.exports = function callHandlers(io, socket) {
   // -------------------
   // 1:1 CALL FLOW
   // -------------------
-  socket.on("callUser", async ({ from, to, offer, callType }) => {
-    console.log(`📞 callUser from ${from} to ${to}`);
-    io.to(`user_${to}`).emit("incomingCall", { from, offer, callType });
+socket.on("callUser", async ({ from, to, offer, callType }) => {
+  console.log(`📞 callUser from ${from} to ${to}`);
+  io.to(`user_${to}`).emit("incomingCall", { from, offer, callType });
 
-    try {
-      const subscription = await User.getPushSubscription(to);
-      if (subscription) {
-        await sendPushNotification(subscription, {
-          title: "Incoming Call",
-          body: `📞 ${callType} call from ${from}`,
-          icon: "/icons/call.png",
-        });
-      }
-    } catch (err) {
-      console.error("Push notification failed:", err);
+  try {
+    const subscription = await User.getPushSubscription(to);
+    if (subscription) {
+      await sendPushNotification(subscription, {
+        title: "Incoming Call",
+        body: `📞 ${callType} call from ${from}`,
+        icon: "/icons/call.png",
+      });
     }
-  });
+  } catch (err) {
+    console.error("Push notification failed:", err);
+  }
+});
 
-  socket.on("answerCall", ({ to, answer, from }) => {
-    if (!to) return;
-    io.to(`user_${to}`).emit("callAccepted", { answer, from });
-  });
+socket.on("answerCall", ({ to, answer, from }) => {
+  io.to(`user_${to}`).emit("callAccepted", { answer, from });
+});
 
-  socket.on("iceCandidate", ({ to, from, candidate }) => {
-    if (!to || !candidate) return;
-    io.to(`user_${to}`).emit("iceCandidate", { from, candidate });
-  });
+socket.on("iceCandidate", ({ to, from, candidate }) => {
+  io.to(`user_${to}`).emit("iceCandidate", { from, candidate });
+});
 
-  socket.on("endCall", ({ from, to }) => {
-    if (to) io.to(`user_${to}`).emit("endCall", { from });
-    if (from) io.to(`user_${from}`).emit("endCall", { from });
-  });
+socket.on("endCall", ({ from, to }) => {
+  if (to) io.to(`user_${to}`).emit("endCall", { from });
+  if (from) io.to(`user_${from}`).emit("endCall", { from });
+});
 
-  socket.on("cancelCall", ({ to, from }) => {
-    if (to) io.to(`user_${to}`).emit("callCancelled", { from });
-  });
+socket.on("cancelCall", ({ to, from }) => {
+  io.to(`user_${to}`).emit("callCancelled", { from });
+});
+
+
 
   // -------------------
   // MULTI-USER MEETING FLOW
