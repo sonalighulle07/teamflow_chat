@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { URL } from "../config";
 import {
   FaUser,
   FaEnvelope,
@@ -51,7 +52,7 @@ export default function Register({ onRegister, onSwitch }) {
     }
     try {
       const res = await fetch(
-        `http://localhost:3000/api/auth/check-username?username=${username}`
+        `${URL}/api/auth/check-username?username=${username}`
       );
       const data = await res.json();
       setUsernameError(!data.available ? "Username already taken" : "");
@@ -67,9 +68,7 @@ export default function Register({ onRegister, onSwitch }) {
       return;
     }
     try {
-      const res = await fetch(
-        `http://localhost:3000/api/auth/check-email?email=${email}`
-      );
+      const res = await fetch(`${URL}/api/auth/check-email?email=${email}`);
       const data = await res.json();
       if (!data.available || !emailPattern.test(email)) {
         setEmailError("Invalid or already used email");
@@ -161,7 +160,7 @@ export default function Register({ onRegister, onSwitch }) {
     }
 
     try {
-      const res = await fetch("http://localhost:3000/api/auth/register", {
+      const res = await fetch(`${URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ full_name, email, contact, username, password }),

@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from "react";
+import  { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 
 export default function ForwardModal({
   open,
   onClose,
   message,
-  users,
   onForward,
   currentUserId,
 }) {
   const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const { userList } = useSelector((state)=>state.user)
 
   useEffect(() => {
     if (!open) setSelectedUserIds([]);
@@ -40,7 +41,7 @@ export default function ForwardModal({
       </h2>
 
       <div className="max-h-60 overflow-y-auto mb-4">
-        {users.map((u) => (
+        {userList.map((u) => (
           <label
             key={u.id}
             className="flex items-center gap-2 mb-2 cursor-pointer px-2 py-1 rounded-lg hover:bg-purple-100 transition-colors"

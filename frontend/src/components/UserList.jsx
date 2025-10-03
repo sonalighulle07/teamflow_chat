@@ -1,4 +1,5 @@
 import React, { memo, useMemo, useCallback } from "react";
+import { URL } from "../config";
 
 function getInitials(name) {
   const parts = name?.split(" ") || [];
@@ -16,7 +17,11 @@ const UserItem = memo(
       <div
         className={`w-10 h-10 text-center pt-2 rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-sm text-white overflow-hidden relative
           transition-colors duration-150
-          ${isSelected ? "bg-green-600 shadow-md" : "bg-gradient-to-r from-blue-700 to-blue-500"}`}
+          ${
+            isSelected
+              ? "bg-green-600 shadow-md"
+              : "bg-gradient-to-r from-blue-700 to-blue-500"
+          }`}
       >
         {user.profile_image ? (
           <img
@@ -33,8 +38,12 @@ const UserItem = memo(
       </div>
 
       <div className="flex flex-col truncate">
-        <span className="text-gray-900 font-medium truncate">{user.username}</span>
-        {user.status && <span className="text-xs text-gray-500 truncate">{user.status}</span>}
+        <span className="text-gray-900 font-medium truncate">
+          {user.username}
+        </span>
+        {user.status && (
+          <span className="text-xs text-gray-500 truncate">{user.status}</span>
+        )}
       </div>
     </li>
   ),
@@ -92,8 +101,9 @@ export default function UserList({
 
     // Move selected item to top
     if (selectedUser) {
+      const selectedItem = allItems.find((i) => i.id === selectedUser.id);
       return [
-        allItems.find((i) => i.id === selectedUser.id) || [],
+        selectedItem ? selectedItem : null,
         ...allItems.filter((i) => i.id !== selectedUser.id),
       ].filter(Boolean);
     }
@@ -122,16 +132,22 @@ export default function UserList({
             key={`team-${item.id}`}
             onClick={() => handleSelect(item)}
             className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1
-              ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
+              ${
+                isSelected
+                  ? "bg-white shadow-md"
+                  : "hover:bg-white hover:shadow"
+              }`}
           >
             <div
               className={`w-10 h-10 text-center pt-2 rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-sm text-white overflow-hidden
                 ${isSelected ? "bg-green-600" : "bg-purple-600"}`}
             >
-              {item.name[0].toUpperCase()}
+              {item.name ? item.name[0].toUpperCase() : "?"}
             </div>
             <div className="flex flex-col truncate">
-              <span className="text-gray-900 font-medium truncate">{highlightMatch(item.name)}</span>
+              <span className="text-gray-900 font-medium truncate">
+                {highlightMatch(item.name || "")}
+              </span>
             </div>
           </li>
         );

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import socket from "./calls/hooks/socket"; // adjust the path if needed
+import { URL } from "../config";
 
 export default function TeamChat({ team, currentUser }) {
   const [messages, setMessages] = useState([]);
@@ -17,9 +18,7 @@ export default function TeamChat({ team, currentUser }) {
 
     const fetchMessages = async () => {
       try {
-        const res = await fetch(
-          `http://localhost:3000/api/teams/${team.id}/messages`
-        );
+        const res = await fetch(`${URL}/api/teams/${team.id}/messages`);
         const data = await res.json();
         setMessages(data);
       } catch (err) {

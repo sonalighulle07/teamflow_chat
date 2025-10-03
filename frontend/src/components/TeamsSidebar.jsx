@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import UserList from "./UserList";
-
+import { URL } from "../config";
 export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
   const [teams, setTeams] = useState([]);
   const [users, setUsers] = useState([]);
@@ -12,13 +12,11 @@ export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
   const [teamName, setTeamName] = useState("");
   const [selectedUsers, setSelectedUsers] = useState([]);
 
-  const API_BASE = "http://localhost:3000/api";
-
   // Fetch all teams
   useEffect(() => {
     const fetchTeams = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/teams`);
+        const res = await axios.get(`${URL}/api/teams`);
         setTeams(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error("Failed to fetch teams:", err);
@@ -31,7 +29,7 @@ export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
   // Open modal to create team
   const openModal = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/users`);
+      const res = await axios.get(`${URL}/api/users`);
       setUsers(Array.isArray(res.data) ? res.data : []);
       setShowModal(true);
     } catch (err) {
@@ -54,7 +52,7 @@ export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
 
     // Optional: fetch team members if needed
     try {
-      const res = await axios.get(`${API_BASE}/teams/${team.id}/members`);
+      const res = await axios.get(`${URL}/api/teams/${team.id}/members`);
       setSelectedTeamMembers(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error(err);
@@ -70,14 +68,14 @@ export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
     }
 
     try {
-      await axios.post(`${API_BASE}/teams`, {
+      await axios.post(`${URL}/api/teams`, {
         name: teamName,
         created_by: 1, // logged-in user ID
         members: selectedUsers,
       });
 
       // Refresh teams
-      const updatedTeams = await axios.get(`${API_BASE}/teams`);
+      const updatedTeams = await axios.get(`${URL}/api/teams`);
       setTeams(Array.isArray(updatedTeams.data) ? updatedTeams.data : []);
 
       // Reset modal

@@ -230,7 +230,6 @@ function App() {
                             selectedTeam={selectedTeam}
                             onSelectTeam={(team) => {
                               setSelectedTeam(team);
-                              setSelectedUser(null);
                             }}
                           />
                         </div>

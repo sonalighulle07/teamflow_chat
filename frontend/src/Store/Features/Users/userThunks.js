@@ -1,14 +1,18 @@
+// userThunks.js
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { setCurrentUser } from "./userSlice";
+import {URL} from '../../../config';
 
-// Login user
+
+// ---------------------- LOGIN USER ----------------------
 export const loginUser = createAsyncThunk(
   "user/login",
   async ({ username, password }, { rejectWithValue }) => {
     try {
-      const res = await fetch("http://localhost:3000/api/auth/login", {
+      const res = await fetch(`${URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // important for cookies/session
         body: JSON.stringify({ username, password }),
       });
 
@@ -18,25 +22,26 @@ export const loginUser = createAsyncThunk(
         return rejectWithValue(data.message || "Login failed");
       }
 
-      // Persist session
+      // Persist session locally
       sessionStorage.setItem("chatUser", JSON.stringify(data.user));
       sessionStorage.setItem("chatToken", data.token);
 
-      return data.user; // Pass user back to slice
-
+      return data.user; // returned to slice
     } catch (err) {
       return rejectWithValue("Server error, try again later.");
     }
   }
 );
 
-// userThunks.js
+// ---------------------- FETCH USERS ----------------------
 export const fetchUsers = createAsyncThunk(
   "user/fetchUsers",
   async (currentUserId, { rejectWithValue }) => {
-    console.log("Request taken by thunk...")
     try {
-      const res = await fetch("/api/users");
+      const res = await fetch(`${URL}/api/users`, {
+        credentials: "include", // include cookies if needed
+      });
+
       if (!res.ok) {
         throw new Error("Failed to fetch users");
       }
@@ -46,7 +51,7 @@ export const fetchUsers = createAsyncThunk(
         throw new Error("Invalid response format");
       }
 
-      // ✅ filter current user only if we have one
+      // Filter out current user
       return currentUserId
         ? data.filter((u) => u.id !== currentUserId)
         : data;
@@ -55,4 +60,3 @@ export const fetchUsers = createAsyncThunk(
     }
   }
 );
-
