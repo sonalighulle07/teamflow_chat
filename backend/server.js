@@ -62,6 +62,8 @@ app.use('/api/teams', teamRoutes);
 io.on('connection', (socket) => {
   console.log('Socket connected:', socket.id);
 
+  
+
   // Register user for private messages
   socket.on('register', ({ userId }) => {
     if (userId) {
@@ -139,41 +141,47 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Delete message
-  socket.on('deleteMessage', async ({ messageId }) => {
+   socket.on("deleteMessage", async ({ messageId }) => {
     try {
-      await Chat.deleteMessage(messageId); // persist deletion
-      const message = await Chat.getMessageById(messageId);
+      const message = await Chat.getMessageById(messageId); // get message details
       if (!message) return;
+
+      // Delete from DB
+      await Chat.deleteMessage(messageId);
+
+      // Emit deletion event
       if (message.receiver_id) {
-        io.to(`user_${message.sender_id}`).emit('messageDeleted', { messageId });
-        io.to(`user_${message.receiver_id}`).emit('messageDeleted', { messageId });
+        // private message
+        io.to(`user_${message.sender_id}`).emit("messageDeleted", { messageId });
+        io.to(`user_${message.receiver_id}`).emit("messageDeleted", { messageId });
       } else if (message.team_id) {
-        io.to(`team_${message.team_id}`).emit('messageDeleted', { messageId });
+        // team message
+        io.to(`team_${message.team_id}`).emit("messageDeleted", { messageId });
       }
     } catch (err) {
-      console.error('Delete failed:', err);
+      console.error("Delete failed:", err);
     }
   });
+
+
 
   // Edit message
-  socket.on('editMessage', async (updatedMsg) => {
-    try {
-      const { id, text } = updatedMsg;
-      await Chat.updateMessage(id, text); // persist edit
-      const message = await Chat.getMessageById(id);
-      if (!message) return;
+ socket.on('editMessage', async (updatedMsg) => {
+  try {
+    const { id, text } = updatedMsg;
+    await Chat.updateMessage(id, text); // persist edit
+    const message = await Chat.getMessageById(id); // good
 
-      if (message.receiver_id) {
-        io.to(`user_${message.sender_id}`).emit('messageEdited', message);
-        io.to(`user_${message.receiver_id}`).emit('messageEdited', message);
-      } else if (message.team_id) {
-        io.to(`team_${message.team_id}`).emit('messageEdited', message);
-      }
-    } catch (err) {
-      console.error('Edit failed:', err);
+    if (message.receiver_id) {
+      io.to(`user_${message.sender_id}`).emit('messageEdited', message);
+      io.to(`user_${message.receiver_id}`).emit('messageEdited', message);
+    } else if (message.team_id) {
+      io.to(`team_${message.team_id}`).emit('messageEdited', message);
     }
-  });
+  } catch (err) {
+    console.error('Edit failed:', err);
+  }
+});
 
   // Reaction
   socket.on('reaction', async ({ messageId, userId, emoji }) => {

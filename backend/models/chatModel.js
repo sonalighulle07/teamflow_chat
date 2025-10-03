@@ -1,5 +1,5 @@
 const db = require("../Utils/db");
- 
+
 // सर्व messages fetch करण्यासाठी (सर्व history)
 const getAllMessages = async () => {
   const [rows] = await db.query(
@@ -7,7 +7,7 @@ const getAllMessages = async () => {
   );
   return rows;
 };
- 
+
 // दोन users मधील conversation fetch करण्यासाठी
 const getMessagesBetweenUsers = async (user1, user2) => {
   const [rows] = await db.query(
@@ -19,7 +19,8 @@ const getMessagesBetweenUsers = async (user1, user2) => {
   );
   return rows;
 };
- 
+
+// Insert message
 const insertMessage = async (
   senderId,
   receiverId,
@@ -61,10 +62,11 @@ const getMessageById = async (messageId) => {
   return rows[0];
 };
 
+// update reactions
 const updateMessageReactions = async (messageId, emoji) => {
   const [rows] = await db.query("SELECT * FROM chats WHERE id = ?", [messageId]);
   if (!rows.length) return null;
- 
+
   let message = rows[0];
   let reactions;
   try {
@@ -76,11 +78,26 @@ const updateMessageReactions = async (messageId, emoji) => {
 
   // Increment emoji count
   reactions[emoji] = reactions[emoji] ? reactions[emoji] + 1 : 1;
- 
+
   // Update in DB
   await db.query("UPDATE chats SET reactions = ? WHERE id = ?", [JSON.stringify(reactions), messageId]);
- 
+
   return { message, reactions };
+};
+
+// ✅ NEW: delete message
+const deleteMessage = async (messageId) => {
+  await db.query("DELETE FROM chats WHERE id = ?", [messageId]);
+};
+
+// ✅ NEW: update/edit message text
+const updateMessage = async (messageId, text) => {
+  await db.query("UPDATE chats SET text = ?, edited = 1 WHERE id = ?", [text, messageId]);
+};
+
+// ✅ NEW: update reactions JSON directly
+const updateReactions = async (messageId, reactions) => {
+  await db.query("UPDATE chats SET reactions = ? WHERE id = ?", [reactions, messageId]);
 };
 
 module.exports = {
@@ -89,4 +106,7 @@ module.exports = {
   insertMessage,
   getMessageById,
   updateMessageReactions,
+  deleteMessage,      // 🔥 added
+  updateMessage,      // 🔥 added
+  updateReactions,    // 🔥 added
 };

@@ -15,6 +15,8 @@ export default function ChatWindow({
   searchQuery,
 }) {
   const { selectedUser, currentUser } = useSelector((state) => state.user);
+  const [deleteAlert, setDeleteAlert] = useState("");
+  const [forwardAlert, setForwardAlert] = useState("");
 
   const token = sessionStorage.getItem("chatToken");
   const [text, setText] = useState("");
@@ -113,24 +115,45 @@ export default function ChatWindow({
         },
         body: JSON.stringify({ emoji }),
       });
-      // Server will emit updated reaction, no local update needed
+      // Emit to server
+      socketRef.current.emit("reaction", {
+        messageId,
+        userId: currentUserId,
+        emoji,
+      });
     } catch (err) {
       console.error("Reaction error:", err);
     }
   };
 
-  // Delete message
-  const handleDelete = async (messageId) => {
-    try {
-      const res = await fetch(`${URL}/api/chats/${messageId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) socketRef.current.emit("deleteMessage", { messageId });
-    } catch (err) {
-      console.error("Delete error:", err);
-    }
+  const handleDelete = (messageId) => {
+    if (!socketRef.current) return;
+
+    socketRef.current.emit("deleteMessage", { messageId });
   };
+
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const socket = socketRef.current;
+
+    socket.on("messageDeleted", ({ messageId, senderId, currentUserId }) => {
+      // Remove message for all users
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+
+      // Show temporary alert only to the sender
+      if (senderId === currentUserId) {
+        setDeleteAlert("Message deleted successfully ");
+
+        // Hide alert after 3 seconds
+        setTimeout(() => setDeleteAlert(""), 3000);
+      }
+    });
+
+    return () => {
+      socket.off("messageDeleted");
+    };
+  }, []);
 
   // Edit message
   const handleEdit = async (updatedMsg) => {
@@ -165,11 +188,17 @@ export default function ChatWindow({
         body: JSON.stringify({ toUserIds, senderId: currentUser?.id }),
       });
       const data = await res.json();
-      if (data.success) alert("Message forwarded successfully! ✅");
-      else alert("Forward failed! ❌");
+      if (data.success) {
+        setForwardAlert("Message forwarded successfully ");
+        setTimeout(() => setForwardAlert(""), 3000); // hide after 3 sec
+      } else {
+        setForwardAlert("Forward failed ");
+        setTimeout(() => setForwardAlert(""), 3000);
+      }
     } catch (err) {
       console.error("Forward failed", err);
-      alert("Forward failed due to server error!");
+      setForwardAlert("Forward failed due to server error ");
+      setTimeout(() => setForwardAlert(""), 3000);
     }
   };
 
@@ -273,7 +302,21 @@ export default function ChatWindow({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col h-full relative">
+      {/* Temporary delete alert */}
+      {deleteAlert && (
+        <div className="fixed top-5 right-5 bg-green-500 text-white p-3 rounded shadow z-50">
+          {deleteAlert}
+        </div>
+      )}
+
+      {/* Temporary forward alert */}
+      {forwardAlert && (
+        <div className="fixed top-16 right-5 bg-blue-500 text-white p-3 rounded shadow z-50">
+          {forwardAlert}
+        </div>
+      )}
+
       {/* Chat messages */}
       <div className="flex-1 p-4 bg-gray-50 overflow-y-auto">
         {selectedUser || selectedTeam ? (
@@ -310,6 +353,7 @@ export default function ChatWindow({
                     onDelete={handleDelete}
                     onEdit={handleEdit}
                     onForward={(msg) => setForwardMsg(msg)}
+                    socket={socketRef.current} // <<< Pass socket here
                   />
                 </div>
               );
