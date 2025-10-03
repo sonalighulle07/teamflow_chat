@@ -14,9 +14,9 @@ export default function ChatWindow({
   currentUserId,
   searchQuery,
 }) {
-  const { selectedUser, currentUser } = useSelector((state) => state.user);
   const [deleteAlert, setDeleteAlert] = useState("");
   const [forwardAlert, setForwardAlert] = useState("");
+  const { selectedUser, currentUser } = useSelector((state) => state.user);
 
   const token = sessionStorage.getItem("chatToken");
   const [text, setText] = useState("");

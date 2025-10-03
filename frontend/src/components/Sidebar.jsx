@@ -1,5 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { FaCommentDots, FaVideo, FaUsers, FaCalendar, FaBell, FaSearch } from "react-icons/fa";
+import {
+  FaCommentDots,
+  FaVideo,
+  FaUsers,
+  FaCalendar,
+  FaBell,
+  FaSearch,
+} from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedUser } from "../Store/Features/Users/userSlice";
 import { fetchUsers } from "../Store/Features/Users/userThunks";
@@ -7,7 +14,9 @@ import UserList from "./UserList";
 
 export default function Sidebar({ activeNav, setActiveNav }) {
   const dispatch = useDispatch();
-  const { currentUser, userList, selectedUser, loading, error } = useSelector((state) => state.user);
+  const { currentUser, userList, selectedUser, loading, error } = useSelector(
+    (state) => state.user
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -24,12 +33,15 @@ export default function Sidebar({ activeNav, setActiveNav }) {
   // Handle selecting a user
   const handleSelectUser = (user) => {
     dispatch(setSelectedUser(user));
+    setSearchQuery("");
   };
 
-  // Keep selected user on top, preserve references for memoization
+  // Keep selected user on top
   const orderedUsers = useMemo(() => {
     if (!userList) return [];
-    const others = userList.filter((u) => !selectedUser || u.id !== selectedUser.id);
+    const others = userList.filter(
+      (u) => !selectedUser || u.id !== selectedUser.id
+    );
     return selectedUser ? [selectedUser, ...others] : others;
   }, [userList, selectedUser]);
 
@@ -54,7 +66,11 @@ export default function Sidebar({ activeNav, setActiveNav }) {
       {/* Sidebar navigation */}
       <div className="flex flex-col justify-between w-20 min-w-[5rem] bg-slate-200 shadow-md px-4 py-6 flex-shrink-0">
         <div className="flex flex-col items-center gap-6">
-          <img src="/logo - no background.png" alt="Logo" className="w-12 h-12 object-contain" />
+          <img
+            src="/logo - no background.png"
+            alt="Logo"
+            className="w-12 h-12 object-contain"
+          />
           {navItems.map(({ icon, label }) => {
             const isActive = activeNav === label;
             return (
@@ -65,14 +81,18 @@ export default function Sidebar({ activeNav, setActiveNav }) {
               >
                 <div
                   className={`text-xl transition-colors ${
-                    isActive ? "text-purple-600" : "text-gray-500 group-hover:text-purple-600"
+                    isActive
+                      ? "text-purple-600"
+                      : "text-gray-500 group-hover:text-purple-600"
                   }`}
                 >
                   {icon}
                 </div>
                 <span
                   className={`mt-1 text-xs font-semibold transition-colors ${
-                    isActive ? "text-purple-600" : "text-gray-600 group-hover:text-purple-600"
+                    isActive
+                      ? "text-purple-600"
+                      : "text-gray-600 group-hover:text-purple-600"
                   }`}
                 >
                   {label}
@@ -83,7 +103,7 @@ export default function Sidebar({ activeNav, setActiveNav }) {
         </div>
       </div>
 
-
+      {/* Chat panel */}
       {activeNav === "Chat" && (
         <div className="flex-1 bg-gray-100 border-l border-gray-300 flex flex-col overflow-hidden">
           {/* Search Input */}
@@ -102,19 +122,21 @@ export default function Sidebar({ activeNav, setActiveNav }) {
 
           {/* User List */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            {loading && <p className="p-4 text-sm text-gray-500">Loading users…</p>}
+            {loading && (
+              <p className="p-4 text-sm text-gray-500">Loading users…</p>
+            )}
             {error && <p className="p-4 text-sm text-red-500">{error}</p>}
             {!loading && !error && (
               <UserList
                 users={filteredUsers}
                 selectedUser={selectedUser}
                 onSelectUser={handleSelectUser}
+                searchQuery={searchQuery}
               />
             )}
             {!loading && !error && filteredUsers.length === 0 && (
               <p className="p-4 text-sm text-gray-500">No users found</p>
             )}
-
           </div>
         </div>
       )}

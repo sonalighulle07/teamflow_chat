@@ -85,17 +85,17 @@ const updateMessageReactions = async (messageId, emoji) => {
   return { message, reactions };
 };
 
-// ✅ NEW: delete message
+//  NEW: delete message
 const deleteMessage = async (messageId) => {
   await db.query("DELETE FROM chats WHERE id = ?", [messageId]);
 };
 
-// ✅ NEW: update/edit message text
+//  NEW: update/edit message text
 const updateMessage = async (messageId, text) => {
   await db.query("UPDATE chats SET text = ?, edited = 1 WHERE id = ?", [text, messageId]);
 };
 
-// ✅ NEW: update reactions JSON directly
+//  NEW: update reactions JSON directly
 const updateReactions = async (messageId, reactions) => {
   await db.query("UPDATE chats SET reactions = ? WHERE id = ?", [reactions, messageId]);
 };
@@ -106,7 +106,7 @@ module.exports = {
   insertMessage,
   getMessageById,
   updateMessageReactions,
-  deleteMessage,      // 🔥 added
-  updateMessage,      // 🔥 added
-  updateReactions,    // 🔥 added
+  deleteMessage,      
+  updateMessage,      
+  updateReactions,    
 };
