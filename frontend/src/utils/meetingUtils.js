@@ -1,6 +1,8 @@
+import { URL } from "../config";
+
 export async function createMeeting(payload) {
   try {
-    const res = await fetch("http://localhost:3000/api/meetings/create", {
+    const res = await fetch(`${URL}/api/meetings/create`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -15,7 +17,7 @@ export async function createMeeting(payload) {
 
 export async function getMeeting(code) {
   try {
-    const res = await fetch(`http://localhost:3000/api/meetings/${code}`);
+    const res = await fetch(`${URL}/api/meetings/${code}`);
     if (!res.ok) throw new Error("Failed to fetch meeting");
     return await res.json();
   } catch (err) {
@@ -26,7 +28,7 @@ export async function getMeeting(code) {
 
 export async function getUserMeetings(userId) {
   try {
-    const res = await fetch(`http://localhost:3000/api/meetings/user/${userId}`);
+    const res = await fetch(`${URL}/api/meetings/user/${userId}`);
     if (!res.ok) throw new Error("Failed to fetch user meetings");
     return await res.json();
   } catch (err) {

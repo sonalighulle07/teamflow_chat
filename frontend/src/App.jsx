@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
@@ -20,6 +20,8 @@ import TeamsSidebar from "./components/TeamsSidebar";
 
 import { useSelector, useDispatch } from "react-redux";
 import { rehydrateUser } from "./Store/Features/Users/userSlice";
+import ProtectedRoute from "./utils/ProtectedRoute";
+
 
 function App() {
   const { selectedUser, currentUser, userList } = useSelector((state) => state.user);
@@ -152,64 +154,67 @@ function App() {
   };
 
   return (
-    <Router>
+<Router>
       <div className="h-screen w-screen flex flex-col">
-        {!isAuthenticated ? (
-          <div className="flex-1 flex items-center justify-center bg-gradient-to-tl from-white to-purple-600">
-            {!showRegister ? (
-              <Login
-                onLogin={handleAuthSuccess}
-                onSwitch={() => setShowRegister(true)}
-              />
-            ) : (
-              <Register
-                onRegister={handleAuthSuccess}
-                onSwitch={() => setShowRegister(false)}
-              />
-            )}
-          </div>
-        ) : !currentUser ? (
-          <div className="flex-1 flex items-center justify-center text-xl text-gray-600">
-            Loading your account...
-          </div>
-        ) : (
-          <>
-            <Header
-              activeUser={currentUser}
-              selectedUser={selectedUser}
-              onStartCall={(type) => call.startCall(type, selectedUser)}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-            />
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              isAuthenticated ? (
+                <Navigate to={location.state?.from || "/"} replace />
+              ) : !showRegister ? (
+                <Login onLogin={handleAuthSuccess} onSwitch={() => setShowRegister(true)} />
+              ) : (
+                <Register onRegister={handleAuthSuccess} onSwitch={() => setShowRegister(false)} />
+              )
+            }
+          />
 
-            <Routes>
-              <Route
-                path="/"
-                element={
+          <Route
+            path="/meet/:code"
+            element={
+              <ProtectedRoute isAuthenticated={isAuthenticated}>
+                <MeetingRoom userId={userId} />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/"
+            element={
+              !isAuthenticated ? (
+                <Navigate to="/login" replace />
+              ) : !currentUser ? (
+                <div className="flex-1 flex items-center justify-center text-xl text-gray-600">
+                  Loading your account...
+                </div>
+              ) : (
+                <>
+                  <Header
+                    activeUser={currentUser}
+                    selectedUser={selectedUser}
+                    onStartCall={(type) => call.startCall(type, selectedUser)}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                  />
+
                   <div className="flex flex-1 overflow-hidden w-full">
-                    {/* Sidebar */}
                     <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
                       <Sidebar
                         selectedUser={selectedUser}
-                        onSelectUser={(user) => {
-                          // Deselect team if user selected
-                          setSelectedTeam(null);
-                        }}
+                        onSelectUser={() => setSelectedTeam(null)}
                         activeNav={activeNav}
                         setActiveNav={setActiveNav}
                       />
-                    </div>
+                    </div>  
 
-                    {/* Main Content */}
                     <div className="flex-1 flex flex-col overflow-hidden w-full">
                       {activeNav === "Chat" && (
                         <ChatWindow
                           selectedTeam={selectedTeam}
                           selectedUser={selectedUser}
                           messages={selectedTeam ? teamMessages : userMessages}
-                          setMessages={
-                            selectedTeam ? setTeamMessages : setUserMessages
-                          }
+                          setMessages={selectedTeam ? setTeamMessages : setUserMessages}
                           currentUserId={userId}
                           searchQuery={searchQuery}
                           usersList={userList}
@@ -224,15 +229,11 @@ function App() {
                       )}
 
                       {activeNav === "Communities" && (
-                        <div className="flex-1 flex flex-col overflow-hidden w-full">
-                          <TeamsSidebar
-                            currentUserId={userId}
-                            selectedTeam={selectedTeam}
-                            onSelectTeam={(team) => {
-                              setSelectedTeam(team);
-                            }}
-                          />
-                        </div>
+                        <TeamsSidebar
+                          currentUserId={userId}
+                          selectedTeam={selectedTeam}
+                          onSelectTeam={(team) => setSelectedTeam(team)}
+                        />
                       )}
 
                       {activeNav === "Calendar" && (
@@ -248,55 +249,51 @@ function App() {
                       )}
                     </div>
                   </div>
-                }
-              />
-              <Route
-                path="/meet/:code"
-                element={<MeetingRoom userId={userId} />}
-              />
-            </Routes>
 
-            {forwardModalOpen && messageToForward && (
-              <ForwardModal
-                open={forwardModalOpen}
-                onClose={handleForwardComplete}
-                message={messageToForward}
-                users={userList}
-                onForward={handleForwardComplete}
-              />
-            )}
+                  {forwardModalOpen && messageToForward && (
+                    <ForwardModal
+                      open={forwardModalOpen}
+                      onClose={handleForwardComplete}
+                      message={messageToForward}
+                      users={userList}
+                      onForward={handleForwardComplete}
+                    />
+                  )}
 
-            {call.callState.incoming && (
-              <IncomingCallModal
-                visible
-                fromUser={call.callState.caller}
-                callType={call.callState.type}
-                onAccept={call.acceptCall}
-                onReject={call.rejectCall}
-              />
-            )}
+                  {call.callState.incoming && (
+                    <IncomingCallModal
+                      visible
+                      fromUser={call.callState.caller}
+                      callType={call.callState.type}
+                      onAccept={call.acceptCall}
+                      onReject={call.rejectCall}
+                    />
+                  )}
 
-            {call.callState.type && (
-              <CallOverlay
-                callType={call.callState.type}
-                localStream={call.localStream}
-                remoteStreams={call.remoteStreams}
-                onEndCall={call.endCall}
-                onToggleMic={call.toggleMic}
-                onToggleCam={call.toggleCam}
-                onStartScreenShare={call.startScreenShare}
-                onStopScreenShare={call.stopScreenShare}
-                isScreenSharing={call.isScreenSharing}
-                isMuted={call.isMuted}
-                isVideoEnabled={call.isVideoEnabled}
-                onMinimize={() => call.setIsMaximized(false)}
-                onMaximize={() => call.setIsMaximized(true)}
-                onClose={call.endCall}
-                isMaximized={call.isMaximized}
-              />
-            )}
-          </>
-        )}
+                  {call.callState.type && (
+                    <CallOverlay
+                      callType={call.callState.type}
+                      localStream={call.localStream}
+                      remoteStreams={call.remoteStreams}
+                      onEndCall={call.endCall}
+                      onToggleMic={call.toggleMic}
+                      onToggleCam={call.toggleCam}
+                      onStartScreenShare={call.startScreenShare}
+                      onStopScreenShare={call.stopScreenShare}
+                      isScreenSharing={call.isScreenSharing}
+                      isMuted={call.isMuted}
+                      isVideoEnabled={call.isVideoEnabled}
+                      onMinimize={() => call.setIsMaximized(false)}
+                      onMaximize={() => call.setIsMaximized(true)}
+                      onClose={call.endCall}
+                      isMaximized={call.isMaximized}
+                    />
+                  )}
+                </>
+              )
+            }
+          />
+        </Routes>
       </div>
     </Router>
   );
