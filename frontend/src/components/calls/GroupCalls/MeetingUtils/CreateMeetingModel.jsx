@@ -1,7 +1,7 @@
 import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { createMeeting } from "../../utils/meetingUtils";
+import { createMeeting } from "./meetingUtils";
 
 export default function CreateMeetingModal({ userId }) {
   const [title, setTitle] = useState("");

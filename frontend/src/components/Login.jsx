@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "../Store/Features/Users/userThunks";
 
-export default function Login({ onLogin, onSwitch }) {
+export default function Login({ onLogin }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -30,7 +30,7 @@ export default function Login({ onLogin, onSwitch }) {
     return () => clearTimeout(handler);
   }, [usernameValue]);
 
-useEffect(() => {
+  useEffect(() => {
     const handler = setTimeout(() => {
       setPasswordError(
         passwordValue && passwordValue.length < 6 ? "Incorrect password!" : ""
@@ -46,7 +46,10 @@ useEffect(() => {
       return;
     }
     if (passwordValue.trim().length < 6) {
-      showToastMessage("Password must be at least 6 characters!", "bg-red-500");
+      showToastMessage(
+        "Password must be at least 6 characters!",
+        "bg-red-500"
+      );
       return;
     }
 
@@ -64,8 +67,7 @@ useEffect(() => {
       } else {
         showToastMessage(resultAction.payload || "Login failed!", "bg-red-500");
       }
-
-} catch (err) {
+    } catch (err) {
       showToastMessage(err.message || "Login failed!", "bg-red-500");
     }
   };
@@ -97,7 +99,7 @@ useEffect(() => {
               <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
                 <FaUser className="text-gray-400 text-sm" />
               </div>
-<input
+              <input
                 type="text"
                 id="loginUsername"
                 value={usernameValue}
@@ -132,7 +134,7 @@ useEffect(() => {
                 className="w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-500 text-sm border-2 border-transparent outline-none focus:border-purple-400 focus:shadow-md transition duration-200"
               />
 
-{passwordValue && (
+              {passwordValue && (
                 <div
                   className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-purple-600"
                   onClick={() => setShowPassword(!showPassword)}
@@ -159,11 +161,10 @@ useEffect(() => {
           Don't have an account?{" "}
           <span
             className="text-blue-500 cursor-pointer hover:text-blue-700 hover:underline"
-            onClick={onSwitch}
+            onClick={() => navigate("/register")}
           >
             Register
-
-</span>
+          </span>
         </p>
 
         {showToast && (

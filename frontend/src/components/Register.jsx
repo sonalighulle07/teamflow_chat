@@ -1,13 +1,7 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { URL } from "../config";
-import {
-  FaUser,
-  FaEnvelope,
-  FaPhone,
-  FaLock,
-  FaEye,
-  FaEyeSlash,
-} from "react-icons/fa";
+import { FaUser, FaEnvelope, FaPhone, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 
 // Debounce helper
 const debounce = (func, delay) => {
@@ -18,7 +12,8 @@ const debounce = (func, delay) => {
   };
 };
 
-export default function Register({ onRegister, onSwitch }) {
+export default function Register({ onRegister }) {
+  const navigate = useNavigate();
   const [toastMsg, setToastMsg] = useState("");
   const [toastColor, setToastColor] = useState("bg-red-500");
   const [showToast, setShowToast] = useState(false);
@@ -51,9 +46,7 @@ export default function Register({ onRegister, onSwitch }) {
       return;
     }
     try {
-      const res = await fetch(
-        `${URL}/api/auth/check-username?username=${username}`
-      );
+      const res = await fetch(`${URL}/api/auth/check-username?username=${username}`);
       const data = await res.json();
       setUsernameError(!data.available ? "Username already taken" : "");
     } catch {
@@ -83,30 +76,20 @@ export default function Register({ onRegister, onSwitch }) {
   // Validation
   const validateField = (field, value) => {
     if (!value) {
-      // remove error if empty
       if (field === "contact") setContactError("");
       if (field === "password") setPasswordError("");
       if (field === "confirmPassword") setConfirmPasswordError("");
       return;
     }
-
     switch (field) {
       case "contact":
-        setContactError(
-          contactPattern.test(value) ? "" : "Invalid contact number"
-        );
+        setContactError(contactPattern.test(value) ? "" : "Invalid contact number");
         break;
       case "password":
-        setPasswordError(
-          passwordPattern.test(value)
-            ? ""
-            : "Password must be 8+ chars with numbers"
-        );
+        setPasswordError(passwordPattern.test(value) ? "" : "Password must be 8+ chars with numbers");
         break;
       case "confirmPassword":
-        setConfirmPasswordError(
-          value === password ? "" : "Passwords do not match"
-        );
+        setConfirmPasswordError(value === password ? "" : "Passwords do not match");
         break;
       default:
         break;
@@ -116,18 +99,9 @@ export default function Register({ onRegister, onSwitch }) {
   // Debounced checks
   const debouncedUsernameCheck = debounce(checkUsernameAvailability, 600);
   const debouncedEmailCheck = debounce(checkEmailAvailability, 600);
-  const debouncedContactCheck = debounce(
-    (value) => validateField("contact", value),
-    600
-  );
-  const debouncedPasswordCheck = debounce(
-    (value) => validateField("password", value),
-    600
-  );
-  const debouncedConfirmPasswordCheck = debounce(
-    (value) => validateField("confirmPassword", value),
-    600
-  );
+  const debouncedContactCheck = debounce((value) => validateField("contact", value), 600);
+  const debouncedPasswordCheck = debounce((value) => validateField("password", value), 600);
+  const debouncedConfirmPasswordCheck = debounce((value) => validateField("confirmPassword", value), 600);
 
   // Submit
   const handleSubmit = async (e) => {
@@ -136,25 +110,12 @@ export default function Register({ onRegister, onSwitch }) {
     const email = document.getElementById("regEmail").value.trim();
     const username = document.getElementById("regUsername").value.trim();
 
-    if (
-      !full_name ||
-      !email ||
-      !contact ||
-      !username ||
-      !password ||
-      !confirmPassword
-    ) {
+    if (!full_name || !email || !contact || !username || !password || !confirmPassword) {
       showToastMessage("All fields are required!", "bg-red-500");
       return;
     }
 
-    if (
-      usernameError ||
-      emailError ||
-      contactError ||
-      passwordError ||
-      confirmPasswordError
-    ) {
+    if (usernameError || emailError || contactError || passwordError || confirmPasswordError) {
       showToastMessage("Fix the errors before submitting!", "bg-red-500");
       return;
     }
@@ -191,87 +152,52 @@ export default function Register({ onRegister, onSwitch }) {
   return (
     <div className="flex h-screen w-full items-center justify-center bg-gradient-to-tl from-white to-purple-600 animate-fadeIn p-2">
       <div className="w-full max-w-md rounded-2xl bg-white/20 p-6 sm:p-8 shadow-xl backdrop-blur-md animate-slideUp relative">
-        <h2 className="mb-6 text-center text-2xl font-bold text-white tracking-wide">
-          Register
-        </h2>
+        <h2 className="mb-6 text-center text-2xl font-bold text-white tracking-wide">Register</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Full Name */}
           <div className="flex flex-col">
-            <label
-              htmlFor="regFullName"
-              className="text-white font-medium text-sm mb-1"
-            >
-              Full Name
-            </label>
+            <label htmlFor="regFullName" className="text-white font-medium text-sm mb-1">Full Name</label>
             <div className="relative">
               <FaUser className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-              <input
-                type="text"
-                id="regFullName"
-                placeholder="Enter full name"
-                className="w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border border-gray-300 outline-none focus:border-purple-400 transition duration-200"
-              />
+              <input type="text" id="regFullName" placeholder="Enter full name" className="w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border border-gray-300 outline-none focus:border-purple-400 transition duration-200" />
             </div>
           </div>
 
           {/* Username */}
           <div className="flex flex-col">
-            <label
-              htmlFor="regUsername"
-              className="text-white font-medium text-sm mb-1"
-            >
-              Username
-            </label>
+            <label htmlFor="regUsername" className="text-white font-medium text-sm mb-1">Username</label>
             <div className="relative">
               <FaUser className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
               <input
                 type="text"
                 id="regUsername"
                 placeholder="Enter username"
-                className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
-                  usernameError ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${usernameError ? "border-red-500" : "border-gray-300"}`}
                 onChange={(e) => debouncedUsernameCheck(e.target.value.trim())}
               />
             </div>
-            {usernameError && (
-              <span className="text-xs text-red-600 mt-1">{usernameError}</span>
-            )}
+            {usernameError && <span className="text-xs text-red-600 mt-1">{usernameError}</span>}
           </div>
 
           {/* Email + Contact */}
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col">
-              <label
-                htmlFor="regEmail"
-                className="text-white font-medium text-sm mb-1"
-              >
-                Email
-              </label>
+              <label htmlFor="regEmail" className="text-white font-medium text-sm mb-1">Email</label>
               <div className="relative">
                 <FaEnvelope className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
                   type="email"
                   id="regEmail"
                   placeholder="Enter email"
-                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
-                    emailError ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${emailError ? "border-red-500" : "border-gray-300"}`}
                   onChange={(e) => debouncedEmailCheck(e.target.value.trim())}
                 />
               </div>
-              {emailError && (
-                <span className="text-xs text-red-600 mt-1">{emailError}</span>
-              )}
+              {emailError && <span className="text-xs text-red-600 mt-1">{emailError}</span>}
             </div>
 
             <div className="flex flex-col">
-              <label
-                htmlFor="regContact"
-                className="text-white font-medium text-sm mb-1"
-              >
-                Contact
-              </label>
+              <label htmlFor="regContact" className="text-white font-medium text-sm mb-1">Contact</label>
               <div className="relative">
                 <FaPhone className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
@@ -283,28 +209,17 @@ export default function Register({ onRegister, onSwitch }) {
                     debouncedContactCheck(e.target.value.trim());
                   }}
                   placeholder="Enter contact number"
-                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
-                    contactError ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${contactError ? "border-red-500" : "border-gray-300"}`}
                 />
               </div>
-              {contactError && (
-                <span className="text-xs text-red-600 mt-1">
-                  {contactError}
-                </span>
-              )}
+              {contactError && <span className="text-xs text-red-600 mt-1">{contactError}</span>}
             </div>
           </div>
 
           {/* Password + Confirm Password */}
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col">
-              <label
-                htmlFor="regPassword"
-                className="text-white font-medium text-sm mb-1"
-              >
-                Password
-              </label>
+              <label htmlFor="regPassword" className="text-white font-medium text-sm mb-1">Password</label>
               <div className="relative">
                 <FaLock className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
@@ -316,31 +231,17 @@ export default function Register({ onRegister, onSwitch }) {
                     debouncedPasswordCheck(e.target.value);
                   }}
                   placeholder="Enter password"
-                  className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
-                    passwordError ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${passwordError ? "border-red-500" : "border-gray-300"}`}
                 />
-                <span
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer" onClick={() => setShowPassword(!showPassword)}>
                   {showPassword ? <FaEyeSlash /> : <FaEye />}
                 </span>
               </div>
-              {passwordError && (
-                <span className="text-xs text-red-600 mt-1">
-                  {passwordError}
-                </span>
-              )}
+              {passwordError && <span className="text-xs text-red-600 mt-1">{passwordError}</span>}
             </div>
 
             <div className="flex flex-col">
-              <label
-                htmlFor="regConfirmPassword"
-                className="text-white font-medium text-sm mb-1"
-              >
-                Confirm Password
-              </label>
+              <label htmlFor="regConfirmPassword" className="text-white font-medium text-sm mb-1">Confirm Password</label>
               <div className="relative">
                 <FaLock className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
@@ -352,48 +253,31 @@ export default function Register({ onRegister, onSwitch }) {
                     debouncedConfirmPasswordCheck(e.target.value);
                   }}
                   placeholder="Confirm password"
-                  className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
-                    confirmPasswordError ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${confirmPasswordError ? "border-red-500" : "border-gray-300"}`}
                 />
-                <span
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                   {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
                 </span>
               </div>
-              {confirmPasswordError && (
-                <span className="text-xs text-red-600 mt-1">
-                  {confirmPasswordError}
-                </span>
-              )}
+              {confirmPasswordError && <span className="text-xs text-red-600 mt-1">{confirmPasswordError}</span>}
             </div>
           </div>
 
           {/* Submit */}
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white shadow-lg mt-4 hover:scale-105 hover:bg-purple-700 transition duration-300"
-          >
+          <button type="submit" className="w-full rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white shadow-lg mt-4 hover:scale-105 hover:bg-purple-700 transition duration-300">
             Register
           </button>
         </form>
 
         <p className="mt-5 text-center text-[15px] mb-[15px] font-semibold text-white">
           Already have an account?{" "}
-          <span
-            className="text-blue-500 cursor-pointer hover:text-blue-700 hover:underline"
-            onClick={onSwitch}
-          >
+          <span className="text-blue-500 cursor-pointer hover:text-blue-700 hover:underline" onClick={() => navigate("/login")}>
             Login
           </span>
         </p>
 
         {showToast && (
-          <div
-            className={`absolute top-[-50px] left-1/2 -translate-x-1/2 px-3 py-2 rounded-md text-white font-semibold shadow-lg ${toastColor} animate-toast`}
-          >
+          <div className={`absolute top-[-50px] left-1/2 -translate-x-1/2 px-3 py-2 rounded-md text-white font-semibold shadow-lg ${toastColor} animate-toast`}>
             {toastMsg}
           </div>
         )}

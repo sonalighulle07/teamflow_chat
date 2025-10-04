@@ -1,4 +1,4 @@
-import { URL } from "../config";
+import { URL } from "../../../../config";
 
 export async function createMeeting(payload) {
   try {
