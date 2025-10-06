@@ -1,59 +1,66 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 export default function PeerTile({ stream, label, isLocal = false }) {
   const videoRef = useRef(null);
+  const [videoActive, setVideoActive] = useState(true);
 
+  // Update videoActive based on track state
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream || null;
-      console.log("🎥 [PeerTile] Initial bind:", {
-        label,
-        stream,
-        tracks: stream?.getTracks().map(t => ({
-          kind: t.kind,
-          enabled: t.enabled,
-          muted: t.muted,
-          readyState: t.readyState,
-        })),
+    if (!stream) {
+      setVideoActive(false);
+      if (videoRef.current) videoRef.current.srcObject = null;
+      return;
+    }
+
+    const checkVideo = () => {
+      const active = stream.getVideoTracks().some(t => t.enabled && t.readyState === "live");
+      setVideoActive(active);
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    };
+
+    checkVideo();
+
+    // Listen to track events
+    stream.getVideoTracks().forEach(track => {
+      track.onmute = checkVideo;
+      track.onunmute = checkVideo;
+      track.onended = checkVideo;
+    });
+
+    return () => {
+      stream.getVideoTracks().forEach(track => {
+        track.onmute = null;
+        track.onunmute = null;
+        track.onended = null;
       });
-    }
-  }, [stream, label]);
-
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      if (videoRef.current.srcObject !== stream) {
-        videoRef.current.srcObject = stream;
-        console.log("🔄 [PeerTile] Stream updated:", {
-          label,
-          stream,
-          tracks: stream.getTracks().map(t => ({
-            kind: t.kind,
-            enabled: t.enabled,
-            muted: t.muted,
-            readyState: t.readyState,
-          })),
-        });
-      }
-    }
-  }, [stream, label]);
+    };
+  }, [stream]);
 
   return (
-    <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+    <div className="relative bg-gray-900 rounded-lg overflow-hidden w-full aspect-video border border-gray-700">
+      {/* Always attach the video */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted={isLocal}
-        className="w-full h-full object-cover bg-black"
+        className="w-full h-full object-cover"
       />
-      {!stream && (
-        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-          No video stream
+
+      {/* Overlay when video is off */}
+      {!videoActive && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black text-white">
+          <div className="text-lg font-semibold">{label}</div>
+          <div className="text-xs text-gray-400 mt-1">Camera Off</div>
         </div>
       )}
-      <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-        {label}
-      </div>
+
+      {/* Label overlay */}
+      {videoActive && (
+        <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+          {label}
+        </div>
+      )}
 
       {/* Optional debug overlay */}
       {stream && (
@@ -68,4 +75,3 @@ export default function PeerTile({ stream, label, isLocal = false }) {
     </div>
   );
 }
-

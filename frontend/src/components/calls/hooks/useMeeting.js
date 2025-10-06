@@ -142,36 +142,31 @@ export function useMeeting(userId, roomCode) {
   }
 
   // ---- Toggle Camera ----
-  const toggleCam = async () => {
+const toggleCam = async () => {
   if (!localStream) return;
 
   const videoTracks = localStream.getVideoTracks();
 
-  if (isVideoEnabled) {
-    // TURN OFF CAMERA
-    videoTracks.forEach((track) => {
-      track.stop(); // stops hardware → LED off
-      localStream.removeTrack(track);
-      // Remove from peers
-      peerMap.current.forEach((peer) => {
-        const sender = peer.getSenders().find((s) => s.track === track);
-        if (sender) peer.removeTrack(sender);
-      });
-    });
+  if (videoTracks.length > 0) {
+    // Camera is ON → turn OFF
+    const track = videoTracks[0];
+    track.stop(); // actually turns off camera
+    localStream.removeTrack(track); // remove from stream
     setIsVideoEnabled(false);
     sessionStorage.setItem("cameraOn", "false");
   } else {
-    // TURN ON CAMERA
+    // Camera is OFF → turn ON
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
       const newTrack = newStream.getVideoTracks()[0];
       localStream.addTrack(newTrack);
-      // Replace track for peers
+
       peerMap.current.forEach((peer) => {
         const sender = peer.getSenders().find((s) => s.track?.kind === "video");
         if (sender) sender.replaceTrack(newTrack);
         else peer.addTrack(newTrack, localStream);
       });
+
       setIsVideoEnabled(true);
       sessionStorage.setItem("cameraOn", "true");
     } catch (err) {
@@ -179,6 +174,9 @@ export function useMeeting(userId, roomCode) {
     }
   }
 };
+
+
+
 
   // ---- Toggle Mic ----
   const toggleMic = () => {
