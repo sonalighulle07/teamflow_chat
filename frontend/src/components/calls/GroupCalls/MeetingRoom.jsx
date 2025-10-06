@@ -1,14 +1,9 @@
-// unchanged imports
 import React, { useEffect, useState, useCallback } from "react";
 import { useMeeting } from "../hooks/useMeeting";
 import PeerTile from "./PeerTile";
 import MeetingControls from "./MeetingUtils/MeetingControls";
 
 export default function MeetingRoom() {
-  const [pinnedId, setPinnedId] = useState(null);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMsg, setToastMsg] = useState("");
-
   const userId = sessionStorage.getItem("userId");
   const code = sessionStorage.getItem("roomCode");
 
@@ -26,6 +21,10 @@ export default function MeetingRoom() {
     isScreenSharing,
   } = useMeeting(userId, code);
 
+  const [pinnedId, setPinnedId] = useState(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
+
   const allStreams = [
     ...(localStream ? [["local", localStream]] : []),
     ...Array.from(peers.entries()),
@@ -33,13 +32,15 @@ export default function MeetingRoom() {
 
   const handlePin = (id) => setPinnedId((prev) => (prev === id ? null : id));
 
+  // --- Join meeting only once
   useEffect(() => {
-    const micEnabled = sessionStorage.getItem("micOn") === "true";
-    const camEnabled = sessionStorage.getItem("cameraOn") === "true";
-    joinMeeting({ micEnabled, camEnabled });
+    const initialMic = sessionStorage.getItem("micOn") === "true";
+    const initialCam = sessionStorage.getItem("cameraOn") === "true";
+    joinMeeting({ micEnabled: initialMic, camEnabled: initialCam });
     return () => leaveMeeting();
   }, []);
 
+  // Handle unloads / leaving
   useEffect(() => {
     const handleUnload = () => {
       sessionStorage.removeItem(`joined_${code}_${userId}`);
@@ -47,14 +48,10 @@ export default function MeetingRoom() {
       channel.postMessage(`left_${code}_${userId}`);
       channel.close();
     };
-
     window.addEventListener("beforeunload", handleUnload);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") {
-        handleUnload();
-      }
+      if (document.visibilityState === "hidden") handleUnload();
     });
-
     return () => {
       window.removeEventListener("beforeunload", handleUnload);
       document.removeEventListener("visibilitychange", handleUnload);
@@ -72,9 +69,9 @@ export default function MeetingRoom() {
 
     setTimeout(() => {
       setShowToast(false);
-      window.location.href = "/";
+      window.close();
     }, 1000);
-  }, [leaveMeeting]);
+  }, [leaveMeeting, code, userId]);
 
   return (
     <div className="h-screen w-screen bg-black text-white flex flex-col">
@@ -84,22 +81,17 @@ export default function MeetingRoom() {
         {pinnedId ? (
           <>
             <div className="flex-1 relative" onClick={() => handlePin(pinnedId)}>
-              {allStreams
-                .filter(([id]) => id === pinnedId)
-                .map(([id, stream]) => (
-                  <PeerTile key={id} stream={stream} label={id === "local" ? "You" : id} isLocal={id === "local"} />
-                ))}
+              {allStreams.filter(([id]) => id === pinnedId).map(([id, stream]) => (
+                <PeerTile key={id} stream={stream} label={id === "local" ? "You" : id} isLocal={id === "local"} />
+              ))}
             </div>
-
             {allStreams.filter(([id]) => id !== pinnedId).length > 0 && (
               <div className="flex gap-2 mt-2 h-32 overflow-x-auto">
-                {allStreams
-                  .filter(([id]) => id !== pinnedId)
-                  .map(([id, stream]) => (
-                    <div key={id} className="flex-none w-32 cursor-pointer" onClick={() => handlePin(id)}>
-                      <PeerTile stream={stream} label={id === "local" ? "You" : id} isLocal={id === "local"} />
-                    </div>
-                  ))}
+                {allStreams.filter(([id]) => id !== pinnedId).map(([id, stream]) => (
+                  <div key={id} className="flex-none w-32 cursor-pointer" onClick={() => handlePin(id)}>
+                    <PeerTile stream={stream} label={id === "local" ? "You" : id} isLocal={id === "local"} />
+                  </div>
+                ))}
               </div>
             )}
           </>
@@ -133,4 +125,3 @@ export default function MeetingRoom() {
     </div>
   );
 }
-
