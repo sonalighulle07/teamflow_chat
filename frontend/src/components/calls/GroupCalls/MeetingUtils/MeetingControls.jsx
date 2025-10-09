@@ -26,7 +26,7 @@ export default function MeetingControls({
         onClick={onToggleCam}
         className={`p-3 rounded-full ${isVideoEnabled ? "bg-green-600" : "bg-red-600"} hover:opacity-80`}
       >
-        {isVideoEnabled ? <FaVideo /> : <FaVideoSlash />}
+        { isVideoEnabled ? <FaVideo /> : <FaVideoSlash /> }
       </button>
 
       {/* Screen Share */}

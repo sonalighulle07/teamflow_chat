@@ -69,7 +69,7 @@ function AppRoutes({ isAuthenticated, currentUser, userId, call, userList, handl
         path="/prejoin/:code"
         element={
           <ProtectedRoute isAuthenticated={isAuthenticated}>
-            <MediaConfirmation userId={userId} />
+            <MediaConfirmation userId={userId} currentUser={currentUser}/>
           </ProtectedRoute>
         }
       />
@@ -79,7 +79,7 @@ function AppRoutes({ isAuthenticated, currentUser, userId, call, userList, handl
         path="/meet/:code"
         element={
           <ProtectedRoute isAuthenticated={isAuthenticated}>
-            <MeetingRoom userId={userId} />
+            <MeetingRoom userId={userId} currentUser={currentUser}/>
           </ProtectedRoute>
         }
       />
