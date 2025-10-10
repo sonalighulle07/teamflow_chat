@@ -81,20 +81,23 @@ export default function UserList({
   const listRef = useRef(null);
   const itemRefs = useRef({});
 
-  // Merge users and teams, selectedUser on top
+  const handleSelect = (item) => onSelectUser(item);
+
+  // Merge users and teams
+
   const displayedItems = useMemo(() => {
     const allItems = [
       ...users.map((u) => ({ ...u, type: "user" })),
       ...teams.map((t) => ({ ...t, type: "team" })),
     ];
 
-    if (!selectedUser) return allItems;
-
-    const selectedItem = allItems.find((i) => i.id === selectedUser.id);
-    return [
-      selectedItem || null,
-      ...allItems.filter((i) => i.id !== selectedUser.id),
-    ].filter(Boolean);
+    if (selectedUser) {
+      const selectedItem = allItems.find((i) => i.id === selectedUser.id);
+      return [
+        selectedItem ? selectedItem : null,
+        ...allItems.filter((i) => i.id !== selectedUser.id),
+      ].filter(Boolean);
+    }
   }, [users, teams, selectedUser]);
 
   // Scroll to first search match
@@ -142,6 +145,29 @@ export default function UserList({
               onClick={onSelectUser}
               searchQuery={searchQuery}
             />
+
+            <div
+              className={`w-10 h-10 text-center pt-1 rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-[15px] text-white overflow-hidden ${
+                isSelected
+                  ? "bg-green-600 texr-[15px]"
+                  : item.type === "user"
+                  ? "bg-gradient-to-r from-blue-700 to-blue-500"
+                  : "bg-purple-600"
+              }`}
+            >
+              {item.type === "user"
+                ? getInitials(item.username)
+                : item.name
+                ? item.name[0].toUpperCase()
+                : "?"}
+            </div>
+            <div className="flex flex-col truncate">
+              <span className="text-gray-900 font-medium truncate">
+                {item.type === "user"
+                  ? highlightMatch(item.username)
+                  : highlightMatch(item.name || "")}
+              </span>
+            </div>
           </li>
         );
       })}

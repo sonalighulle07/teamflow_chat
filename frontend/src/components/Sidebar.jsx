@@ -10,7 +10,9 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedUser } from "../Store/Features/Users/userSlice";
 import { fetchUsers } from "../Store/Features/Users/userThunks";
+import axios from "axios";
 import UserList from "./UserList";
+import { URL } from "../config";
 
 export default function Sidebar({ activeNav, setActiveNav }) {
   const dispatch = useDispatch();
@@ -23,6 +25,7 @@ export default function Sidebar({ activeNav, setActiveNav }) {
   const { activities = [] } = useSelector((state) => state.activity || {});
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [teams, setTeams] = useState([]);
 
   // Fetch users
   useEffect(() => {
@@ -36,9 +39,27 @@ export default function Sidebar({ activeNav, setActiveNav }) {
     return () => clearInterval(interval);
   }, [dispatch, currentUser]);
 
-  // Handle selecting a user
-  const handleSelectUser = (user) => {
-    dispatch(setSelectedUser(user));
+  // Fetch teams when "Communities" is active
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const res = await axios.get(
+          `${URL}/api/teams?userId=${currentUser.id}`
+        );
+        setTeams(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        console.error("Failed to fetch teams:", err);
+        setTeams([]);
+      }
+    };
+    if (activeNav === "Communities" && currentUser?.id) {
+      fetchTeams();
+    }
+  }, [activeNav, currentUser]);
+
+  // Handle selecting a user or team
+  const handleSelectUser = (item) => {
+    dispatch(setSelectedUser(item));
     setSearchQuery("");
   };
 
@@ -76,11 +97,18 @@ export default function Sidebar({ activeNav, setActiveNav }) {
 
   // Filter by search query
   const filteredUsers = useMemo(() => {
-    if (!searchQuery) return orderedUsers;
-    return orderedUsers.filter((u) =>
+    if (!searchQuery) return userList;
+    return userList.filter((u) =>
       u.username.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [orderedUsers, searchQuery]);
+  }, [userList, searchQuery]);
+
+  const filteredTeams = useMemo(() => {
+    if (!searchQuery) return teams;
+    return teams.filter((t) =>
+      t.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [teams, searchQuery]);
 
   const navItems = [
     { icon: <FaCommentDots />, label: "Chat" },
@@ -132,8 +160,9 @@ export default function Sidebar({ activeNav, setActiveNav }) {
         </div>
       </div>
 
-      {/* Main panel */}
-      {activeNav === "Chat" && (
+
+      {/* Panel */}
+      {(activeNav === "Chat" || activeNav === "Communities") && (
         <div className="flex-1 bg-gray-100 border-l border-gray-300 flex flex-col overflow-hidden">
           {/* Search Input */}
           <div className="p-2">
@@ -143,29 +172,38 @@ export default function Sidebar({ activeNav, setActiveNav }) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search users or teams..."
+                placeholder={`Search ${
+                  activeNav === "Chat" ? "users" : "teams"
+                }...`}
                 className="w-full pl-10 pr-3 py-1.5 rounded bg-white border border-gray-300 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
-          {/* User List */}
+          {/* List */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            {loading && (
+            {loading && activeNav === "Chat" && (
               <p className="p-4 text-sm text-gray-500">Loading users…</p>
             )}
             {error && <p className="p-4 text-sm text-red-500">{error}</p>}
             {!loading && !error && (
               <UserList
-                users={filteredUsers}
+                users={activeNav === "Chat" ? filteredUsers : []}
+                teams={activeNav === "Communities" ? filteredTeams : []}
                 selectedUser={selectedUser}
                 onSelectUser={handleSelectUser}
                 searchQuery={searchQuery}
               />
             )}
-            {!loading && !error && filteredUsers.length === 0 && (
-              <p className="p-4 text-sm text-gray-500">No users found</p>
-            )}
+            {!loading &&
+              !error &&
+              ((activeNav === "Chat" && filteredUsers.length === 0) ||
+                (activeNav === "Communities" &&
+                  filteredTeams.length === 0)) && (
+                <p className="p-4 text-sm text-gray-500">
+                  No {activeNav === "Chat" ? "users" : "teams"} found
+                </p>
+              )}
           </div>
         </div>
       )}

@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { FaUser, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "../Store/Features/Users/userThunks";
 
-export default function Login({ onLogin, onSwitch }) {
+export default function Login({ onLogin }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { loading } = useSelector((state) => state.user);
 
   const [toastMsg, setToastMsg] = useState("");
@@ -45,7 +46,10 @@ export default function Login({ onLogin, onSwitch }) {
       return;
     }
     if (passwordValue.trim().length < 6) {
-      showToastMessage("Password must be at least 6 characters!", "bg-red-500");
+      showToastMessage(
+        "Password must be at least 6 characters!",
+        "bg-red-500"
+      );
       return;
     }
 
@@ -57,7 +61,9 @@ export default function Login({ onLogin, onSwitch }) {
       if (loginUser.fulfilled.match(resultAction)) {
         showToastMessage("Login successful!", "bg-green-500");
         onLogin?.();
-        setTimeout(() => navigate("/"), 500);
+
+        const redirectPath = location.state?.from || "/";
+        setTimeout(() => navigate(redirectPath), 500);
       } else {
         showToastMessage(resultAction.payload || "Login failed!", "bg-red-500");
       }
@@ -127,6 +133,7 @@ export default function Login({ onLogin, onSwitch }) {
                 placeholder="Enter password"
                 className="w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-500 text-sm border-2 border-transparent outline-none focus:border-purple-400 focus:shadow-md transition duration-200"
               />
+
               {passwordValue && (
                 <div
                   className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-purple-600"
@@ -154,7 +161,7 @@ export default function Login({ onLogin, onSwitch }) {
           Don't have an account?{" "}
           <span
             className="text-blue-500 cursor-pointer hover:text-blue-700 hover:underline"
-            onClick={onSwitch}
+            onClick={() => navigate("/register")}
           >
             Register
           </span>

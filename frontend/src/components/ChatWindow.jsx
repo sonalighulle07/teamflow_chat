@@ -39,8 +39,8 @@ export default function ChatWindow({
   const fetchMessages = async () => {
     if (!selectedUser && !selectedTeam) return;
     const endpoint = selectedUser
-      ? `/api/chats/${currentUserId}/${selectedUser.id}`
-      : `/api/chats/team/${selectedTeam.id}`;
+      ? `${URL}/api/chats/${currentUserId}/${selectedUser.id}`
+      : `${URL}/api/chats/team/${selectedTeam.id}`;
     try {
       const res = await fetch(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
