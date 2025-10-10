@@ -43,7 +43,8 @@ const UserItem = memo(({ user, isSelected, onClick }) => (
         <span className="text-xs text-gray-500 truncate">{user.status}</span>
       )}
     </div>
-  </li>
+
+</li>
 ));
 
 export default function UserList({
@@ -55,14 +56,6 @@ export default function UserList({
 }) {
   const listRef = useRef(null);
   const itemRefs = useRef({});
-
-  if ((!users || users.length === 0) && (!teams || teams.length === 0)) {
-    return (
-      <div className="flex h-full items-center justify-center text-gray-500 font-medium">
-        No users or teams yet 👥
-      </div>
-    );
-  }
 
   // Highlight search match
   const highlightMatch = useCallback(
@@ -98,7 +91,8 @@ export default function UserList({
         selectedItem ? selectedItem : null,
         ...allItems.filter((i) => i.id !== selectedUser.id),
       ].filter(Boolean);
-    }
+
+}
     return allItems;
   }, [users, teams, selectedUser]);
 
@@ -119,6 +113,15 @@ export default function UserList({
     }
   }, [searchQuery, displayedItems]);
 
+  // ✅ Safe return after hooks
+  if (displayedItems.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-gray-500 font-medium">
+        No users or teams yet 👥
+      </div>
+    );
+  }
+
   return (
     <ul
       className="flex flex-col h-full overflow-y-auto overflow-x-hidden bg-slate-200 w-full"
@@ -136,7 +139,8 @@ export default function UserList({
               isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"
             }`}
           >
-            <div
+
+<div
               className={`w-10 h-10 text-center pt-1 rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-[15px] text-white overflow-hidden ${
                 isSelected
                   ? "bg-green-600 texr-[15px]"
@@ -164,3 +168,4 @@ export default function UserList({
     </ul>
   );
 }
+

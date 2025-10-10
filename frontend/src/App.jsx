@@ -138,6 +138,7 @@ function AppRoutes({ isAuthenticated, currentUser, userId, call, userList, handl
 
                   {activeNav === "Communities" && (
                     <TeamsSidebar
+                      currentUser = {currentUser}
                       currentUserId={userId}
                       selectedTeam={selectedTeam}
                       onSelectTeam={(team) => setSelectedTeam(team)}

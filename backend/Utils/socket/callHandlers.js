@@ -63,8 +63,10 @@ module.exports = function callHandlers(io, socket) {
   // -------------------
   // MULTI-USER MEETING FLOW
   // -------------------
-  socket.on("joinRoom", ({ userId, roomCode }) => {
-  if (!userId || !roomCode) return socket.emit("error", { message: "Missing userId or roomCode." });
+socket.on("joinRoom", async ({ userId, roomCode }) => {
+  if (!userId || !roomCode) {
+    return socket.emit("error", { message: "Missing userId or roomCode." });
+  }
 
   userId = String(userId);
   roomCode = String(roomCode);
@@ -80,6 +82,10 @@ module.exports = function callHandlers(io, socket) {
   socket.roomCode = roomCode;
   socket.join(roomCode);
 
+  // ✅ Await works now
+  const remoteUser = await User.findById(userId);
+  const username = remoteUser?.username;
+
   // Track active users
   if (!activeRooms.has(roomCode)) activeRooms.set(roomCode, new Set());
   activeRooms.get(roomCode).add(userId);
@@ -91,12 +97,14 @@ module.exports = function callHandlers(io, socket) {
   console.log(`Room ${roomCode} now has:`, Array.from(activeRooms.get(roomCode)));
 
   // Notify others
-  socket.to(roomCode).emit("userJoined", { userId });
+  socket.to(roomCode).emit("userJoined", { userId,username });
 
   // Send existing users to this client
   const existingUsers = Array.from(activeRooms.get(roomCode)).filter((id) => id !== userId);
   socket.emit("existingUsers", { users: existingUsers });
 });
+
+
 
 
   socket.on("offer", ({ to, offer }) => {
@@ -120,12 +128,15 @@ module.exports = function callHandlers(io, socket) {
     }
   });
 
-  socket.on("leaveRoom", ({ userId, roomCode }) => {
+  socket.on("leaveRoom",async ({ userId, roomCode }) => {
     userId = String(userId);
     roomCode = String(roomCode);
 
+    const remoteUser = await User.findById(userId);
+    const username = remoteUser?.username;
+
     socket.leave(roomCode);
-    socket.to(roomCode).emit("userLeft", { userId });
+    socket.to(roomCode).emit("userLeft", { userId,username });
 
     if (activeRooms.has(roomCode)) {
       activeRooms.get(roomCode).delete(userId);

@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import UserList from "./UserList";
 import { URL } from "../config";
-export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
+
+export default function TeamsSidebar({
+  onSelectTeam,
+  onSelectUser,
+  currentUser,
+}) {
   const [teams, setTeams] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -12,19 +17,22 @@ export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
   const [teamName, setTeamName] = useState("");
   const [selectedUsers, setSelectedUsers] = useState([]);
 
-  // Fetch all teams
+  // Fetch teams the user is part of
   useEffect(() => {
     const fetchTeams = async () => {
       try {
-        const res = await axios.get(`${URL}/api/teams`);
+        console.log("Getting teams..")
+        const res = await axios.get(
+          `${URL}/api/teams?userId=${currentUser.id}`
+        );
         setTeams(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error("Failed to fetch teams:", err);
         setTeams([]);
       }
     };
-    fetchTeams();
-  }, []);
+    if (currentUser?.id) fetchTeams();
+  }, [currentUser]);
 
   // Open modal to create team
   const openModal = async () => {
@@ -38,7 +46,7 @@ export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
     }
   };
 
-  // Toggle user selection in modal
+  // Toggle user selection
   const toggleUser = (id) => {
     setSelectedUsers((prev) =>
       prev.includes(id) ? prev.filter((uid) => uid !== id) : [...prev, id]
@@ -48,14 +56,13 @@ export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
   // Select a team
   const handleSelectTeam = async (team) => {
     setSelectedTeam(team);
-    onSelectTeam?.(team); // sends the selected team up to App.js
+    onSelectTeam?.(team);
 
-    // Optional: fetch team members if needed
     try {
       const res = await axios.get(`${URL}/api/teams/${team.id}/members`);
       setSelectedTeamMembers(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch team members:", err);
       setSelectedTeamMembers([]);
     }
   };
@@ -70,12 +77,14 @@ export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
     try {
       await axios.post(`${URL}/api/teams`, {
         name: teamName,
-        created_by: 1, // logged-in user ID
+        created_by: currentUser.id,
         members: selectedUsers,
       });
 
       // Refresh teams
-      const updatedTeams = await axios.get(`${URL}/api/teams`);
+      const updatedTeams = await axios.get(
+        `${URL}/api/teams?userId=${currentUser.id}`
+      );
       setTeams(Array.isArray(updatedTeams.data) ? updatedTeams.data : []);
 
       // Reset modal
@@ -94,7 +103,7 @@ export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* Teams Header */}
+      {/* Header */}
       <div className="flex justify-between items-center p-4 border-b bg-white">
         <h2 className="font-semibold">Communities</h2>
         <button
@@ -105,37 +114,34 @@ export default function TeamsSidebar({ onSelectTeam, onSelectUser }) {
         </button>
       </div>
 
-      {/* Teams List */}
+      {/* Team List */}
       <ul className="flex-1 overflow-y-auto p-3">
-        {Array.isArray(teams) &&
-          teams.map((team) => (
-            <li
-              key={team.id}
-              className={`p-2 rounded-lg hover:bg-gray-200 cursor-pointer ${
-                selectedTeam?.id === team.id ? "bg-gray-200 font-semibold" : ""
-              }`}
-              onClick={() => handleSelectTeam(team)}
-            >
-              {team.name}
-            </li>
-          ))}
+        {teams.map((team) => (
+          <li
+            key={team.id}
+            className={`p-2 rounded-lg hover:bg-gray-200 cursor-pointer ${
+              selectedTeam?.id === team.id ? "bg-gray-200 font-semibold" : ""
+            }`}
+            onClick={() => handleSelectTeam(team)}
+          >
+            {team.name}
+          </li>
+        ))}
       </ul>
 
-      {/* Team Members */}
+      {/* Team Members
       {selectedTeam && (
         <div className="border-t p-3 bg-gray-100">
           <h3 className="font-semibold mb-2">Members of {selectedTeam.name}</h3>
           <UserList
-            users={
-              Array.isArray(selectedTeamMembers) ? selectedTeamMembers : []
-            }
+            users={selectedTeamMembers}
             onSelectUser={onSelectUser}
             searchQuery={searchQuery}
           />
         </div>
-      )}
+      )} */}
 
-      {/* Modal for creating team */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
           <div className="bg-white w-[400px] rounded-xl shadow-lg">
