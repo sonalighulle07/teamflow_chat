@@ -6,6 +6,7 @@ export default function PeerTile({ stream, label, isLocal = false }) {
   useEffect(() => {
   if (videoRef.current) {
     videoRef.current.srcObject = stream || null;
+    
     console.log("🎥 Binding stream in PeerTile:", label, stream);
   }
 }, [stream, label]);

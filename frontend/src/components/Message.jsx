@@ -7,16 +7,14 @@ export default function Message({
   message,
   isOwn,
   searchQuery,
-  onReact, // (messageId, emoji) => void
+  onReact,
   onDelete,
   onEdit,
   onForward,
-  socket, // optional
+  socket,
 }) {
   const currentUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
   const userId = currentUser?.id;
-
-  // Normalize reactions from server
   const normalizeReactions = (raw) => {
     if (!raw) return {};
     let parsed = raw;
@@ -245,7 +243,7 @@ export default function Message({
           return "📄";
         };
         return (
-          <div className="flex items-center gap-2 p-2 bg-white border rounded-xl shadow-sm max-w-xs">
+          <div className="flex items-center gap-2 p-2 bg-white border rounded-xl  text-black shadow-sm max-w-xs">
             <span className="text-2xl">{getFileIcon()}</span>
             <span className="truncate">{fileName}</span>
           </div>
@@ -293,18 +291,22 @@ export default function Message({
               isOwn ? "right-2" : "left-2"
             } flex items-center gap-1 bg-white rounded-full shadow-md px-2 py-1 z-20`}
           >
-            {["👍", "❤️", "😆", "😮", "😂"].map((emoji) => (
+            {["👍", "❤️", "😂", "😮", "😢"].map((emoji) => (
               <button
                 key={emoji}
                 onClick={() => toggleReaction(emoji)}
-                className={`px-1 flex items-center gap-1 hover:bg-gray-100 rounded-full ${
-                  didIReact(emoji) ? "bg-gray-200" : ""
-                }`}
+                className={`relative px-1 flex items-center gap-1 rounded-full transition-all duration-200 ease-out
+      ${didIReact(emoji) ? "bg-gray-100" : "bg-transparent"}
+      hover:scale-[1.08] hover:-translate-y-[2px] active:scale-100`}
                 title={`React ${emoji}`}
               >
-                <span>{emoji}</span>
+                <span className="text-[20px] leading-none select-none">
+                  {emoji}
+                </span>
                 {getEmojiCount(emoji) > 0 && (
-                  <span className="text-xs">{getEmojiCount(emoji)}</span>
+                  <span className="text-xs text-gray-600">
+                    {getEmojiCount(emoji)}
+                  </span>
                 )}
               </button>
             ))}

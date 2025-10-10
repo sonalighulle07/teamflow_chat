@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FaCommentDots,
   FaVideo,
@@ -14,19 +14,25 @@ import UserList from "./UserList";
 
 export default function Sidebar({ activeNav, setActiveNav }) {
   const dispatch = useDispatch();
+
   const { currentUser, userList, selectedUser, loading, error } = useSelector(
     (state) => state.user
   );
 
+  // Activities slice
+  const { activities = [] } = useSelector((state) => state.activity || {});
+
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch users periodically
+  // Fetch users
   useEffect(() => {
     if (!currentUser) return;
     dispatch(fetchUsers(currentUser.id));
+
     const interval = setInterval(() => {
       dispatch(fetchUsers(currentUser.id));
     }, 10000);
+
     return () => clearInterval(interval);
   }, [dispatch, currentUser]);
 
@@ -36,16 +42,39 @@ export default function Sidebar({ activeNav, setActiveNav }) {
     setSearchQuery("");
   };
 
-  // Keep selected user on top
+  // Merge activity info and sort users
   const orderedUsers = useMemo(() => {
     if (!userList) return [];
-    const others = userList.filter(
-      (u) => !selectedUser || u.id !== selectedUser.id
-    );
-    return selectedUser ? [selectedUser, ...others] : others;
-  }, [userList, selectedUser]);
 
-  // Filter by search
+    // Users with recent activity
+    const activeUserIds = activities.map((a) => a.user_id);
+
+    const activeUsers = userList
+      .filter((u) => activeUserIds.includes(u.id))
+      .sort((a, b) => {
+        // Sort by latest activity timestamp
+        const aTime = activities.find(
+          (act) => act.user_id === a.id
+        )?.created_at;
+        const bTime = activities.find(
+          (act) => act.user_id === b.id
+        )?.created_at;
+        return new Date(bTime) - new Date(aTime);
+      });
+
+    const otherUsers = userList.filter((u) => !activeUserIds.includes(u.id));
+
+    // Keep selected user on top
+    const filteredOtherUsers = selectedUser
+      ? otherUsers.filter((u) => u.id !== selectedUser.id)
+      : otherUsers;
+
+    return selectedUser
+      ? [selectedUser, ...activeUsers, ...filteredOtherUsers]
+      : [...activeUsers, ...filteredOtherUsers];
+  }, [userList, activities, selectedUser]);
+
+  // Filter by search query
   const filteredUsers = useMemo(() => {
     if (!searchQuery) return orderedUsers;
     return orderedUsers.filter((u) =>
@@ -103,7 +132,7 @@ export default function Sidebar({ activeNav, setActiveNav }) {
         </div>
       </div>
 
-      {/* Chat panel */}
+      {/* Main panel */}
       {activeNav === "Chat" && (
         <div className="flex-1 bg-gray-100 border-l border-gray-300 flex flex-col overflow-hidden">
           {/* Search Input */}
@@ -138,6 +167,25 @@ export default function Sidebar({ activeNav, setActiveNav }) {
               <p className="p-4 text-sm text-gray-500">No users found</p>
             )}
           </div>
+        </div>
+      )}
+
+      {activeNav === "Activity" && (
+        <div className="flex-1 flex flex-col overflow-y-auto">
+          {/* Render activity notifications */}
+          {activities.length === 0 ? (
+            <p className="p-4 text-gray-500">No recent activity</p>
+          ) : (
+            activities.map((act) => (
+              <div
+                key={act.id}
+                className="p-3 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+              >
+                <span className="font-semibold">{act.sender_id}</span>{" "}
+                {act.type.replace("_", " ")}
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

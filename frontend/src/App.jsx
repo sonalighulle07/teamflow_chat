@@ -22,7 +22,9 @@ import { useSelector, useDispatch } from "react-redux";
 import { rehydrateUser } from "./Store/Features/Users/userSlice";
 
 function App() {
-  const { selectedUser, currentUser, userList } = useSelector((state) => state.user);
+  const { selectedUser, currentUser, userList } = useSelector(
+    (state) => state.user
+  );
   const dispatch = useDispatch();
 
   const [users, setUsers] = useState([]);
@@ -47,7 +49,7 @@ function App() {
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").then((reg) => {
-        console.log("✅ Service Worker registered:", reg);
+        console.log(" Service Worker registered:", reg);
       });
     }
   }, []);
@@ -128,7 +130,7 @@ function App() {
           body: JSON.stringify({ userId, subscription: sub }),
         });
 
-        console.log("✅ Push subscription sent");
+        console.log(" Push subscription sent");
       } catch (err) {
         console.error("Push subscription failed:", err);
       }

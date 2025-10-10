@@ -1,7 +1,8 @@
 const chatModel = require("../models/chatModel");
 const User = require("../models/User");
 const { sendPushNotification } = require("../Utils/pushService");
-const db = require("../Utils/db"); // If you use raw DB queries
+const db = require("../Utils/db"); 
+
 
 // GET all messages
 exports.getMessages = async (req, res) => {
@@ -12,7 +13,7 @@ exports.getMessages = async (req, res) => {
     console.error("Error fetching messages:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
-};
+};        
 
 // GET conversation between two users
 exports.getConversation = async (req, res) => {

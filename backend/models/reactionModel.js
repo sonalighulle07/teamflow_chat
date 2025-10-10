@@ -1,4 +1,4 @@
-const db = require('../utils/db'); // ✅ correct path
+const db = require('../Utils/db'); 
 
 const addOrUpdateReaction = async (msgId, userId, emoji) => {
     return pool.query(

@@ -12,10 +12,7 @@ export async function getMeeting(code) {
   return await res.json();
 }
 
-
-
 export async function getUserMeetings(userId) {
   const res = await fetch(`http://localhost:3000/api/meetings/user/${userId}`);
   return await res.json();
 }
-

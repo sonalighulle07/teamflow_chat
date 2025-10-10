@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "@fortawesome/fontawesome-free/css/all.min.css";
 /* Background fade-in */
+
+
 @keyframes fadeInBody {
   from { opacity: 0; }
   to { opacity: 1; }

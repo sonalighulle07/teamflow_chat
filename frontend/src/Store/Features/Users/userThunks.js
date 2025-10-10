@@ -3,7 +3,6 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { setCurrentUser } from "./userSlice";
 import {URL} from '../../../config';
 
-
 // ---------------------- LOGIN USER ----------------------
 export const loginUser = createAsyncThunk(
   "user/login",
