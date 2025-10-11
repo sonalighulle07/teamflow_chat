@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useCallback, useRef, useEffect } from "react";
+import React, { memo, useMemo, useRef, useEffect } from "react";
 
 // Utility to get initials
 function getInitials(name) {
@@ -27,7 +27,6 @@ const UserItem = memo(({ item, isSelected, onClick, searchQuery }) => {
     );
   };
 
-  // Highlight if the user has recent activity
   const hasActivity = item.recentActivity && !item.recentActivity.read_status;
 
   return (
@@ -84,7 +83,6 @@ export default function UserList({
   const handleSelect = (item) => onSelectUser(item);
 
   // Merge users and teams
-
   const displayedItems = useMemo(() => {
     const allItems = [
       ...users.map((u) => ({ ...u, type: "user" })),
@@ -98,6 +96,8 @@ export default function UserList({
         ...allItems.filter((i) => i.id !== selectedUser.id),
       ].filter(Boolean);
     }
+
+    return allItems; // Ensure always an array
   }, [users, teams, selectedUser]);
 
   // Scroll to first search match
@@ -116,7 +116,7 @@ export default function UserList({
     }
   }, [searchQuery, displayedItems]);
 
-  if (!displayedItems.length) {
+  if (!displayedItems || !displayedItems.length) {
     return (
       <div className="flex h-full items-center justify-center text-gray-500 font-medium">
         No users or teams found 👥
@@ -142,32 +142,9 @@ export default function UserList({
             <UserItem
               item={item}
               isSelected={isSelected}
-              onClick={onSelectUser}
+              onClick={handleSelect}
               searchQuery={searchQuery}
             />
-
-            <div
-              className={`w-10 h-10 text-center pt-1 rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-[15px] text-white overflow-hidden ${
-                isSelected
-                  ? "bg-green-600 texr-[15px]"
-                  : item.type === "user"
-                  ? "bg-gradient-to-r from-blue-700 to-blue-500"
-                  : "bg-purple-600"
-              }`}
-            >
-              {item.type === "user"
-                ? getInitials(item.username)
-                : item.name
-                ? item.name[0].toUpperCase()
-                : "?"}
-            </div>
-            <div className="flex flex-col truncate">
-              <span className="text-gray-900 font-medium truncate">
-                {item.type === "user"
-                  ? highlightMatch(item.username)
-                  : highlightMatch(item.name || "")}
-              </span>
-            </div>
           </li>
         );
       })}
