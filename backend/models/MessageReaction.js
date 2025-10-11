@@ -1,4 +1,4 @@
-const pool = require('../utils/db');
+const pool = require('../Utils/db');
 
 class MessageReaction {
     static async add(msgId, username, emoji) {

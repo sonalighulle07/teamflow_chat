@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getUsers, updateAvatar } = require('../controllers/userController');
-const upload = require('../middlewares/uploadMiddleware');
+const multer = require('multer');
+const upload = multer({ dest: './public/uploads/' });
+const userController = require('../controllers/userController');
 
-router.get('/', getUsers);
-router.post('/avatar', upload.single('profile_image'), updateAvatar);
+router.get('/', userController.getUsers);
+router.post('/avatar', upload.single('profile_image'), userController.updateAvatar);
+router.post('/remove-avatar', userController.removeAvatar);
+router.post('/delete-account', userController.deleteAccount);
 
 module.exports = router;

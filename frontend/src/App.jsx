@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
@@ -20,7 +26,14 @@ import { useSelector, useDispatch } from "react-redux";
 import { rehydrateUser } from "./Store/Features/Users/userSlice";
 import ProtectedRoute from "./utils/ProtectedRoute";
 
-function AppRoutes({ isAuthenticated, currentUser, userId, call, userList, handleAuthSuccess }) {
+function AppRoutes({
+  isAuthenticated,
+  currentUser,
+  userId,
+  call,
+  userList,
+  handleAuthSuccess,
+}) {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [userMessages, setUserMessages] = useState([]);
@@ -60,7 +73,11 @@ function AppRoutes({ isAuthenticated, currentUser, userId, call, userList, handl
       <Route
         path="/register"
         element={
-          isAuthenticated ? <Navigate to="/" replace /> : <Register onRegister={handleAuthSuccess} />
+          isAuthenticated ? (
+            <Navigate to="/" replace />
+          ) : (
+            <Register onRegister={handleAuthSuccess} />
+          )
         }
       />
 
@@ -69,7 +86,7 @@ function AppRoutes({ isAuthenticated, currentUser, userId, call, userList, handl
         path="/prejoin/:code"
         element={
           <ProtectedRoute isAuthenticated={isAuthenticated}>
-            <MediaConfirmation userId={userId} currentUser={currentUser}/>
+            <MediaConfirmation userId={userId} currentUser={currentUser} />
           </ProtectedRoute>
         }
       />
@@ -79,7 +96,7 @@ function AppRoutes({ isAuthenticated, currentUser, userId, call, userList, handl
         path="/meet/:code"
         element={
           <ProtectedRoute isAuthenticated={isAuthenticated}>
-            <MeetingRoom userId={userId} currentUser={currentUser}/>
+            <MeetingRoom userId={userId} currentUser={currentUser} />
           </ProtectedRoute>
         }
       />
@@ -122,7 +139,9 @@ function AppRoutes({ isAuthenticated, currentUser, userId, call, userList, handl
                       selectedTeam={selectedTeam}
                       selectedUser={selectedUser}
                       messages={selectedTeam ? teamMessages : userMessages}
-                      setMessages={selectedTeam ? setTeamMessages : setUserMessages}
+                      setMessages={
+                        selectedTeam ? setTeamMessages : setUserMessages
+                      }
                       currentUserId={userId}
                       searchQuery={searchQuery}
                       usersList={userList}
@@ -138,7 +157,7 @@ function AppRoutes({ isAuthenticated, currentUser, userId, call, userList, handl
 
                   {activeNav === "Communities" && (
                     <TeamsSidebar
-                      currentUser = {currentUser}
+                      currentUser={currentUser}
                       currentUserId={userId}
                       selectedTeam={selectedTeam}
                       onSelectTeam={(team) => setSelectedTeam(team)}

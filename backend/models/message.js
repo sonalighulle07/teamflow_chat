@@ -15,3 +15,4 @@ export const getMessages = async (user1, user2) => {
   );
   return rows;
 };
+

@@ -1,51 +1,75 @@
 import React, { memo, useMemo, useCallback, useRef, useEffect } from "react";
 
+// Utility to get initials
 function getInitials(name) {
-  const parts = name?.split(" ") || [];
+  if (!name) return "";
+  const parts = name.split(" ");
   return (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
 }
 
-// Memoized single user item
-const UserItem = memo(({ user, isSelected, onClick }) => (
-  <li
-    onClick={() => onClick(user)}
-    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1
-      ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
-  >
-    <div
-      className={`w-10 h-10 text-center pt-2 rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-sm text-white overflow-hidden relative
-        transition-colors duration-150
-        ${
-          isSelected
-            ? "bg-green-600 shadow-md"
-            : "bg-gradient-to-r from-blue-700 to-blue-500"
-        }`}
-    >
-      {user.profile_image ? (
-        <img
-          src={`http://localhost:3000${user.profile_image}`}
-          alt={user.username}
-          className="w-full h-full object-cover rounded-full"
-        />
+// Memoized UserItem component
+const UserItem = memo(({ item, isSelected, onClick, searchQuery }) => {
+  const name = item.type === "user" ? item.username || "" : item.name || "";
+
+  // Highlight search match
+  const highlightMatch = (text) => {
+    if (!searchQuery) return text;
+    const regex = new RegExp(`(${searchQuery})`, "gi");
+    const parts = text.split(regex);
+    return parts.map((part, idx) =>
+      regex.test(part) ? (
+        <span key={idx} className="bg-sky-300 text-black px-1 rounded">
+          {part}
+        </span>
       ) : (
-        getInitials(user.username)
-      )}
-      {user.isOnline && (
-        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full" />
-      )}
-    </div>
+        <span key={idx}>{part}</span>
+      )
+    );
+  };
 
-    <div className="flex flex-col truncate">
-      <span className="text-gray-900 font-medium truncate">
-        {user.username}
-      </span>
-      {user.status && (
-        <span className="text-xs text-gray-500 truncate">{user.status}</span>
-      )}
-    </div>
+  // Highlight if the user has recent activity
+  const hasActivity = item.recentActivity && !item.recentActivity.read_status;
 
-</li>
-));
+  return (
+    <li
+      onClick={() => onClick(item)}
+      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1
+        ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
+    >
+      <div
+        className={`w-10 h-10 text-center rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-white overflow-hidden relative ${
+          isSelected
+            ? "bg-green-600"
+            : item.type === "user"
+            ? "bg-gradient-to-r from-purple-700 to-purple-500"
+            : "bg-purple-600"
+        }`}
+      >
+        {item.type === "user" && item.profile_image ? (
+          <img
+            src={`http://localhost:3000${item.profile_image}`}
+            alt={item.username || "User"}
+            className="w-full h-full object-cover rounded-full"
+          />
+        ) : (
+          getInitials(name)
+        )}
+        {hasActivity && (
+          <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-white"></span>
+        )}
+      </div>
+
+      <div className="flex flex-col truncate">
+        <span className="text-gray-900 font-medium truncate">
+          {highlightMatch(name)}
+        </span>
+        {item.status && (
+          <span className="text-xs text-gray-500 truncate">{item.status}</span>
+        )}
+      </div>
+    </li>
+  );
+});
 
 export default function UserList({
   users = [],
@@ -57,28 +81,10 @@ export default function UserList({
   const listRef = useRef(null);
   const itemRefs = useRef({});
 
-  // Highlight search match
-  const highlightMatch = useCallback(
-    (name) => {
-      if (!searchQuery) return name;
-      const regex = new RegExp(`(${searchQuery})`, "gi");
-      const parts = name.split(regex);
-      return parts.map((part, idx) =>
-        regex.test(part) ? (
-          <span key={idx} className="bg-sky-300 text-black px-1 rounded">
-            {part}
-          </span>
-        ) : (
-          <span key={idx}>{part}</span>
-        )
-      );
-    },
-    [searchQuery]
-  );
-
   const handleSelect = (item) => onSelectUser(item);
 
   // Merge users and teams
+
   const displayedItems = useMemo(() => {
     const allItems = [
       ...users.map((u) => ({ ...u, type: "user" })),
@@ -91,33 +97,29 @@ export default function UserList({
         selectedItem ? selectedItem : null,
         ...allItems.filter((i) => i.id !== selectedUser.id),
       ].filter(Boolean);
-
-}
-    return allItems;
+    }
   }, [users, teams, selectedUser]);
 
-  // Scroll to first match
+  // Scroll to first search match
   useEffect(() => {
     if (!searchQuery) return;
-    const firstMatchId = displayedItems.find(
+    const firstMatch = displayedItems.find(
       (item) =>
         item.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    )?.id;
-
-    if (firstMatchId && itemRefs.current[firstMatchId]) {
-      itemRefs.current[firstMatchId].scrollIntoView({
+    );
+    if (firstMatch && firstMatch.id && itemRefs.current[firstMatch.id]) {
+      itemRefs.current[firstMatch.id].scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
     }
   }, [searchQuery, displayedItems]);
 
-  // ✅ Safe return after hooks
-  if (displayedItems.length === 0) {
+  if (!displayedItems.length) {
     return (
       <div className="flex h-full items-center justify-center text-gray-500 font-medium">
-        No users or teams yet 👥
+        No users or teams found 👥
       </div>
     );
   }
@@ -133,14 +135,18 @@ export default function UserList({
         return (
           <li
             key={key}
-            ref={(el) => (itemRefs.current[item.id] = el)}
-            onClick={() => handleSelect(item)}
-            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1 ${
-              isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"
-            }`}
+            ref={(el) => {
+              if (el && item.id) itemRefs.current[item.id] = el;
+            }}
           >
+            <UserItem
+              item={item}
+              isSelected={isSelected}
+              onClick={onSelectUser}
+              searchQuery={searchQuery}
+            />
 
-<div
+            <div
               className={`w-10 h-10 text-center pt-1 rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-[15px] text-white overflow-hidden ${
                 isSelected
                   ? "bg-green-600 texr-[15px]"
@@ -168,4 +174,3 @@ export default function UserList({
     </ul>
   );
 }
-

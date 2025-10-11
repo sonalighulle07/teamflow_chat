@@ -136,6 +136,35 @@ if (message.receiver_id) {
     }
   });
 
+  socket.on('createEvent', async (data) => {
+      try {
+        const event = await Event.create(data);
+        io.emit('newEvent', event); // broadcast to all clients
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    socket.on('updateEvent', async (data) => {
+      try {
+        const event = await Event.update(data.id, data);
+        io.emit('updateEvent', event);
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    socket.on('deleteEvent', async (id) => {
+      try {
+        await Event.delete(id);
+        io.emit('deleteEvent', id);
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+
+
   socket.on('disconnect', () => {
     console.log('Socket disconnected:', socket.id);
   });

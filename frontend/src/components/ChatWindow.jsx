@@ -14,9 +14,9 @@ export default function ChatWindow({
   currentUserId,
   searchQuery,
 }) {
+  const { selectedUser, currentUser } = useSelector((state) => state.user);
   const [deleteAlert, setDeleteAlert] = useState("");
   const [forwardAlert, setForwardAlert] = useState("");
-  const { selectedUser, currentUser } = useSelector((state) => state.user);
 
   const token = sessionStorage.getItem("chatToken");
   const [text, setText] = useState("");
@@ -417,7 +417,7 @@ export default function ChatWindow({
           </div>
         )}
 
-        <div className="flex items-center gap-2 relative">
+        <div className="flex items-center gap-2 relative text-[13px]">
           <input
             type="text"
             placeholder={
@@ -429,7 +429,7 @@ export default function ChatWindow({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyPress}
             disabled={!selectedUser && !selectedTeam}
-            className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="flex-1 px-2   py-2 border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
 
           {/* Emoji picker */}
@@ -461,7 +461,7 @@ export default function ChatWindow({
           )}
 
           {/* File upload */}
-          <label className="relative flex items-center justify-center w-12 h-12 bg-purple-100 text-purple-600 rounded-full cursor-pointer hover:bg-purple-200 transition">
+          <label className="relative flex items-center justify-center w-10 h-10 bg-purple-100 text-purple-600 rounded-full cursor-pointer hover:bg-purple-200 transition">
             <PaperClipIcon className="w-6 h-6" />
             <input
               type="file"

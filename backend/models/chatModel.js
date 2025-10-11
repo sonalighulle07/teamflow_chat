@@ -1,6 +1,4 @@
 const db = require("../Utils/db");
-
-// सर्व messages fetch करण्यासाठी (सर्व history)
 const getAllMessages = async () => {
   const [rows] = await db.query(
     "SELECT * FROM chats ORDER BY created_at ASC"
@@ -8,7 +6,6 @@ const getAllMessages = async () => {
   return rows;
 };
 
-// दोन users मधील conversation fetch करण्यासाठी
 const getMessagesBetweenUsers = async (user1, user2) => {
   const [rows] = await db.query(
     `SELECT * FROM chats
@@ -20,7 +17,6 @@ const getMessagesBetweenUsers = async (user1, user2) => {
   return rows;
 };
 
-// Insert message
 const insertMessage = async (
   senderId,
   receiverId,

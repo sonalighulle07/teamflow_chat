@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import socket from "./calls/hooks/socket"; // adjust the path if needed
+import socket from "./calls/hooks/socket";
 import { URL } from "../config";
 
 export default function TeamChat({ team, currentUser }) {
@@ -7,7 +7,6 @@ export default function TeamChat({ team, currentUser }) {
   const [newMsg, setNewMsg] = useState("");
   const messagesEndRef = useRef(null);
 
-  // Scroll to bottom when messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
