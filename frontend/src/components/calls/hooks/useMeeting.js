@@ -11,40 +11,34 @@ export function useMeeting(userId, roomCode) {
   const peerMap = useRef(new Map());
   const hasJoinedRef = useRef(false);
 
-  // --- Helper: create black dummy video track ---
-  const createDummyVideoStream = () => {
-    const canvas = Object.assign(document.createElement("canvas"), { width: 640, height: 480 });
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    return canvas.captureStream(10); // 10fps dummy
-  };
-
   async function joinMeeting({ micEnabled = true, camEnabled = true } = {}) {
     if (hasJoinedRef.current) return;
+    const sessionKey = `joined_${roomCode}_${userId}`;
+    if (sessionStorage.getItem(sessionKey)) {
+      hasJoinedRef.current = true;
+      return;
+    }
     hasJoinedRef.current = true;
+    sessionStorage.setItem(sessionKey, "true");
+
     if (!socket.connected) socket.connect();
     socket.emit("register", { userId });
 
     let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: camEnabled });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       stream.getAudioTracks().forEach((t) => (t.enabled = !!micEnabled));
-      if (!camEnabled) {
-        // replace video track with dummy
-        const dummy = createDummyVideoStream();
-        stream.getVideoTracks().forEach((t) => t.stop());
-        stream.addTrack(dummy.getVideoTracks()[0]);
-      }
-    } catch {
-      stream = createDummyVideoStream();
+      stream.getVideoTracks().forEach((t) => (t.enabled = !!camEnabled));
+    } catch (err) {
+      console.error("Failed to get user media:", err);
+      stream = new MediaStream();
     }
 
     setLocalStream(stream);
     setIsMuted(!micEnabled);
-    setIsVideoEnabled(camEnabled);
+    setIsVideoEnabled(!!camEnabled);
 
-    // --- Peer setup ---
+    // ---- Peer setup ----
     socket.off("existingUsers").on("existingUsers", ({ users }) => {
       users.forEach((remoteId) => {
         if (!peerMap.current.has(remoteId)) {
@@ -54,19 +48,11 @@ export function useMeeting(userId, roomCode) {
       });
     });
 
-    socket.off("userJoined").on("userJoined", ({ userId: remoteId,username : remoteUsername }) => {
+    socket.off("userJoined").on("userJoined", ({ userId: remoteId }) => {
       if (!peerMap.current.has(remoteId)) {
         const peer = createPeer(remoteId, stream, false);
         peerMap.current.set(remoteId, peer);
       }
-
-  window.dispatchEvent(
-  new CustomEvent("meeting-toast", {
-    detail: { message: `${remoteUsername} joined the meeting` }
-  })
-);
-
-
     });
 
     socket.off("offer").on("offer", async ({ from, offer }) => {
@@ -91,7 +77,7 @@ export function useMeeting(userId, roomCode) {
       if (peer && candidate) await peer.addIceCandidate(new RTCIceCandidate(candidate));
     });
 
-    socket.off("userLeft").on("userLeft", ({ userId: remoteId,username : remoteUsername }) => {
+    socket.off("userLeft").on("userLeft", ({ userId: remoteId }) => {
       const peer = peerMap.current.get(remoteId);
       if (peer) peer.close();
       peerMap.current.delete(remoteId);
@@ -100,13 +86,6 @@ export function useMeeting(userId, roomCode) {
         updated.delete(remoteId);
         return updated;
       });
-window.dispatchEvent(
-  new CustomEvent("meeting-toast", {
-    detail: { message: `${remoteUsername} left the meeting` }
-  })
-);
-
-
     });
 
     socket.emit("joinRoom", { userId, roomCode });
@@ -162,54 +141,44 @@ window.dispatchEvent(
     } catch {}
   }
 
-  // --- Toggle Camera: stop real track to turn off LED ---
-  const toggleCam = async () => {
-    if (!localStream) return;
-    const videoTracks = localStream.getVideoTracks();
+  // ---- Toggle Camera ----
+const toggleCam = async () => {
+  if (!localStream) return;
 
-    if (isVideoEnabled) {
-      // Stop physical camera track → LED off
-      videoTracks.forEach((t) => t.stop());
+  const videoTracks = localStream.getVideoTracks();
 
-      // Replace with dummy black track for local preview
-      const dummy = createDummyVideoStream();
-      setLocalStream((prev) => {
-        const newStream = new MediaStream([...prev.getAudioTracks(), dummy.getVideoTracks()[0]]);
-        // Update peers
-        peerMap.current.forEach((peer) => {
-          const sender = peer.getSenders().find((s) => s.track?.kind === "video");
-          if (sender) sender.replaceTrack(dummy.getVideoTracks()[0]);
-        });
-        return newStream;
+  if (videoTracks.length > 0) {
+    // Camera is ON → turn OFF
+    const track = videoTracks[0];
+    track.stop(); // actually turns off camera
+    localStream.removeTrack(track); // remove from stream
+    setIsVideoEnabled(false);
+    sessionStorage.setItem("cameraOn", "false");
+  } else {
+    // Camera is OFF → turn ON
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const newTrack = newStream.getVideoTracks()[0];
+      localStream.addTrack(newTrack);
+
+      peerMap.current.forEach((peer) => {
+        const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+        if (sender) sender.replaceTrack(newTrack);
+        else peer.addTrack(newTrack, localStream);
       });
 
-      setIsVideoEnabled(false);
-      sessionStorage.setItem("cameraOn", "false");
-    } else {
-      // Turn on camera
-      try {
-        const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const camTrack = camStream.getVideoTracks()[0];
-
-        setLocalStream((prev) => {
-          const newStream = new MediaStream([camTrack, ...prev.getAudioTracks()]);
-          peerMap.current.forEach((peer) => {
-            const sender = peer.getSenders().find((s) => s.track?.kind === "video");
-            if (sender) sender.replaceTrack(camTrack);
-            else peer.addTrack(camTrack, newStream);
-          });
-          return newStream;
-        });
-
-        setIsVideoEnabled(true);
-        sessionStorage.setItem("cameraOn", "true");
-      } catch (err) {
-        console.error("Unable to enable camera:", err);
-      }
+      setIsVideoEnabled(true);
+      sessionStorage.setItem("cameraOn", "true");
+    } catch (err) {
+      console.error("Unable to access camera:", err);
     }
-  };
+  }
+};
 
-  // --- Toggle Mic ---
+
+
+
+  // ---- Toggle Mic ----
   const toggleMic = () => {
     if (!localStream) return;
     const track = localStream.getAudioTracks()[0];
@@ -219,46 +188,51 @@ window.dispatchEvent(
     sessionStorage.setItem("micOn", track.enabled ? "true" : "false");
   };
 
-  // --- Screen Share ---
-  const startScreenShare = async () => {
+  // ---- Screen Share ----
+  async function startScreenShare() {
     if (!localStream) return;
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       const screenTrack = screenStream.getVideoTracks()[0];
+
       peerMap.current.forEach((peer) => {
         const sender = peer.getSenders().find((s) => s.track?.kind === "video");
         if (sender) sender.replaceTrack(screenTrack);
       });
+
       screenTrack.onended = stopScreenShare;
 
+      // Replace local video track for preview
       localStream.getVideoTracks().forEach((t) => localStream.removeTrack(t));
       localStream.addTrack(screenTrack);
-      setLocalStream(localStream);
+
       setIsScreenSharing(true);
       setIsVideoEnabled(true);
     } catch (err) {
       console.error("Unable to start screen share:", err);
     }
-  };
+  }
 
-  const stopScreenShare = async () => {
+  async function stopScreenShare() {
     if (!localStream) return;
     try {
       const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
       const camTrack = camStream.getVideoTracks()[0];
+
       localStream.getVideoTracks().forEach((t) => localStream.removeTrack(t));
       localStream.addTrack(camTrack);
+
       peerMap.current.forEach((peer) => {
         const sender = peer.getSenders().find((s) => s.track?.kind === "video");
         if (sender) sender.replaceTrack(camTrack);
       });
-      setLocalStream(localStream);
+
       setIsScreenSharing(false);
       setIsVideoEnabled(true);
     } catch (err) {
       console.error("Unable to stop screen share:", err);
     }
-  };
+  }
 
   return {
     peers,
