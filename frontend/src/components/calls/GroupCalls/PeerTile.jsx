@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 
-export default function PeerTile({ stream, label, isLocal = false, isPinned = false }) {
+export default function PeerTile({
+  stream,
+  label,
+  isLocal = false,
+  isPinned = false,
+  onDoubleClick,
+}) {
   const videoRef = useRef(null);
   const [videoActive, setVideoActive] = useState(true);
   const [speaking, setSpeaking] = useState(false);
@@ -12,37 +18,33 @@ export default function PeerTile({ stream, label, isLocal = false, isPinned = fa
       return;
     }
 
-    const updateVideo = () => {
-      const active = stream.getVideoTracks().some(
-        (t) => t.enabled && t.readyState === "live"
-      );
+    const checkVideo = () => {
+      const active = stream.getVideoTracks().some(t => t.enabled && t.readyState === "live");
       setVideoActive(active);
       if (videoRef.current) videoRef.current.srcObject = stream;
     };
 
-    updateVideo();
-    stream.getVideoTracks().forEach((t) => {
-      t.onmute = updateVideo;
-      t.onunmute = updateVideo;
-      t.onended = updateVideo;
+    checkVideo();
+
+    stream.getVideoTracks().forEach(track => {
+      track.onmute = checkVideo;
+      track.onunmute = checkVideo;
+      track.onended = checkVideo;
     });
 
     return () => {
-      stream.getVideoTracks().forEach((t) => {
-        t.onmute = null;
-        t.onunmute = null;
-        t.onended = null;
+      stream.getVideoTracks().forEach(track => {
+        track.onmute = null;
+        track.onunmute = null;
+        track.onended = null;
       });
     };
   }, [stream]);
 
-  // Active speaker detection
   useEffect(() => {
-    if (!stream) return;
-    const audioTracks = stream.getAudioTracks();
-    if (!audioTracks.length) return;
+    if (!stream || !stream.getAudioTracks().length) return;
 
-    const ctx = new AudioContext();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const analyser = ctx.createAnalyser();
     const source = ctx.createMediaStreamSource(stream);
     source.connect(analyser);
@@ -62,14 +64,16 @@ export default function PeerTile({ stream, label, isLocal = false, isPinned = fa
       cancelAnimationFrame(raf);
       source.disconnect();
       analyser.disconnect();
+      ctx.close();
     };
   }, [stream]);
 
   return (
     <div
-      className={`relative w-full h-full bg-gray-800 rounded-lg overflow-hidden border-4 transition-all cursor-pointer 
-        ${isPinned ? "border-blue-500 shadow-xl" : speaking ? "border-green-500 shadow-md" : "border-gray-700"}
-      `}
+      className={`relative rounded-lg overflow-hidden w-full aspect-video border transition-all
+        ${isPinned ? "border-blue-600 shadow-lg" : speaking ? "border-green-500 shadow-md" : "border-gray-700"}
+        bg-gray-900 hover:border-blue-400 cursor-pointer`}
+      onDoubleClick={onDoubleClick}
     >
       <video
         ref={videoRef}
@@ -78,14 +82,30 @@ export default function PeerTile({ stream, label, isLocal = false, isPinned = fa
         muted={isLocal}
         className="w-full h-full object-cover"
       />
+
       {!videoActive && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-700 bg-opacity-70">
-          <span className="text-white text-sm">Camera Off</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black text-white">
+          <div className="text-lg font-semibold">{label}</div>
+          <div className="text-xs text-gray-400 mt-1">Camera Off</div>
         </div>
       )}
-      <div className="absolute bottom-2 left-2 px-2 py-1 bg-black bg-opacity-50 text-sm rounded text-white">
-        {label} {isLocal && "(You)"}
-      </div>
+
+      {videoActive && (
+        <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+          {label}
+        </div>
+      )}
+
+      {stream && (
+        <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-[10px] px-2 py-1 rounded z-10">
+          {stream.getTracks().map((t, i) => (
+            <div key={i}>
+              {t.kind}: {t.enabled ? "✅" : "❌"} ({t.readyState})
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
