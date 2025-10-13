@@ -15,6 +15,7 @@ export default function ProfileModal({
   onClose,
   onLogout,
   setProfileImage,
+  setIsAuthenticated
 }) {
   if (!user) return null;
 
@@ -92,6 +93,7 @@ export default function ProfileModal({
       if (data.success) {
         setPreview(null);
         setProfileImage?.(null);
+        setIsAuthenticated(false)
         navigate("/register");
       } else alert(data.message || "Failed to delete account");
     } catch (err) {

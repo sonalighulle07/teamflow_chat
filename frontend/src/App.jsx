@@ -33,6 +33,7 @@ function AppRoutes({
   call,
   userList,
   handleAuthSuccess,
+  setIsAuthenticated
 }) {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [userMessages, setUserMessages] = useState([]);
@@ -114,18 +115,18 @@ function AppRoutes({
             <div className="flex flex-col h-screen w-screen">
               <Header
                 activeUser={currentUser}
-                onStartCall={(type,selectedUser) => call.startCall(type, selectedUser)}
+                onStartCall={(type, selectedUser) =>
+                  call.startCall(type, selectedUser)
+                }
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
+                setIsAuthenticated={setIsAuthenticated} 
               />
 
               <div className="flex flex-1 overflow-hidden w-full">
                 {/* Sidebar */}
                 <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
-                  <Sidebar
-                    activeNav={activeNav}
-                    setActiveNav={setActiveNav}
-                  />
+                  <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} />
                 </div>
 
                 {/* Main content */}
@@ -191,7 +192,7 @@ function AppRoutes({
               {call.callState.incoming && (
                 <IncomingCallModal
                   visible
-                  fromUser={call.callState.caller}
+                  fromUser={call.callState.callerUsername} // <-- updated
                   callType={call.callState.type}
                   onAccept={call.acceptCall}
                   onReject={call.rejectCall}
@@ -267,6 +268,7 @@ function App() {
         call={call}
         userList={userList}
         handleAuthSuccess={() => setIsAuthenticated(true)}
+        setIsAuthenticated={setIsAuthenticated} 
       />
     </Router>
   );

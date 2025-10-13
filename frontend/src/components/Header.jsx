@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { FiLogOut } from "react-icons/fi";
 import {
   FaUserCog,
@@ -17,9 +18,13 @@ export default function Header({
   onStartCall,
   searchQuery,
   setSearchQuery,
+  setIsAuthenticated
 }) {
+
+  const navigate = useNavigate();
   const [showSearch, setShowSearch] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  
   const [profileImage, setProfileImage] = useState(
     () => localStorage.getItem("profileImage") || null
   );
@@ -32,7 +37,8 @@ export default function Header({
   const logout = () => {
     sessionStorage.clear();
     localStorage.removeItem("profileImage");
-    window.location.href = "/login.html";
+    setIsAuthenticated(false)
+    navigate("/");
   };
 
   // Update profile image safely
@@ -44,10 +50,6 @@ export default function Header({
     }
 
   }, [activeUser]);
-
-  useEffect(()=>{
-    console.log("Selected user from header"+JSON.stringify(selectedUser))
-  },[selectedUser])
 
   useEffect(() => {
     if (showSearch && searchInputRef.current) searchInputRef.current.focus();
@@ -179,6 +181,7 @@ export default function Header({
               if (img) localStorage.setItem("profileImage", img);
               else localStorage.removeItem("profileImage");
             }}
+            setIsAuthenticated={setIsAuthenticated}
           />
         </ErrorBoundary>
       )}

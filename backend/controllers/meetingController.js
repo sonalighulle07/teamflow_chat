@@ -9,6 +9,7 @@ exports.createMeeting = async (req, res) => {
   const date = new Date(scheduledAt);
   const mysqlDate = date.toISOString().slice(0, 19).replace("T", " ");
 
+
   try {
     await Meeting.createMeeting({
       hostId,
@@ -17,6 +18,8 @@ exports.createMeeting = async (req, res) => {
       type,
       code,
     });
+
+    console.log("Meeting created...")
 
     res.status(201).json({
       meetingCode: code,

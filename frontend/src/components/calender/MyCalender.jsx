@@ -4,9 +4,12 @@ import { format, parse, startOfWeek, getDay } from "date-fns";
 import enUS from "date-fns/locale/en-US";
 import axios from "axios";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { FaEdit, FaTrashAlt, FaClock } from "react-icons/fa";
-
-import { FaChevronLeft, FaChevronRight, FaCalendarDay } from "react-icons/fa";
+import {
+  FaChevronLeft,
+  FaChevronRight,
+  FaCalendarDay,
+} from "react-icons/fa";
+import socket from "../socket"; // ✅ import your initialized socket instance
 
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({
@@ -19,7 +22,7 @@ const localizer = dateFnsLocalizer({
 
 const URL = "http://localhost:3000/api/events"; // adjust backend URL
 
-//  Event Component
+// ---------------------- Event Component ----------------------
 const EventComponent = ({ event, onEdit, onDelete }) => {
   const [hover, setHover] = useState(false);
   const now = new Date();
@@ -68,12 +71,11 @@ const EventComponent = ({ event, onEdit, onDelete }) => {
   );
 };
 
-// Custom Toolbar (Professional UI + Active Button Highlight)
-const CustomToolbar = ({ label, onNavigate, onView, view, date }) => {
+// ---------------------- Custom Toolbar ----------------------
+const CustomToolbar = ({ label, onNavigate, onView, view }) => {
   const [activeView, setActiveView] = useState(view);
   const [activeNav, setActiveNav] = useState("TODAY");
 
-  // Sync active view when parent changes
   useEffect(() => {
     setActiveView(view);
   }, [view]);
@@ -94,7 +96,6 @@ const CustomToolbar = ({ label, onNavigate, onView, view, date }) => {
 
   return (
     <div className="flex flex-col md:flex-row justify-between items-center mb-4 p-4 bg-white rounded-2xl shadow-lg border border-gray-200">
-      {/* Navigation Buttons */}
       <div className="flex gap-2 mb-2 md:mb-0">
         <button
           className={navButtonClass("PREV")}
@@ -125,12 +126,10 @@ const CustomToolbar = ({ label, onNavigate, onView, view, date }) => {
         </button>
       </div>
 
-      {/* Label */}
       <span className="font-semibold text-lg text-gray-800 mb-2 md:mb-0">
         {label}
       </span>
 
-      {/* View Buttons */}
       <div className="flex gap-2">
         <button
           className={viewButtonClass(Views.MONTH)}
@@ -164,6 +163,7 @@ const CustomToolbar = ({ label, onNavigate, onView, view, date }) => {
   );
 };
 
+// ---------------------- Main Component ----------------------
 export default function MyCalendar() {
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -177,6 +177,27 @@ export default function MyCalendar() {
 
   useEffect(() => {
     fetchEvents();
+
+    // ✅ Listen for real-time updates
+    socket.on("newEvent", (event) => {
+      setEvents((prev) => [...prev, { ...event, start: new Date(event.start), end: new Date(event.end) }]);
+    });
+
+    socket.on("updateEvent", (updated) => {
+      setEvents((prev) =>
+        prev.map((e) => (e.id === updated.id ? { ...updated, start: new Date(updated.start), end: new Date(updated.end) } : e))
+      );
+    });
+
+    socket.on("deleteEvent", (id) => {
+      setEvents((prev) => prev.filter((e) => e.id !== id));
+    });
+
+    return () => {
+      socket.off("newEvent");
+      socket.off("updateEvent");
+      socket.off("deleteEvent");
+    };
   }, []);
 
   const fetchEvents = async () => {
@@ -215,7 +236,7 @@ export default function MyCalendar() {
     if (!window.confirm("Are you sure you want to delete this event?")) return;
     try {
       await axios.delete(`${URL}/${event.id}`);
-      setEvents((prev) => prev.filter((e) => e.id !== event.id));
+      socket.emit("deleteEvent", event.id); // ✅ inform backend for realtime update
     } catch (err) {
       console.error("Error deleting event:", err);
       alert("Failed to delete event.");
@@ -235,31 +256,14 @@ export default function MyCalendar() {
           start: new Date(startDate),
           end: new Date(endDate),
         });
-        setEvents((prev) =>
-          prev.map((e) =>
-            e.id === selectedEvent.id
-              ? {
-                  ...res.data,
-                  start: new Date(res.data.start),
-                  end: new Date(res.data.end),
-                }
-              : e
-          )
-        );
+        socket.emit("updateEvent", res.data); // ✅ broadcast update
       } else {
         const res = await axios.post(URL, {
           title,
           start: new Date(startDate),
           end: new Date(endDate),
         });
-        setEvents((prev) => [
-          ...prev,
-          {
-            ...res.data,
-            start: new Date(res.data.start),
-            end: new Date(res.data.end),
-          },
-        ]);
+        socket.emit("createEvent", res.data); // ✅ broadcast new event
       }
       setShowModal(false);
     } catch (err) {
@@ -270,7 +274,7 @@ export default function MyCalendar() {
 
   return (
     <div className="min-h-screen p-6 flex justify-center mt-[5px]">
-      <div className="bg-white mb-[20px] mt-[10px]  rounded-3xl p-6 w-[950px] border border-gray-200">
+      <div className="bg-white mb-[20px] mt-[10px] rounded-3xl p-6 w-[950px] border border-gray-200">
         <Calendar
           localizer={localizer}
           events={events}
@@ -298,19 +302,14 @@ export default function MyCalendar() {
         />
       </div>
 
-      {/*  Add/Edit Modal */}
+      {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-none  flex justify-center items-center z-50 animate-fadeIn">
-          <div className="bg-white/100 rounded-3xl shadow-2xl border border-gray-200 w-[550px] max-w-3xl p-8 relative overflow-hidden">
-            {/* Gradient Accent Bar */}
+        <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-50">
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-[550px] p-8 relative">
             <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-t-3xl"></div>
-
-            {/* Header */}
-            <h2 className="text-2xl font-bold text-gray-800 mt-2 mb-6 flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-gray-800 mt-2 mb-6">
               {isEditing ? "✏️ Edit Event" : "🗓️ Add New Event"}
             </h2>
-
-            {/* Input Fields */}
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -321,10 +320,9 @@ export default function MyCalendar() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Enter event title..."
-                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5 text-gray-800 transition-all duration-200"
+                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Start Date & Time
@@ -333,10 +331,9 @@ export default function MyCalendar() {
                   type="datetime-local"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5 text-gray-800 transition-all duration-200"
+                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   End Date & Time
@@ -345,30 +342,28 @@ export default function MyCalendar() {
                   type="datetime-local"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5 text-gray-800 transition-all duration-200"
+                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5"
                 />
               </div>
             </div>
-
-            {/* Action Buttons */}
             <div className="flex justify-end gap-3 mt-8">
               {isEditing && (
                 <button
                   onClick={() => handleDeleteEvent(selectedEvent)}
-                  className="bg-red-600 hover:bg-red-700 text-white font-medium px-5 py-2.5 rounded-xl shadow-md transition-all duration-200"
+                  className="bg-red-600 hover:bg-red-700 text-white font-medium px-5 py-2.5 rounded-xl shadow-md"
                 >
                   Delete
                 </button>
               )}
               <button
                 onClick={() => setShowModal(false)}
-                className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium px-5 py-2.5 rounded-xl shadow-md transition-all duration-200"
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium px-5 py-2.5 rounded-xl shadow-md"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-6 py-2.5 rounded-xl shadow-md transition-all duration-200"
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-6 py-2.5 rounded-xl shadow-md"
               >
                 {isEditing ? "Update Event" : "Save Event"}
               </button>

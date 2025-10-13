@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { URL } from "../config";
 import { FaUser, FaEnvelope, FaPhone, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
+import { setCurrentUser } from "../Store/Features/Users/userSlice";
+import { useDispatch } from "react-redux";
 
 // Debounce helper
 const debounce = (func, delay) => {
@@ -13,6 +15,7 @@ const debounce = (func, delay) => {
 };
 
 export default function Register({ onRegister }) {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [toastMsg, setToastMsg] = useState("");
   const [toastColor, setToastColor] = useState("bg-red-500");
@@ -132,8 +135,8 @@ export default function Register({ onRegister }) {
       showToastMessage(data.message || "Registration failed!", color);
 
       if (res.ok && data.success) {
-        sessionStorage.setItem("chatUserId", data.user.id);
-        sessionStorage.setItem("chatUsername", data.user.username);
+        dispatch(setCurrentUser(data.user));
+        // sessionStorage.setItem("chatUser", JSON.stringify(data.user));
         sessionStorage.setItem("chatToken", data.token);
         setTimeout(() => onRegister(), 1000);
       }

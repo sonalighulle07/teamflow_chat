@@ -18,6 +18,7 @@ export default function CreateMeetingModal({ userId, setActiveNav }) {
   const [copied, setCopied] = useState(false);
 
   const handleCreate = async () => {
+    console.log("Button clicked...")
     const res = await createMeeting({
       hostId: userId,
       title,
@@ -25,6 +26,7 @@ export default function CreateMeetingModal({ userId, setActiveNav }) {
       type,
     });
     setMeetingLink(res.link);
+    console.log(meetingLink)
   };
 
   const handleCopy = () => {
