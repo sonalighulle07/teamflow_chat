@@ -30,9 +30,8 @@ export default function Header({
   const username = activeUser?.username || "Guest";
 
   const logout = () => {
-    sessionStorage.clear();
-    localStorage.removeItem("profileImage");
-    window.location.href = "/login.html";
+    sessionStorage.clear(); // clear session data only
+    window.location.href = "/login";
   };
 
   // Update profile image safely
