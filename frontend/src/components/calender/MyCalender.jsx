@@ -4,6 +4,9 @@ import { format, parse, startOfWeek, getDay } from "date-fns";
 import enUS from "date-fns/locale/en-US";
 import axios from "axios";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import { FaEdit, FaTrashAlt, FaClock } from "react-icons/fa";
+
+import { FaChevronLeft, FaChevronRight, FaCalendarDay } from "react-icons/fa";
 
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({
@@ -16,7 +19,7 @@ const localizer = dateFnsLocalizer({
 
 const URL = "http://localhost:3000/api/events"; // adjust backend URL
 
-// 🌈 Event Component
+//  Event Component
 const EventComponent = ({ event, onEdit, onDelete }) => {
   const [hover, setHover] = useState(false);
   const now = new Date();
@@ -65,54 +68,101 @@ const EventComponent = ({ event, onEdit, onDelete }) => {
   );
 };
 
-// 🧭 Custom Toolbar
-const CustomToolbar = ({ label, onNavigate, onView }) => (
-  <div className="flex justify-between items-center mb-4 p-4 bg-white rounded-xl shadow-md">
-    <div className="flex gap-2">
-      <button
-        className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-        onClick={() => onNavigate("PREV")}
-      >
-        Prev
-      </button>
-      <button
-        className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-        onClick={() => onNavigate("TODAY")}
-      >
-        Today
-      </button>
-      <button
-        className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-        onClick={() => onNavigate("NEXT")}
-      >
-        Next
-      </button>
-    </div>
+// Custom Toolbar (Professional UI + Active Button Highlight)
+const CustomToolbar = ({ label, onNavigate, onView, view, date }) => {
+  const [activeView, setActiveView] = useState(view);
+  const [activeNav, setActiveNav] = useState("TODAY");
 
-    <span className="font-bold text-lg">{label}</span>
+  // Sync active view when parent changes
+  useEffect(() => {
+    setActiveView(view);
+  }, [view]);
 
-    <div className="flex gap-2">
-      <button
-        className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-        onClick={() => onView(Views.MONTH)}
-      >
-        Month
-      </button>
-      <button
-        className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-        onClick={() => onView(Views.WEEK)}
-      >
-        Week
-      </button>
-      <button
-        className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-        onClick={() => onView(Views.DAY)}
-      >
-        Day
-      </button>
+  const navButtonClass = (nav) =>
+    `flex items-center gap-1 px-3 py-2 rounded-lg shadow-sm transition duration-200 ${
+      activeNav === nav
+        ? "bg-indigo-600 text-white hover:bg-indigo-700"
+        : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+    }`;
+
+  const viewButtonClass = (v) =>
+    `px-3 py-2 rounded-lg shadow-sm transition duration-200 ${
+      activeView === v
+        ? "bg-indigo-600 text-white hover:bg-indigo-700"
+        : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+    }`;
+
+  return (
+    <div className="flex flex-col md:flex-row justify-between items-center mb-4 p-4 bg-white rounded-2xl shadow-lg border border-gray-200">
+      {/* Navigation Buttons */}
+      <div className="flex gap-2 mb-2 md:mb-0">
+        <button
+          className={navButtonClass("PREV")}
+          onClick={() => {
+            onNavigate("PREV");
+            setActiveNav("PREV");
+          }}
+        >
+          <FaChevronLeft /> Prev
+        </button>
+        <button
+          className={navButtonClass("TODAY")}
+          onClick={() => {
+            onNavigate("TODAY");
+            setActiveNav("TODAY");
+          }}
+        >
+          Today
+        </button>
+        <button
+          className={navButtonClass("NEXT")}
+          onClick={() => {
+            onNavigate("NEXT");
+            setActiveNav("NEXT");
+          }}
+        >
+          Next <FaChevronRight />
+        </button>
+      </div>
+
+      {/* Label */}
+      <span className="font-semibold text-lg text-gray-800 mb-2 md:mb-0">
+        {label}
+      </span>
+
+      {/* View Buttons */}
+      <div className="flex gap-2">
+        <button
+          className={viewButtonClass(Views.MONTH)}
+          onClick={() => {
+            onView(Views.MONTH);
+            setActiveView(Views.MONTH);
+          }}
+        >
+          Month
+        </button>
+        <button
+          className={viewButtonClass(Views.WEEK)}
+          onClick={() => {
+            onView(Views.WEEK);
+            setActiveView(Views.WEEK);
+          }}
+        >
+          Week
+        </button>
+        <button
+          className={viewButtonClass(Views.DAY)}
+          onClick={() => {
+            onView(Views.DAY);
+            setActiveView(Views.DAY);
+          }}
+        >
+          Day
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function MyCalendar() {
   const [events, setEvents] = useState([]);
@@ -248,58 +298,79 @@ export default function MyCalendar() {
         />
       </div>
 
-      {/* 🌟 Add/Edit Modal */}
+      {/*  Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 w-1/2 max-w-3xl">
-            <h2 className="text-2xl font-semibold mb-6">
-              {isEditing ? "Edit Event" : "Add New Event"}
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-none  flex justify-center items-center z-50 animate-fadeIn">
+          <div className="bg-white/100 rounded-3xl shadow-2xl border border-gray-200 w-[550px] max-w-3xl p-8 relative overflow-hidden">
+            {/* Gradient Accent Bar */}
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-t-3xl"></div>
+
+            {/* Header */}
+            <h2 className="text-2xl font-bold text-gray-800 mt-2 mb-6 flex items-center gap-2">
+              {isEditing ? "✏️ Edit Event" : "🗓️ Add New Event"}
             </h2>
 
-            <label className="block mb-2 text-sm font-medium">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 mb-4"
-            />
+            {/* Input Fields */}
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter event title..."
+                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5 text-gray-800 transition-all duration-200"
+                />
+              </div>
 
-            <label className="block mb-2 text-sm font-medium">Start</label>
-            <input
-              type="datetime-local"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 mb-4"
-            />
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Start Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5 text-gray-800 transition-all duration-200"
+                />
+              </div>
 
-            <label className="block mb-2 text-sm font-medium">End</label>
-            <input
-              type="datetime-local"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 mb-6"
-            />
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  End Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5 text-gray-800 transition-all duration-200"
+                />
+              </div>
+            </div>
 
-            <div className="flex justify-end gap-4">
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 mt-8">
               {isEditing && (
                 <button
                   onClick={() => handleDeleteEvent(selectedEvent)}
-                  className="bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700"
+                  className="bg-red-600 hover:bg-red-700 text-white font-medium px-5 py-2.5 rounded-xl shadow-md transition-all duration-200"
                 >
                   Delete
                 </button>
               )}
               <button
                 onClick={() => setShowModal(false)}
-                className="bg-gray-400 text-white px-5 py-2 rounded-lg hover:bg-gray-500"
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium px-5 py-2.5 rounded-xl shadow-md transition-all duration-200"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                className="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700"
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-6 py-2.5 rounded-xl shadow-md transition-all duration-200"
               >
-                {isEditing ? "Update" : "Save"}
+                {isEditing ? "Update Event" : "Save Event"}
               </button>
             </div>
           </div>

@@ -7,33 +7,35 @@ export default function TeamChat({ team, currentUser }) {
   const [newMsg, setNewMsg] = useState("");
   const messagesEndRef = useRef(null);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Fetch messages when team changes
+  // Fetch team messages when team changes
   useEffect(() => {
     if (!team) return;
+
     const fetchMessages = async () => {
       try {
         const res = await fetch(`${URL}/api/teams/${team.id}/messages`);
         const data = await res.json();
         setMessages(data);
       } catch (err) {
-        console.error("Error fetching messages:", err);
+        console.error(err);
         setMessages([]);
       }
     };
+
     fetchMessages();
   }, [team]);
 
-  // Join socket room for real-time updates
+  // Join team room on socket for real-time updates
   useEffect(() => {
     if (!team || !currentUser) return;
 
     socket.emit("joinTeamRoom", team.id);
 
+    // Listen for new messages
     const handleNewMessage = (msg) => {
       setMessages((prev) => [...prev, msg]);
     };
@@ -45,40 +47,26 @@ export default function TeamChat({ team, currentUser }) {
     };
   }, [team, currentUser]);
 
-  // Send message
-  const handleSend = async () => {
+  // Send new message
+  const handleSend = () => {
     if (!newMsg.trim() || !team) return;
 
     const msgObj = {
       team_id: team.id,
       sender_id: currentUser.id,
       sender_username: currentUser.username,
-      text: newMsg,
+      message: newMsg,
       file_url: null,
-      type: "text",
+      file_type: "text",
       created_at: new Date().toISOString(),
     };
 
-    // Optimistic UI
+    // Emit via socket
+    socket.emit("sendTeamMessage", msgObj);
+
+    // Optimistically update UI
     setMessages((prev) => [...prev, msgObj]);
     setNewMsg("");
-
-    try {
-      await fetch(`${URL}/api/teams/${team.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sender_id: currentUser.id,
-          text: newMsg,
-          file_url: null,
-          type: "text",
-        }),
-      });
-      // Optionally, emit to socket
-      socket.emit("sendTeamMessage", msgObj);
-    } catch (err) {
-      console.error("Error sending message:", err);
-    }
   };
 
   return (
@@ -93,7 +81,7 @@ export default function TeamChat({ team, currentUser }) {
                 : "bg-gray-200 self-start"
             }`}
           >
-            <strong>{msg.sender_username}:</strong> {msg.text}
+            <strong>{msg.sender_username}:</strong> {msg.message}
             <div className="text-xs text-gray-500">
               {new Date(msg.created_at).toLocaleTimeString()}
             </div>

@@ -23,7 +23,7 @@ exports.createMeeting = async (req, res) => {
       link: `http://localhost:5173/prejoin/${code}`,
     });
   } catch (err) {
-    console.error("❌ Meeting creation failed:", err.message);
+    console.error("Meeting creation failed:", err.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
@@ -40,7 +40,7 @@ exports.getMeeting = async (req, res) => {
 
     res.status(200).json(meeting);
   } catch (err) {
-    console.error("❌ Failed to fetch meeting:", err.message);
+    console.error(" Failed to fetch meeting:", err.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
@@ -52,7 +52,7 @@ exports.getUserMeetings = async (req, res) => {
     const meetings = await Meeting.getMeetingsForUser(userId);
     res.status(200).json(meetings);
   } catch (err) {
-    console.error("❌ Failed to fetch user meetings:", err.message);
+    console.error(" Failed to fetch user meetings:", err.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };

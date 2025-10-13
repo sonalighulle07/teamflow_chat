@@ -151,7 +151,10 @@ function AppRoutes({
 
                   {activeNav === "Meet" && (
                     <div className="flex items-center justify-center h-full">
-                      <CreateMeetingModal userId={userId} />
+                      <CreateMeetingModal
+                        userId={userId}
+                        setActiveNav={setActiveNav}
+                      />
                     </div>
                   )}
 
