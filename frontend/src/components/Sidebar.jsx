@@ -190,7 +190,6 @@ export default function Sidebar({ activeNav, setActiveNav }) {
               <UserList
                 users={activeNav === "Chat" ? filteredUsers : []}
                 teams={activeNav === "Communities" ? filteredTeams : []}
-                selectedUser={selectedUser}
                 onSelectUser={handleSelectUser}
                 searchQuery={searchQuery}
               />

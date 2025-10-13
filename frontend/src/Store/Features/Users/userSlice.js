@@ -42,6 +42,7 @@ const userSlice = createSlice({
     },
     setSelectedUser: (state, action) => {
       state.selectedUser = action.payload;
+      console.log("from slice:"+JSON.stringify(state.selectedUser));
     },
     setUserList: (state, action) => {
       const newList = action.payload || [];

@@ -25,7 +25,7 @@ export default function Header({
   );
 
   const searchInputRef = useRef(null);
-  const { selectedUser } = useSelector((state) => state.user);
+  const  { selectedUser } = useSelector((state) => state.user);
 
   const username = activeUser?.username || "Guest";
 
@@ -42,7 +42,12 @@ export default function Header({
       setProfileImage(imgUrl);
       localStorage.setItem("profileImage", imgUrl);
     }
+
   }, [activeUser]);
+
+  useEffect(()=>{
+    console.log("Selected user from header"+JSON.stringify(selectedUser))
+  },[selectedUser])
 
   useEffect(() => {
     if (showSearch && searchInputRef.current) searchInputRef.current.focus();

@@ -1,4 +1,5 @@
 import React, { memo, useMemo, useRef, useEffect } from "react";
+import { useSelector } from "react-redux";
 
 // Utility to get initials
 function getInitials(name) {
@@ -30,7 +31,7 @@ const UserItem = memo(({ item, isSelected, onClick, searchQuery }) => {
   const hasActivity = item.recentActivity && !item.recentActivity.read_status;
 
   return (
-    <li
+    <div
       onClick={() => onClick(item)}
       className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1
         ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
@@ -66,7 +67,7 @@ const UserItem = memo(({ item, isSelected, onClick, searchQuery }) => {
           <span className="text-xs text-gray-500 truncate">{item.status}</span>
         )}
       </div>
-    </li>
+    </div>
   );
 });
 
@@ -75,29 +76,37 @@ export default function UserList({
   teams = [],
   onSelectUser,
   searchQuery = "",
-  selectedUser,
 }) {
   const listRef = useRef(null);
   const itemRefs = useRef({});
+  const selectedUser = useSelector((state) => state.user);
 
   const handleSelect = (item) => onSelectUser(item);
 
-  // Merge users and teams
+  // Merge and sort users + teams by recent message
   const displayedItems = useMemo(() => {
     const allItems = [
       ...users.map((u) => ({ ...u, type: "user" })),
       ...teams.map((t) => ({ ...t, type: "team" })),
     ];
 
+    // Sort by recent activity (newest first)
+    allItems.sort((a, b) => {
+      const aTime = new Date(a.recentActivity?.timestamp || a.recentActivity?.date || 0).getTime();
+      const bTime = new Date(b.recentActivity?.timestamp || b.recentActivity?.date || 0).getTime();
+      return bTime - aTime;
+    });
+
+    // Keep selected user pinned on top
     if (selectedUser) {
       const selectedItem = allItems.find((i) => i.id === selectedUser.id);
       return [
-        selectedItem ? selectedItem : null,
+        ...(selectedItem ? [selectedItem] : []),
         ...allItems.filter((i) => i.id !== selectedUser.id),
-      ].filter(Boolean);
+      ];
     }
 
-    return allItems; // Ensure always an array
+    return allItems;
   }, [users, teams, selectedUser]);
 
   // Scroll to first search match

@@ -58,6 +58,7 @@ export function useCall(userId) {
   }
 
 async function startCall(type, remoteUser) {
+  console.log("UseCAll Remote user:"+remoteUser)
     if (!remoteUser) return;
     setCallType(type);
 

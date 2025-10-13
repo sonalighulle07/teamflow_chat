@@ -34,7 +34,6 @@ function AppRoutes({
   userList,
   handleAuthSuccess,
 }) {
-  const [selectedUser, setSelectedUser] = useState(null);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [userMessages, setUserMessages] = useState([]);
   const [teamMessages, setTeamMessages] = useState([]);
@@ -115,8 +114,7 @@ function AppRoutes({
             <div className="flex flex-col h-screen w-screen">
               <Header
                 activeUser={currentUser}
-                selectedUser={selectedUser}
-                onStartCall={(type) => call.startCall(type, selectedUser)}
+                onStartCall={(type,selectedUser) => call.startCall(type, selectedUser)}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
               />
@@ -125,8 +123,6 @@ function AppRoutes({
                 {/* Sidebar */}
                 <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
                   <Sidebar
-                    selectedUser={selectedUser}
-                    onSelectUser={() => setSelectedTeam(null)}
                     activeNav={activeNav}
                     setActiveNav={setActiveNav}
                   />
@@ -137,7 +133,6 @@ function AppRoutes({
                   {activeNav === "Chat" && (
                     <ChatWindow
                       selectedTeam={selectedTeam}
-                      selectedUser={selectedUser}
                       messages={selectedTeam ? teamMessages : userMessages}
                       setMessages={
                         selectedTeam ? setTeamMessages : setUserMessages
