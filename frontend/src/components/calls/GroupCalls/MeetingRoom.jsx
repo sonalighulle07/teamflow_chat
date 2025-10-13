@@ -62,17 +62,17 @@ export default function MeetingRoom() {
     };
   }, [code, userId]);
 
+   // Toast system
   useEffect(() => {
     const handleToast = (e) => {
-      if (e.detail?.message) {
-        setToastMsg(e.detail.message);
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
-      }
+      setToastMsg(e.detail.message);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     };
     window.addEventListener("meeting-toast", handleToast);
     return () => window.removeEventListener("meeting-toast", handleToast);
   }, []);
+
 
   const handleLeave = useCallback(() => {
     const channel = new BroadcastChannel("meeting-session");

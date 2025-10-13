@@ -48,12 +48,22 @@ export function useMeeting(userId, roomCode) {
       });
     });
 
-    socket.off("userJoined").on("userJoined", ({ userId: remoteId }) => {
+
+    socket.off("userJoined").on("userJoined", ({ userId: remoteId,username : remoteUsername }) => {
       if (!peerMap.current.has(remoteId)) {
         const peer = createPeer(remoteId, stream, false);
         peerMap.current.set(remoteId, peer);
       }
+
+  window.dispatchEvent(
+  new CustomEvent("meeting-toast", {
+    detail: { message: `${remoteUsername} joined the meeting` }
+  })
+);
+
+
     });
+
 
     socket.off("offer").on("offer", async ({ from, offer }) => {
       let peer = peerMap.current.get(from);
@@ -77,7 +87,9 @@ export function useMeeting(userId, roomCode) {
       if (peer && candidate) await peer.addIceCandidate(new RTCIceCandidate(candidate));
     });
 
-    socket.off("userLeft").on("userLeft", ({ userId: remoteId }) => {
+    
+
+ socket.off("userLeft").on("userLeft", ({ userId: remoteId,username : remoteUsername }) => {
       const peer = peerMap.current.get(remoteId);
       if (peer) peer.close();
       peerMap.current.delete(remoteId);
@@ -86,6 +98,13 @@ export function useMeeting(userId, roomCode) {
         updated.delete(remoteId);
         return updated;
       });
+window.dispatchEvent(
+  new CustomEvent("meeting-toast", {
+    detail: { message: `${remoteUsername} left the meeting` }
+  })
+);
+
+
     });
 
     socket.emit("joinRoom", { userId, roomCode });
