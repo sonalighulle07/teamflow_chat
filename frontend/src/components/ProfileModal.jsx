@@ -20,12 +20,20 @@ export default function ProfileModal({
   if (!user) return null;
 
   const [showRegister, setShowRegister] = useState(false);
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState(() => {
+    return (
+      localStorage.getItem("profileImage") ||
+      (user.profile_image ? `${URL}${user.profile_image}` : null)
+    );
+  });
+
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user.profile_image) setPreview(`${URL}${user.profile_image}`);
+    const stored = localStorage.getItem("profileImage");
+    if (stored) setPreview(stored);
+    else if (user.profile_image) setPreview(`${URL}${user.profile_image}`);
     else setPreview(null);
   }, [user.profile_image]);
 

@@ -39,6 +39,7 @@ export default function Header({
     localStorage.removeItem("profileImage");
     setIsAuthenticated(false)
     navigate("/");
+
   };
 
   // Update profile image safely
