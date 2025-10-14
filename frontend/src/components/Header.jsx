@@ -24,34 +24,25 @@ export default function Header({
   const navigate = useNavigate();
   const [showSearch, setShowSearch] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  
-  const [profileImage, setProfileImage] = useState(
-    () => localStorage.getItem("profileImage") || null
-  );
+
 
   const searchInputRef = useRef(null);
   const  { selectedUser } = useSelector((state) => state.user);
 
   const username = activeUser?.username || "Guest";
 
-  const logout = () => {
-    sessionStorage.clear();
-    localStorage.removeItem("profileImage");
-    setIsAuthenticated(false)
-    navigate("/");
 
-  };
-
-  // Update profile image safely
-  useEffect(() => {
-    if (activeUser?.profile_image) {
-      const imgUrl = `${URL}${activeUser.profile_image}`;
-      setProfileImage(imgUrl);
-      localStorage.setItem("profileImage", imgUrl);
-    }
-
-  }, [activeUser]);
-
+const [profileImage, setProfileImage] = useState(
+  () => localStorage.getItem(`profileImage_${activeUser?.id}`) || null
+);
+ 
+useEffect(() => {
+  if (activeUser?.profile_image) {
+    const imgUrl = `${URL}${activeUser.profile_image}`;
+    setProfileImage(imgUrl);
+    localStorage.setItem(`profileImage_${activeUser.id}`, imgUrl);
+  }
+}, [activeUser]);
   useEffect(() => {
     if (showSearch && searchInputRef.current) searchInputRef.current.focus();
   }, [showSearch]);
@@ -59,6 +50,14 @@ export default function Header({
   const toggleSearch = () => {
     if (showSearch) setSearchQuery("");
     setShowSearch((prev) => !prev);
+  };
+
+    const logout = () => {
+    sessionStorage.clear();
+    localStorage.removeItem("profileImage");
+    setIsAuthenticated(false)
+    navigate("/");
+
   };
 
   return (

@@ -1,17 +1,16 @@
 import React, { memo, useMemo, useRef, useEffect } from "react";
-import { useSelector } from "react-redux";
-
+ 
 // Utility to get initials
 function getInitials(name) {
   if (!name) return "";
   const parts = name.split(" ");
   return (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
 }
-
+ 
 // Memoized UserItem component
 const UserItem = memo(({ item, isSelected, onClick, searchQuery }) => {
   const name = item.type === "user" ? item.username || "" : item.name || "";
-
+ 
   // Highlight search match
   const highlightMatch = (text) => {
     if (!searchQuery) return text;
@@ -27,11 +26,11 @@ const UserItem = memo(({ item, isSelected, onClick, searchQuery }) => {
       )
     );
   };
-
+ 
   const hasActivity = item.recentActivity && !item.recentActivity.read_status;
-
+ 
   return (
-    <div
+    <li
       onClick={() => onClick(item)}
       className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1
         ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
@@ -58,7 +57,7 @@ const UserItem = memo(({ item, isSelected, onClick, searchQuery }) => {
           <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-white"></span>
         )}
       </div>
-
+ 
       <div className="flex flex-col truncate">
         <span className="text-gray-900 font-medium truncate">
           {highlightMatch(name)}
@@ -67,48 +66,40 @@ const UserItem = memo(({ item, isSelected, onClick, searchQuery }) => {
           <span className="text-xs text-gray-500 truncate">{item.status}</span>
         )}
       </div>
-    </div>
+    </li>
   );
 });
-
+ 
 export default function UserList({
   users = [],
   teams = [],
   onSelectUser,
   searchQuery = "",
+  selectedUser,
 }) {
   const listRef = useRef(null);
   const itemRefs = useRef({});
-  const selectedUser = useSelector((state) => state.user);
-
+ 
   const handleSelect = (item) => onSelectUser(item);
-
-  // Merge and sort users + teams by recent message
+ 
+  // Merge users and teams
   const displayedItems = useMemo(() => {
     const allItems = [
       ...users.map((u) => ({ ...u, type: "user" })),
       ...teams.map((t) => ({ ...t, type: "team" })),
     ];
-
-    // Sort by recent activity (newest first)
-    allItems.sort((a, b) => {
-      const aTime = new Date(a.recentActivity?.timestamp || a.recentActivity?.date || 0).getTime();
-      const bTime = new Date(b.recentActivity?.timestamp || b.recentActivity?.date || 0).getTime();
-      return bTime - aTime;
-    });
-
-    // Keep selected user pinned on top
+ 
     if (selectedUser) {
       const selectedItem = allItems.find((i) => i.id === selectedUser.id);
       return [
-        ...(selectedItem ? [selectedItem] : []),
+        selectedItem ? selectedItem : null,
         ...allItems.filter((i) => i.id !== selectedUser.id),
-      ];
+      ].filter(Boolean);
     }
-
-    return allItems;
+ 
+    return allItems; // Ensure always an array
   }, [users, teams, selectedUser]);
-
+ 
   // Scroll to first search match
   useEffect(() => {
     if (!searchQuery) return;
@@ -124,7 +115,7 @@ export default function UserList({
       });
     }
   }, [searchQuery, displayedItems]);
-
+ 
   if (!displayedItems || !displayedItems.length) {
     return (
       <div className="flex h-full items-center justify-center text-gray-500 font-medium">
@@ -132,7 +123,7 @@ export default function UserList({
       </div>
     );
   }
-
+ 
   return (
     <ul
       className="flex flex-col h-full overflow-y-auto overflow-x-hidden bg-slate-200 w-full"
@@ -142,19 +133,16 @@ export default function UserList({
         const isSelected = selectedUser?.id === item.id;
         const key = item.type === "user" ? item.id : `team-${item.id}`;
         return (
-          <li
+          <UserItem
             key={key}
+            item={item}
+            isSelected={isSelected}
+            onClick={handleSelect}
+            searchQuery={searchQuery}
             ref={(el) => {
               if (el && item.id) itemRefs.current[item.id] = el;
             }}
-          >
-            <UserItem
-              item={item}
-              isSelected={isSelected}
-              onClick={handleSelect}
-              searchQuery={searchQuery}
-            />
-          </li>
+          />
         );
       })}
     </ul>

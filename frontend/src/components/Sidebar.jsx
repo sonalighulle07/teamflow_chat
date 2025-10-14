@@ -13,32 +13,32 @@ import { fetchUsers } from "../Store/Features/Users/userThunks";
 import axios from "axios";
 import UserList from "./UserList";
 import { URL } from "../config";
-
+ 
 export default function Sidebar({ activeNav, setActiveNav }) {
   const dispatch = useDispatch();
-
+ 
   const { currentUser, userList, selectedUser, loading, error } = useSelector(
     (state) => state.user
   );
-
+ 
   // Activities slice
   const { activities = [] } = useSelector((state) => state.activity || {});
-
+ 
   const [searchQuery, setSearchQuery] = useState("");
   const [teams, setTeams] = useState([]);
-
+ 
   // Fetch users
   useEffect(() => {
     if (!currentUser) return;
     dispatch(fetchUsers(currentUser.id));
-
+ 
     const interval = setInterval(() => {
       dispatch(fetchUsers(currentUser.id));
     }, 10000);
-
+ 
     return () => clearInterval(interval);
   }, [dispatch, currentUser]);
-
+ 
   // Fetch teams when "Communities" is active
   useEffect(() => {
     const fetchTeams = async () => {
@@ -56,20 +56,20 @@ export default function Sidebar({ activeNav, setActiveNav }) {
       fetchTeams();
     }
   }, [activeNav, currentUser]);
-
+ 
   // Handle selecting a user or team
   const handleSelectUser = (item) => {
     dispatch(setSelectedUser(item));
     setSearchQuery("");
   };
-
+ 
   // Merge activity info and sort users
   const orderedUsers = useMemo(() => {
     if (!userList) return [];
-
+ 
     // Users with recent activity
     const activeUserIds = activities.map((a) => a.user_id);
-
+ 
     const activeUsers = userList
       .filter((u) => activeUserIds.includes(u.id))
       .sort((a, b) => {
@@ -82,19 +82,19 @@ export default function Sidebar({ activeNav, setActiveNav }) {
         )?.created_at;
         return new Date(bTime) - new Date(aTime);
       });
-
+ 
     const otherUsers = userList.filter((u) => !activeUserIds.includes(u.id));
-
+ 
     // Keep selected user on top
     const filteredOtherUsers = selectedUser
       ? otherUsers.filter((u) => u.id !== selectedUser.id)
       : otherUsers;
-
+ 
     return selectedUser
       ? [selectedUser, ...activeUsers, ...filteredOtherUsers]
       : [...activeUsers, ...filteredOtherUsers];
   }, [userList, activities, selectedUser]);
-
+ 
   // Filter by search query
   const filteredUsers = useMemo(() => {
     if (!searchQuery) return userList;
@@ -102,14 +102,14 @@ export default function Sidebar({ activeNav, setActiveNav }) {
       u.username.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [userList, searchQuery]);
-
+ 
   const filteredTeams = useMemo(() => {
     if (!searchQuery) return teams;
     return teams.filter((t) =>
       t.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [teams, searchQuery]);
-
+ 
   const navItems = [
     { icon: <FaCommentDots />, label: "Chat" },
     { icon: <FaVideo />, label: "Meet" },
@@ -117,7 +117,7 @@ export default function Sidebar({ activeNav, setActiveNav }) {
     { icon: <FaCalendar />, label: "Calendar" },
     { icon: <FaBell />, label: "Activity" },
   ];
-
+ 
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* Sidebar navigation */}
@@ -159,8 +159,8 @@ export default function Sidebar({ activeNav, setActiveNav }) {
           })}
         </div>
       </div>
-
-
+ 
+ 
       {/* Panel */}
       {(activeNav === "Chat" || activeNav === "Communities") && (
         <div className="flex-1 bg-gray-100 border-l border-gray-300 flex flex-col overflow-hidden">
@@ -179,7 +179,7 @@ export default function Sidebar({ activeNav, setActiveNav }) {
               />
             </div>
           </div>
-
+ 
           {/* List */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {loading && activeNav === "Chat" && (
@@ -190,6 +190,7 @@ export default function Sidebar({ activeNav, setActiveNav }) {
               <UserList
                 users={activeNav === "Chat" ? filteredUsers : []}
                 teams={activeNav === "Communities" ? filteredTeams : []}
+                selectedUser={selectedUser}
                 onSelectUser={handleSelectUser}
                 searchQuery={searchQuery}
               />
@@ -206,7 +207,7 @@ export default function Sidebar({ activeNav, setActiveNav }) {
           </div>
         </div>
       )}
-
+ 
       {activeNav === "Activity" && (
         <div className="flex-1 flex flex-col overflow-y-auto">
           {/* Render activity notifications */}
@@ -228,3 +229,5 @@ export default function Sidebar({ activeNav, setActiveNav }) {
     </div>
   );
 }
+ 
+ 

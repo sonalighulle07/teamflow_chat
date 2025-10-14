@@ -1,5 +1,5 @@
 const Event = require('../../models/Event');
-
+ 
 module.exports = (io, socket) => {
   // Create Event
   socket.on('createEvent', async (data) => {
@@ -10,7 +10,7 @@ module.exports = (io, socket) => {
       console.error('Create Event failed:', err);
     }
   });
-
+ 
   // Update Event
   socket.on('updateEvent', async (data) => {
     try {
@@ -20,7 +20,7 @@ module.exports = (io, socket) => {
       console.error('Update Event failed:', err);
     }
   });
-
+ 
   // Delete Event
   socket.on('deleteEvent', async (id) => {
     try {
@@ -31,3 +31,5 @@ module.exports = (io, socket) => {
     }
   });
 };
+ 
+ 
