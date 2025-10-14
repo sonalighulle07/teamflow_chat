@@ -358,96 +358,101 @@ export default function Message({
       className={`flex flex-col mb-3 max-w-[75%] relative ${
         isOwn ? "items-end ml-auto" : "items-start mr-auto"
       }`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
       <div
         className={`px-4 py-2 rounded-2xl shadow-md ${bubbleClasses} relative`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {renderContent()}
 
         {/* Hover actions */}
-        {hovered && (
-          <div
-            className={`absolute -top-9 ${
-              isOwn ? "right-2" : "left-2"
-            } flex items-center gap-1 bg-white rounded-full shadow-md px-2 py-1 z-20`}
-          >
-            {["👍", "❤️", "😆", "😮", "😂"].map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => toggleReaction(emoji)}
-                className={`px-1 flex items-center gap-1 hover:bg-gray-100 rounded-full ${
-                  didIReact(emoji) ? "bg-gray-200" : ""
-                }`}
-                title={`React ${emoji}`}
-              >
-                <span>{emoji}</span>
-                {getEmojiCount(emoji) > 0 && (
-                  <span className="text-xs">{getEmojiCount(emoji)}</span>
-                )}
-              </button>
-            ))}
-            <div className="relative">
-              <button
-                className="p-1 text-gray-600 hover:bg-gray-100 rounded-full"
-                onClick={() => setShowEmojiPicker((s) => !s)}
-                title="Pick emoji"
-              >
-                <FaSmile />
-              </button>
-              {showEmojiPicker && (
-                <div className="absolute top-8 right-0 z-30">
-                  <EmojiPicker onEmojiClick={handlePickerEmoji} theme="light" />
-                </div>
+        <div
+          className={`absolute -top-9 ${
+            isOwn ? "right-2" : "left-2"
+          } flex items-center gap-1 bg-white rounded-full shadow-md px-2 py-1 z-20 transition-all duration-200 
+  ${
+    hovered ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
+  }`}
+        >
+          {["👍", "❤️", "😆", "😮", "😂"].map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => toggleReaction(emoji)}
+              className={`px-1 flex items-center gap-1 hover:bg-gray-100 rounded-full ${
+                didIReact(emoji) ? "bg-gray-200" : ""
+              }`}
+              title={`React ${emoji}`}
+            >
+              <span>{emoji}</span>
+              {getEmojiCount(emoji) > 0 && (
+                <span className="text-xs">{getEmojiCount(emoji)}</span>
               )}
-            </div>
-            <div className="relative">
-              <button
-                className="p-1 text-gray-600 hover:bg-gray-100 rounded-full"
-                onClick={() => setMenuOpen((m) => !m)}
-                title="Options"
-              >
-                <FaEllipsisV />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-8 w-44 bg-white shadow-lg rounded-lg z-30 border border-gray-200 text-gray-700">
-                  {isOwn && message.type === "text" && (
-                    <button
-                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-purple-100 rounded transition-colors"
-                      onClick={() => {
-                        setIsEditing(true);
-                        setMenuOpen(false);
-                      }}
-                    >
-                      ✏️ <span>Edit</span>
-                    </button>
-                  )}
-                  {isOwn && (
-                    <button
-                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-red-100 text-red-600 rounded transition-colors"
-                      onClick={() => {
-                        onDelete?.(message.id);
-                        setMenuOpen(false);
-                      }}
-                    >
-                      🗑️ <span>Delete</span>
-                    </button>
-                  )}
+            </button>
+          ))}
+
+          {/* Emoji picker button */}
+          <div className="relative">
+            <button
+              className="p-1 text-gray-600 hover:bg-gray-100 rounded-full"
+              onClick={() => setShowEmojiPicker((s) => !s)}
+              title="Pick emoji"
+            >
+              <FaSmile />
+            </button>
+            {showEmojiPicker && (
+              <div className="absolute top-8 right-0 z-30">
+                <EmojiPicker onEmojiClick={handlePickerEmoji} theme="light" />
+              </div>
+            )}
+          </div>
+
+          {/* Options menu */}
+          <div className="relative">
+            <button
+              className="p-1 text-gray-600 hover:bg-gray-100 rounded-full"
+              onClick={() => setMenuOpen((m) => !m)}
+              title="Options"
+            >
+              <FaEllipsisV />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-8 w-44 bg-white shadow-lg rounded-lg z-30 border border-gray-200 text-gray-700">
+                {isOwn && message.type === "text" && (
                   <button
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-blue-100 rounded transition-colors"
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-purple-100 rounded transition-colors"
                     onClick={() => {
-                      onForward?.(message);
+                      setIsEditing(true);
                       setMenuOpen(false);
                     }}
                   >
-                    🔄 <span>Forward</span>
+                    ✏️ <span>Edit</span>
                   </button>
-                </div>
-              )}
-            </div>
+                )}
+                {isOwn && (
+                  <button
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-red-100 text-red-600 rounded transition-colors"
+                    onClick={() => {
+                      onDelete?.(message.id);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    🗑️ <span>Delete</span>
+                  </button>
+                )}
+                <button
+                  className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-blue-100 rounded transition-colors"
+                  onClick={() => {
+                    onForward?.(message);
+                    setMenuOpen(false);
+                  }}
+                >
+                  🔄 <span>Forward</span>
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Reactions below bubble */}
