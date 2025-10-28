@@ -2,6 +2,10 @@
 @import "@fortawesome/fontawesome-free/css/all.min.css";
 /* Background fade-in */
 
+body {
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
 
 @keyframes fadeInBody {
   from { opacity: 0; }
@@ -65,4 +69,11 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 
 .animate-modal-scale {
   animation: modal-scale 0.25s ease-out forwards;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
 }

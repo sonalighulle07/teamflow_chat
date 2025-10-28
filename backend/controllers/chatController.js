@@ -2,12 +2,12 @@ const chatModel = require("../models/chatModel");
 const User = require("../models/User");
 const { sendPushNotification } = require("../Utils/pushService");
 const db = require("../Utils/db"); 
-
+const { encrypt, decrypt } = require("../Utils/crypto");
 
 // GET all messages
 exports.getMessages = async (req, res) => {
   try {
-    const messages = await chatModel.getAllMessages();
+    const messages = await chatModel.getAllMessages(); // messages already decrypted in model
     res.json(messages);
   } catch (err) {
     console.error("Error fetching messages:", err);
@@ -19,7 +19,7 @@ exports.getMessages = async (req, res) => {
 exports.getConversation = async (req, res) => {
   try {
     const { user1, user2 } = req.params;
-    const messages = await chatModel.getMessagesBetweenUsers(user1, user2);
+    const messages = await chatModel.getMessagesBetweenUsers(user1, user2); // already decrypted
     res.json(messages);
   } catch (err) {
     console.error("Error fetching conversation:", err);
@@ -51,6 +51,7 @@ exports.sendMessage = async (req, res) => {
       else msgType = "file";
     }
 
+    // Encrypt text before storing
     const newMessage = await chatModel.insertMessage(
       senderId,
       receiverId,
@@ -69,6 +70,7 @@ exports.sendMessage = async (req, res) => {
 
     // Push notification
     try {
+      
       const sender = await User.findById(senderId);
       const subscription = await User.getPushSubscription(receiverId);
       if (subscription) {
@@ -156,16 +158,13 @@ exports.reactMessage = async (req, res) => {
   }
 };
 
-
 // DELETE message
 exports.deleteMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
 
-    // Delete message from DB
-    await db.execute("DELETE FROM chats WHERE id = ?", [messageId]);
+    await chatModel.deleteMessage(messageId);
 
-    // Broadcast delete event via socket
     if (req.io) {
       req.io.emit("messageDeleted", { messageId });
     }
@@ -177,33 +176,25 @@ exports.deleteMessage = async (req, res) => {
   }
 };
 
-
 // PUT edit message
 exports.editMessage = async (req, res) => {
   const { text } = req.body;
   const { messageId } = req.params;
 
   try {
-    const [updatedRows] = await db.execute(
-      "UPDATE chats SET text = ?, edited = 1, edited_at = NOW() WHERE id = ?",
-      [text, messageId]
-    );
+    // Encrypt text before updating
+    await chatModel.updateMessage(messageId, text);
 
-    if (updatedRows.affectedRows === 0) {
-      return res.status(404).json({ error: "Message not found" });
-    }
+    const updatedMessage = await chatModel.getMessageById(messageId);
 
-    const [updatedMessage] = await db.execute(
-      "SELECT * FROM chats WHERE id = ?",
-      [messageId]
-    );
-
-    res.json(updatedMessage[0]);
+    res.json(updatedMessage);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Edit failed" });
   }
 };
+
+// Forward message
 exports.forwardMessage = async (req, res) => {
   const { messageId } = req.params;
   const { toUserIds, senderId } = req.body;
@@ -230,7 +221,7 @@ exports.forwardMessage = async (req, res) => {
         [
           senderId,
           receiverId,
-          message.text,
+          message.text, // already encrypted in DB
           message.file_url,
           message.file_name,
           message.file_type,
@@ -243,9 +234,10 @@ exports.forwardMessage = async (req, res) => {
         "SELECT * FROM chats WHERE id = ?", [result.insertId]
       );
       const newMsg = insertedRows[0];
+      // Decrypt text before returning
+      newMsg.text = newMsg.text ? decrypt(newMsg.text) : "";
       newMessages.push(newMsg);
 
-      // Emit ONLY to the recipient
       if (req.io) {
         req.io.to(`user_${receiverId}`).emit("privateMessage", newMsg);
       }

@@ -1,5 +1,6 @@
 const { Team, TeamMember, TeamMessage } = require("../models/TeamModel");
 const db = require("../Utils/db");
+const path = require("path");
 
 // -----------------------
 // GET all teams
@@ -18,18 +19,18 @@ const getAllTeams = async (req, res) => {
 // GET teams for a user
 // -----------------------
 const getUserTeams = async (req, res) => {
-  console.log("Request for getUserTeams...")
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: "Missing userId in query" });
 
   try {
-    const [teams] = await Team.getByUser(userId);
+    const teams = await Team.getByUser(userId); // remove extra destructuring
     res.json(teams);
   } catch (err) {
     console.error("Failed to fetch user teams:", err);
     res.status(500).json({ error: "Failed to fetch teams" });
   }
 };
+
 
 // -----------------------
 // GET single team by ID
@@ -46,23 +47,17 @@ const getTeamById = async (req, res) => {
   }
 };
 
-
 // -----------------------
 // CREATE a new team
 // -----------------------
 const createTeam = async (req, res) => {
-  console.log("Request for createTeam")
   const { name, created_by, members } = req.body;
   if (!name || !created_by) return res.status(400).json({ error: "Name and created_by are required" });
 
   try {
     const result = await Team.create(name, created_by);
-const teamId = result.insertId;
-
-if (!teamId) throw new Error("Team creation failed: missing teamId");
-
-
-
+    const teamId = result.insertId;
+    if (!teamId) throw new Error("Team creation failed: missing teamId");
 
     if (members && members.length > 0) {
       for (const userId of members) {
@@ -100,8 +95,7 @@ const updateTeam = async (req, res) => {
 const deleteTeam = async (req, res) => {
   const { id } = req.params;
   try {
-
- await Team.delete(id);
+    await Team.delete(id);
     res.json({ success: true });
   } catch (err) {
     console.error("Failed to delete team:", err);
@@ -141,7 +135,7 @@ const getTeamMembers = async (req, res) => {
 };
 
 // -----------------------
-// GET rich team messages
+// GET team messages
 // -----------------------
 const getTeamMessages = async (req, res) => {
   const { id } = req.params;
@@ -149,8 +143,7 @@ const getTeamMessages = async (req, res) => {
     const [messages] = await db.query(
       "SELECT * FROM team_messages WHERE team_id = ? ORDER BY created_at ASC",
       [id]
-
-);
+    );
     res.json(messages);
   } catch (err) {
     console.error("Failed to fetch team messages:", err);
@@ -159,22 +152,49 @@ const getTeamMessages = async (req, res) => {
 };
 
 // -----------------------
-// SEND rich team message
+// SEND team message (with file support)
 // -----------------------
 const sendTeamMessage = async (req, res) => {
-  const { id } = req.params;
-  const { sender_id, text, file_url, type, file_name } = req.body;
+  const teamId = req.params.id;           // team ID from URL
+  const senderId = req.user?.id;          // user ID from auth middleware
+  const { text, type } = req.body;        // message text and type
+  const file = req.file;                  // file from upload middleware
+
+  if (!senderId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
   try {
-    const result = await TeamMessage.insert(sender_id, id, text, file_url, type, file_name);
-    res.json({ id: result.insertId, team_id: id, sender_id, text, file_url, type, file_name });
+    let fileUrl = null;
+    let fileName = null;
+
+    if (file) {
+      fileUrl = `/uploads/${file.filename}`;   // path to serve file
+      fileName = file.originalname;           // original file name
+    }
+
+    // Insert message into DB
+    const result = await TeamMessage.insert(senderId, teamId, text || "", fileUrl, type || (file ? "file" : "text"), fileName);
+
+    res.json({
+      id: result.insertId,
+      team_id: teamId,
+      sender_id: senderId,
+      text: text || "",
+      file_url: fileUrl,
+      file_name: fileName,
+      type: type || (file ? "file" : "text"),
+      created_at: new Date(),
+    });
   } catch (err) {
     console.error("Failed to send message:", err);
     res.status(500).json({ error: "Failed to send message" });
   }
 };
 
+
 // -----------------------
-// EDIT rich team message
+// EDIT team message
 // -----------------------
 const editTeamMessage = async (req, res) => {
   const { messageId } = req.params;
@@ -189,7 +209,7 @@ const editTeamMessage = async (req, res) => {
 };
 
 // -----------------------
-// DELETE rich team message
+// DELETE team message
 // -----------------------
 const deleteTeamMessage = async (req, res) => {
   const { messageId } = req.params;
@@ -197,14 +217,13 @@ const deleteTeamMessage = async (req, res) => {
     await TeamMessage.delete(messageId);
     res.json({ success: true });
   } catch (err) {
-
-console.error("Failed to delete message:", err);
+    console.error("Failed to delete message:", err);
     res.status(500).json({ error: "Failed to delete message" });
   }
 };
 
 // -----------------------
-// UPDATE reactions on rich team message
+// UPDATE reactions on team message
 // -----------------------
 const updateTeamMessageReactions = async (req, res) => {
   const { messageId } = req.params;
@@ -233,4 +252,3 @@ module.exports = {
   deleteTeamMessage,
   updateTeamMessageReactions,
 };
-

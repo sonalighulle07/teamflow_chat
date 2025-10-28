@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import socket from "./socket";
 
-export function useCall(userId) {
+export function useCall(userId, currentUser = {}) {
   const [callType, setCallType] = useState(null);
   const [incoming, setIncoming] = useState(null);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -12,12 +12,11 @@ export function useCall(userId) {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const peerMap = useRef(new Map());
 
-  // Get current username from sessionStorage
-  const getUsername = () => {
-    const userStr = sessionStorage.getItem("chatUser");
-    const user = userStr ? JSON.parse(userStr) : null;
-    return user?.username || "Unknown User";
-  };
+  // Determine username to emit with events (try parameter -> window -> fallback)
+  const currentUsername =
+    (currentUser && (currentUser.username || currentUser.name)) ||
+    window.currentUsername ||
+    "You";
 
   useEffect(() => {
     if (!userId) return;
@@ -37,25 +36,52 @@ export function useCall(userId) {
       socket.off("endCall", handleEndCall);
       socket.off("callCancelled", handleCallCancelled);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  function handleIncomingCall({ from, fromUsername, offer, callType }) {
-    console.log("📥 Incoming call from", fromUsername || from);
-    setIncoming({ from, fromUsername, offer, callType });
+  function handleIncomingCall({ from, offer, callType }) {
+    console.log("📥 Incoming call from", from);
+    setIncoming({ from, offer, callType });
   }
 
-  async function handleCallAccepted({ answer, from, fromUsername }) {
+  async function handleCallAccepted({ answer, from }) {
     const peer = peerMap.current.get(from);
-    if (peer) await peer.setRemoteDescription(new RTCSessionDescription(answer));
-    console.log(`✅ Call accepted by ${fromUsername || from}`);
+    if (peer) {
+      try {
+        await peer.setRemoteDescription(new RTCSessionDescription(answer));
+      } catch (err) {
+        console.error("Error setting remote description on callAccepted:", err);
+      }
+    }
   }
 
   function handleIceCandidate({ from, candidate }) {
     const peer = peerMap.current.get(from);
-    if (peer && candidate) peer.addIceCandidate(new RTCIceCandidate(candidate));
+    if (peer && candidate) {
+      try {
+        peer.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error("Error adding ICE candidate:", err);
+      }
+    }
   }
 
-  function handleEndCall() {
+  // payload could be { from, username }
+  function handleEndCall(payload = {}) {
+    const { from, username } = payload;
+    const name = username || from || "Remote";
+    // Notify user - replace with your toast if you have one
+    try {
+      // Use a toast in your app instead of alert if available
+      // e.g., toast.info(`${name} ended the call`);
+      // fallback:
+      if (typeof window !== "undefined" && window && window.document) {
+        // tiny non-blocking UI-friendly notification
+        console.log(`📞 Call ended by ${name}`);
+      }
+    } catch (err) {
+      /* ignore */
+    }
     cleanup();
   }
 
@@ -66,7 +92,6 @@ export function useCall(userId) {
   async function startCall(type, remoteUser) {
     if (!remoteUser) return;
     setCallType(type);
-    const username = getUsername();
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -93,7 +118,9 @@ export function useCall(userId) {
 
       peer.ontrack = (e) => {
         const incomingStream = e.streams[0];
-        if (incomingStream) setRemoteStream((prev) => prev || incomingStream);
+        if (incomingStream) {
+          setRemoteStream((prev) => prev || incomingStream);
+        }
       };
 
       peerMap.current.set(remoteUser.id, peer);
@@ -103,10 +130,10 @@ export function useCall(userId) {
 
       socket.emit("callUser", {
         from: userId,
-        fromUsername: username,
         to: remoteUser.id,
         offer,
         callType: type,
+        username: currentUsername, // optional: include caller name
       });
     } catch (err) {
       console.error("❌ Failed to start call:", err);
@@ -117,7 +144,6 @@ export function useCall(userId) {
   async function acceptCall() {
     if (!incoming) return;
     setCallType(incoming.callType);
-    const username = getUsername();
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -144,7 +170,9 @@ export function useCall(userId) {
 
       peer.ontrack = (e) => {
         const incomingStream = e.streams[0];
-        if (incomingStream) setRemoteStream((prev) => prev || incomingStream);
+        if (incomingStream) {
+          setRemoteStream((prev) => prev || incomingStream);
+        }
       };
 
       peerMap.current.set(incoming.from, peer);
@@ -153,13 +181,7 @@ export function useCall(userId) {
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
 
-      socket.emit("answerCall", {
-        to: incoming.from,
-        from: userId,
-        fromUsername: username,
-        answer,
-      });
-
+      socket.emit("answerCall", { to: incoming.from, answer, from: userId, username: currentUsername });
       setIncoming(null);
     } catch (err) {
       console.error("❌ Failed to accept call:", err);
@@ -169,28 +191,46 @@ export function useCall(userId) {
 
   function rejectCall() {
     if (incoming) {
-      socket.emit("cancelCall", {
-        to: incoming.from,
-        from: userId,
-        fromUsername: getUsername(),
-      });
+      socket.emit("cancelCall", { to: incoming.from, from: userId });
     }
     setIncoming(null);
     cleanup();
   }
 
-  function endCall() {
-    socket.emit("endCall", { from: userId, fromUsername: getUsername() });
+  // remoteUser is expected to be { id, ... } - pass the remote participant when ending the call
+  function endCall(remoteUser) {
+    if (!remoteUser) return;
+    socket.emit("endCall", { from: userId, to: remoteUser.id, username: currentUsername });
     cleanup();
   }
 
   function cleanup() {
-    if (localStream) localStream.getTracks().forEach((t) => t.stop());
-    if (remoteStream) remoteStream.getTracks().forEach((t) => t.stop());
-    setLocalStream(null);
-    setRemoteStream(null);
-    peerMap.current.forEach((peer) => peer.close());
+    if (localStream) {
+      try {
+        localStream.getTracks().forEach((t) => t.stop());
+      } catch (err) {
+        console.warn("Error stopping local tracks:", err);
+      }
+      setLocalStream(null);
+    }
+    if (remoteStream) {
+      try {
+        remoteStream.getTracks().forEach((t) => t.stop());
+      } catch (err) {
+        console.warn("Error stopping remote tracks:", err);
+      }
+      setRemoteStream(null);
+    }
+
+    peerMap.current.forEach((peer) => {
+      try {
+        peer.close();
+      } catch (err) {
+        /* ignore */
+      }
+    });
     peerMap.current.clear();
+
     setCallType(null);
     setIncoming(null);
     setIsScreenSharing(false);
@@ -214,11 +254,79 @@ export function useCall(userId) {
     }
   }
 
+  // ---- Screen Share ----
+  async function startScreenShare() {
+    if (!localStream) return;
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
+      const screenTrack = screenStream.getVideoTracks()[0];
+
+      // Replace video track in all peers
+      peerMap.current.forEach((peer) => {
+        const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+        if (sender) sender.replaceTrack(screenTrack);
+      });
+
+      // Stop screen share when user ends it
+      screenTrack.onended = stopScreenShare;
+
+      // Replace local preview video (manipulate tracks)
+      try {
+        localStream.getVideoTracks().forEach((t) => localStream.removeTrack(t));
+      } catch (err) {
+        // in some browsers removeTrack might not be allowed on MediaStream - fallback to replacing tracks via senders only
+      }
+      try {
+        localStream.addTrack(screenTrack);
+      } catch (err) {
+        // if localStream is immutable or operation fails, ignore (peer replacement already done)
+      }
+
+      setIsScreenSharing(true);
+      setIsVideoEnabled(true);
+    } catch (err) {
+      console.error("Unable to start screen share:", err);
+    }
+  }
+
+  async function stopScreenShare() {
+    if (!localStream) return;
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      const camTrack = camStream.getVideoTracks()[0];
+
+      // Replace back with camera track
+      try {
+        localStream.getVideoTracks().forEach((t) => localStream.removeTrack(t));
+      } catch (err) {
+        // ignore
+      }
+      try {
+        localStream.addTrack(camTrack);
+      } catch (err) {
+        // ignore
+      }
+
+      peerMap.current.forEach((peer) => {
+        const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+        if (sender) sender.replaceTrack(camTrack);
+      });
+
+      setIsScreenSharing(false);
+      setIsVideoEnabled(true);
+    } catch (err) {
+      console.error("Unable to stop screen share:", err);
+    }
+  }
+
   return {
     callState: {
       incoming,
       caller: incoming?.from,
-      callerUsername: incoming?.fromUsername, // <-- always available for modal
       type: callType,
       active: !!localStream || !!remoteStream,
     },
@@ -231,6 +339,8 @@ export function useCall(userId) {
     toggleMic,
     toggleCam,
     isScreenSharing,
+    startScreenShare,
+    stopScreenShare,
     isMuted,
     isVideoEnabled,
     isMaximized,

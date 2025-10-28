@@ -66,7 +66,9 @@ export default function CallOverlay({
           fontSize: "14px",
         }}
       >
-        <span>{callType === "video" ? "Meeting (Video)" : "Meeting (Audio)"}</span>
+        <span>
+          {callType === "video" ? "Meeting (Video)" : "Meeting (Audio)"}
+        </span>
         <div style={{ display: "flex", gap: "10px" }}>
           <button onClick={onMinimize}>➖</button>
           <button onClick={onMaximize}>⬜</button>
@@ -100,7 +102,10 @@ export default function CallOverlay({
       >
         {remoteStreams.length > 0 ? (
           remoteStreams.map((stream, idx) => {
-            remoteVideoRefs.current = remoteVideoRefs.current.slice(0, remoteStreams.length);
+            remoteVideoRefs.current = remoteVideoRefs.current.slice(
+              0,
+              remoteStreams.length
+            );
             return (
               <div key={idx} style={{ position: "relative" }}>
                 <video
@@ -207,5 +212,3 @@ const controlButtonStyle = {
   color: "white",
   cursor: "pointer",
 };
-
-

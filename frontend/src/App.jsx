@@ -25,6 +25,8 @@ import TeamsSidebar from "./components/TeamsSidebar";
 import { useSelector, useDispatch } from "react-redux";
 import { rehydrateUser } from "./Store/Features/Users/userSlice";
 import ProtectedRoute from "./utils/ProtectedRoute";
+import { urlBase64ToUint8Array } from "./utils/pushUtils";
+import TeamChat from "./components/TeamChat";
 
 function AppRoutes({
   isAuthenticated,
@@ -33,7 +35,7 @@ function AppRoutes({
   call,
   userList,
   handleAuthSuccess,
-  setIsAuthenticated
+  setIsAuthenticated,
 }) {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [userMessages, setUserMessages] = useState([]);
@@ -120,13 +122,17 @@ function AppRoutes({
                 }
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
-                setIsAuthenticated={setIsAuthenticated} 
+                setIsAuthenticated={setIsAuthenticated}
               />
 
               <div className="flex flex-1 overflow-hidden w-full">
                 {/* Sidebar */}
                 <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
-                  <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} />
+                  <Sidebar
+                    activeNav={activeNav}
+                    setActiveNav={setActiveNav}
+                    setSelectedTeam={setSelectedTeam}
+                  />
                 </div>
 
                 {/* Main content */}
@@ -145,6 +151,14 @@ function AppRoutes({
                     />
                   )}
 
+                  {activeNav === "Communities" && (
+                    <TeamChat
+                      team={selectedTeam}
+                      currentUser={currentUser}
+                      // members={selectedTeamMembers}
+                    />
+                  )}
+
                   {activeNav === "Meet" && (
                     <div className="flex items-center justify-center h-full">
                       <CreateMeetingModal
@@ -154,14 +168,14 @@ function AppRoutes({
                     </div>
                   )}
 
-                  {activeNav === "Communities" && (
+                  {/* {activeNav === "Communities" && (
                     <TeamsSidebar
                       currentUser={currentUser}
                       currentUserId={userId}
                       selectedTeam={selectedTeam}
                       onSelectTeam={(team) => setSelectedTeam(team)}
                     />
-                  )}
+                  )} */}
 
                   {activeNav === "Calendar" && (
                     <div className="flex flex-col items-center justify-center h-full w-full">
@@ -202,6 +216,7 @@ function AppRoutes({
               {/* Ongoing call overlay */}
               {call.callState.type && (
                 <CallOverlay
+                  socket={socket}
                   callType={call.callState.type}
                   localStream={call.localStream}
                   remoteStreams={call.remoteStreams}
@@ -259,6 +274,40 @@ function App() {
     }
   }, [isAuthenticated, currentUser, dispatch]);
 
+  useEffect(() => {
+    async function subscribeUser() {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+        if (!vapidKey) {
+          console.error("❌ VAPID key missing");
+          return;
+        }
+
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        });
+
+        const user = JSON.parse(sessionStorage.getItem("chatUser"));
+        await fetch("http://localhost:3000/api/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id, subscription: sub }),
+        });
+
+        console.log("✅ Push subscription sent to backend");
+      } catch (err) {
+        console.error("Push subscription failed:", err);
+      }
+    }
+
+    if (isAuthenticated && userId) {
+      subscribeUser();
+    }
+  }, [isAuthenticated, userId]); // ✅ Only runs once after login
   return (
     <Router>
       <AppRoutes
@@ -268,7 +317,7 @@ function App() {
         call={call}
         userList={userList}
         handleAuthSuccess={() => setIsAuthenticated(true)}
-        setIsAuthenticated={setIsAuthenticated} 
+        setIsAuthenticated={setIsAuthenticated}
       />
     </Router>
   );

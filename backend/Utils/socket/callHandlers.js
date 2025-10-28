@@ -5,7 +5,7 @@ const activeRooms = new Map(); // roomCode => Set<userIds>
 const meetingSockets = new Map(); // userId => socket.id
 
 module.exports = function callHandlers(io, socket) {
-   socket.on("register", ({ userId }) => {
+  socket.on("register", ({ userId }) => {
     if (!userId) return;
     userId = String(userId);
     socket.userId = userId;
@@ -14,14 +14,14 @@ module.exports = function callHandlers(io, socket) {
     console.log(`✅ Registered socket for user: ${userId}`);
   });
 
-  socket.on("callUser", async ({ from, fromUsername, to, offer, callType }) => {
-    io.to(`user_${to}`).emit("incomingCall", { from, fromUsername, offer, callType });
+  socket.on("callUser", async ({ from, to, offer, callType }) => {
+    io.to(`user_${to}`).emit("incomingCall", { from, offer, callType });
     try {
       const subscription = await User.getPushSubscription(to);
       if (subscription) {
         await sendPushNotification(subscription, {
           title: "Incoming Call",
-          body: `📞 ${callType} call from ${fromUsername || from}`,
+          body: `📞 ${callType} call from ${from}`,
           icon: "/icons/call.png",
         });
       }
@@ -30,24 +30,24 @@ module.exports = function callHandlers(io, socket) {
     }
   });
 
-  socket.on("answerCall", ({ to, answer, from, fromUsername }) => {
-    io.to(`user_${to}`).emit("callAccepted", { answer, from, fromUsername });
+  socket.on("answerCall", ({ to, answer, from }) => {
+    io.to(`user_${to}`).emit("callAccepted", { answer, from });
   });
 
   socket.on("iceCandidate", ({ to, from, candidate }) => {
     io.to(`user_${to}`).emit("iceCandidate", { from, candidate });
   });
 
-  socket.on("endCall", ({ from, fromUsername, to }) => {
-    if (to) io.to(`user_${to}`).emit("endCall", { from, fromUsername });
-    if (from) io.to(`user_${from}`).emit("endCall", { from, fromUsername });
+  socket.on("endCall", ({ from, to }) => {
+    if (to) io.to(`user_${to}`).emit("endCall", { from });
+    if (from) io.to(`user_${from}`).emit("endCall", { from });
   });
 
-  socket.on("cancelCall", ({ to, from, fromUsername }) => {
-    io.to(`user_${to}`).emit("callCancelled", { from, fromUsername });
+  socket.on("cancelCall", ({ to, from }) => {
+    io.to(`user_${to}`).emit("callCancelled", { from });
   });
 
-  socket.on("joinRoom", ({ userId,username, roomCode }) => {
+  socket.on("joinRoom", ({ userId, roomCode }) => {
     if (!userId || !roomCode) return socket.emit("error", { message: "Missing userId or roomCode." });
 
     userId = String(userId);
@@ -70,7 +70,7 @@ module.exports = function callHandlers(io, socket) {
     console.log(`👥 User ${userId} joined room ${roomCode}`);
     console.log(`Room ${roomCode} now has:`, Array.from(activeRooms.get(roomCode)));
 
-    socket.to(roomCode).emit("userJoined", { userId,username });
+    socket.to(roomCode).emit("userJoined", { userId });
     socket.emit("meeting-toast", { message: "You joined the meeting" });
 
     const existingUsers = Array.from(activeRooms.get(roomCode)).filter((id) => id !== userId);
@@ -98,13 +98,12 @@ module.exports = function callHandlers(io, socket) {
     }
   });
 
-  socket.on("leaveRoom", ({ userId,username, roomCode }) => {
+  socket.on("leaveRoom", ({ userId, roomCode }) => {
     userId = String(userId);
     roomCode = String(roomCode);
 
     socket.leave(roomCode);
-    socket.to(roomCode).emit("userLeft", { userId,username });
-    
+    socket.to(roomCode).emit("userLeft", { userId });
     socket.emit("meeting-toast", { message: "You left the meeting" });
 
     if (activeRooms.has(roomCode)) {
@@ -122,7 +121,7 @@ module.exports = function callHandlers(io, socket) {
 
     if (roomCode && activeRooms.has(roomCode)) {
       activeRooms.get(roomCode).delete(userId);
-      // socket.to(roomCode).emit("userLeft", { userId });
+      socket.to(roomCode).emit("userLeft", { userId });
       if (activeRooms.get(roomCode).size === 0) activeRooms.delete(roomCode);
     }
 

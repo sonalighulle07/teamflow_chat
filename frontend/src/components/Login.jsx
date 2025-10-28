@@ -46,10 +46,7 @@ export default function Login({ onLogin }) {
       return;
     }
     if (passwordValue.trim().length < 6) {
-      showToastMessage(
-        "Password must be at least 6 characters!",
-        "bg-red-500"
-      );
+      showToastMessage("Password must be at least 6 characters!", "bg-red-500");
       return;
     }
 

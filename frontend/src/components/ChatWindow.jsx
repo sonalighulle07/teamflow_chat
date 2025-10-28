@@ -312,13 +312,13 @@ export default function ChatWindow({
 
       {/* Temporary forward alert */}
       {forwardAlert && (
-        <div className="fixed top-16 right-5 bg-blue-500 text-white p-3 rounded shadow z-50">
+        <div className="fixed top-16 right-5 bg-blue-400 text-white p-3 rounded shadow z-50">
           {forwardAlert}
         </div>
       )}
 
       {/* Chat messages */}
-      <div className="flex-1 p-4 bg-gray-50 overflow-y-auto">
+      <div className="flex-1 p-4 bg-gray-50 overflow-y-auto border border-gray-300 rounded-lg ">
         {selectedUser || selectedTeam ? (
           (searchQuery ? filteredMessages : messages).length > 0 ? (
             (searchQuery ? filteredMessages : messages).map((msg, index) => {
@@ -372,7 +372,7 @@ export default function ChatWindow({
       </div>
 
       {/* Input + File preview */}
-      <div className="p-3 border-t flex flex-col gap-2 bg-white">
+      <div className="p-3 border-t border-gray-300 flex flex-col gap-2 bg-white">
         {selectedFile && (
           <div className="relative mb-2 p-2 border rounded-md bg-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-hidden">
@@ -417,7 +417,7 @@ export default function ChatWindow({
           </div>
         )}
 
-        <div className="flex items-center gap-2 relative">
+        <div className="flex items-center gap-2 relative bg-white  dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
           <input
             type="text"
             placeholder={
@@ -429,40 +429,51 @@ export default function ChatWindow({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyPress}
             disabled={!selectedUser && !selectedTeam}
-            className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="flex-1 bg-transparent px-3 py-1 border-0 border-b-2 border-transparent focus:outline-none focus:ring-0 placeholder-gray-400
+  focus:border-transparent focus:bg-gradient-to-r focus:from-purple-400 focus:to-purple-600 focus:[background-position:0_100%] focus:[background-size:100%_2px] focus:[background-repeat:no-repeat] rounded-full"
           />
 
-          {/* Emoji picker */}
-          <button
-            type="button"
-            onClick={() => setShowEmoji((prev) => !prev)}
-            className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-purple-200 transition-colors bg-purple-100"
-            title="Emoji"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-6 h-6 text-purple-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+          {/* Emoji Picker */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmoji((prev) => !prev)}
+              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-purple-100  transition-all duration-200"
+              title="Emoji"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M12 20c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z"
-              />
-            </svg>
-          </button>
-          {showEmoji && (
-            <div className="absolute bottom-14 right-12 z-50">
-              <Picker onEmojiClick={onEmojiClick} />
-            </div>
-          )}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-6 h-6 text-gray-500  hover:text-purple-700"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M12 20c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z"
+                />
+              </svg>
+            </button>
+
+            {showEmoji && (
+              <div className="absolute bottom-14 right-0 z-30 transform scale-90 origin-bottom-right transition-all duration-200">
+                <div className="rounded-xl shadow-lg border border-gray-200 bg-white/95 backdrop-blur-md">
+                  <Picker
+                    onEmojiClick={onEmojiClick}
+                    theme="light"
+                    width={260}
+                    height={320}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* File upload */}
-          <label className="relative flex items-center justify-center w-12 h-12 bg-purple-100 text-purple-600 rounded-full cursor-pointer hover:bg-purple-200 transition">
-            <PaperClipIcon className="w-6 h-6" />
+          <label className="relative flex items-center justify-center w-7 h-7  rounded-full cursor-pointer hover:bg-purple-100 transition">
+            <PaperClipIcon className="w-5 h-5  text-gray-600  hover:text-purple-700" />
             <input
               type="file"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -473,9 +484,16 @@ export default function ChatWindow({
           <button
             onClick={handleSend}
             disabled={!selectedUser && !selectedTeam}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="flex items-center justify-center p-[4px] bg-white text-purple-600 rounded-full hover:bg-purple-100 transition disabled:cursor-not-allowed"
           >
-            Send
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5  text-gray-500  hover:text-purple-700"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
           </button>
         </div>
       </div>

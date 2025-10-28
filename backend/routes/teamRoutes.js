@@ -1,5 +1,12 @@
 const express = require("express");
 const router = express.Router();
+
+// Middlewares
+const { authenticateToken } = require("../middlewares/authMiddleware"); // general auth
+const checkTeamMember = require("../middlewares/teamAuthMiddleware");   // check team membership
+const uploadMiddleware = require("../middlewares/uploadMiddleware");     // file upload
+
+// Controllers
 const {
   getAllTeams,
   getUserTeams,
@@ -13,35 +20,44 @@ const {
   sendTeamMessage,
 } = require("../controllers/teamController");
 
-// GET all teams
-router.get("/all", getAllTeams);
+// -----------------------
+// Teams Routes
+// -----------------------
 
-// GET teams for a specific user
-router.get("/", getUserTeams);
+// GET all teams (authenticated)
+router.get("/all", authenticateToken, getAllTeams);
 
-// GET single team by ID
-router.get("/:id", getTeamById);
+// GET teams for a specific user (authenticated)
+router.get("/", authenticateToken, getUserTeams);
 
-// CREATE a new team
-router.post("/", createTeam);
+// GET single team by ID (authenticated + team member)
+router.get("/:id", authenticateToken, checkTeamMember, getTeamById);
 
-// UPDATE a team
-router.put("/:id", updateTeam);
+// CREATE a new team (authenticated)
+router.post("/", authenticateToken, createTeam);
 
-// DELETE a team
-router.delete("/:id", deleteTeam);
+// UPDATE a team (authenticated + team member)
+router.put("/:id", authenticateToken, checkTeamMember, updateTeam);
 
-// ADD member to a team
-router.post("/:id/members", addTeamMember);
+// DELETE a team (authenticated + team member)
+router.delete("/:id", authenticateToken, checkTeamMember, deleteTeam);
 
-// GET members of a team
-router.get("/:id/members", getTeamMembers);
+// ADD member to a team (authenticated + team member)
+router.post("/:id/members", authenticateToken, checkTeamMember, addTeamMember);
 
-// GET messages of a team
-router.get("/:id/messages", getTeamMessages);
+// GET members of a team (authenticated + team member)
+router.get("/:id/members", authenticateToken, checkTeamMember, getTeamMembers);
 
-// SEND message to a team
-router.post("/:id/messages", sendTeamMessage);
+// GET messages of a team (authenticated + team member)
+router.get("/:id/messages", authenticateToken, checkTeamMember, getTeamMessages);
+
+// SEND message to a team (authenticated + team member + file upload)
+router.post(
+  "/:id/messages",
+  authenticateToken,
+  checkTeamMember,
+  uploadMiddleware.single("file"), // for single file upload
+  sendTeamMessage
+);
 
 module.exports = router;
-

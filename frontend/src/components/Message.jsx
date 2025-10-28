@@ -176,9 +176,9 @@ export default function Message({
   const MediaMenu = ({ fileUrl, fileName }) => {
     if (!fileUrl) return null;
     return (
-      <div className="absolute top-1 right-1">
+      <div className="absolute top-3 right-[5px]">
         <button
-          className="p-1 text-white bg-black/50 rounded-full hover:bg-black/70"
+          className="p-1 text-black rounded-full hover:bg-black/50  hover:text-white"
           onClick={(e) => {
             e.stopPropagation();
             setMediaMenuOpen((m) => !m);
@@ -187,24 +187,71 @@ export default function Message({
           <FaEllipsisV />
         </button>
         {mediaMenuOpen && (
-          <div className="absolute right-0 mt-2 w-36 text-black bg-white border border-gray-200 rounded shadow-lg z-50">
+          <div className="flex flex-col space-y-1 p-1 mt-[20px] bg-white/70 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 w-52">
+            {/* Download */}
             <button
-              className="w-full px-3 py-2 text-left hover:bg-gray-100"
               onClick={() => handleDownload(fileUrl, fileName)}
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-700 font-medium bg-white rounded-lg hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
             >
-              Download
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-purple-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"
+                />
+              </svg>
+              <span className="text-sm">Download</span>
             </button>
+
+            {/* Copy URL */}
             <button
-              className="w-full px-3 py-2 text-left hover:bg-gray-100"
               onClick={() => handleCopyUrl(fileUrl)}
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-700 font-medium bg-white rounded-lg hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
             >
-              Copy URL
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-purple-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 16h8m-8-4h8m-2-6h6v12a2 2 0 01-2 2H8l-4-4V4a2 2 0 012-2h8z"
+                />
+              </svg>
+              <span className="text-sm">Copy URL</span>
             </button>
+
+            {/* Open in New Tab */}
             <button
-              className="w-full px-3 py-2 text-left hover:bg-gray-100"
               onClick={() => handleOpenUrl(fileUrl)}
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-700 font-medium bg-white rounded-lg hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
             >
-              Open in new tab
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-purple-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M14 3h7v7m0 0L10 21l-7-7L21 3z"
+                />
+              </svg>
+              <span className="text-sm">Open</span>
             </button>
           </div>
         )}
@@ -316,7 +363,7 @@ export default function Message({
         };
         return (
           <div className="relative inline-block">
-            <div className="flex items-center gap-2 p-2 text-black bg-white border rounded-xl shadow-sm max-w-xs">
+            <div className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs">
               <span className="text-2xl">{getFileIcon()}</span>
               <span className="truncate">{fileName}</span>
             </div>
@@ -328,12 +375,14 @@ export default function Message({
         return (
           <div>
             {message.forwarded_from && (
-              <span className="text-xs italic text-gray-900">Forwarded</span>
+              <span className="text-[11px] italic text-gray-800">
+                Forwarded
+              </span>
             )}
             <p className="break-words">
               {highlightText(message.text || "")}
               {message.edited === 1 && (
-                <span className="text-xs text-gray-900 ml-1">(edited)</span>
+                <span className="text-[12px] text-gray-800 ml-1">(Edited)</span>
               )}
             </p>
           </div>
@@ -360,99 +409,112 @@ export default function Message({
       }`}
     >
       <div
-        className={`px-4 py-2 rounded-2xl shadow-md ${bubbleClasses} relative`}
+        className={`px-4 py-2 rounded-2xl text-[15px] shadow-md ${bubbleClasses} relative`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
         {renderContent()}
 
-        {/* Hover actions */}
-        <div
-          className={`absolute -top-9 ${
-            isOwn ? "right-2" : "left-2"
-          } flex items-center gap-1 bg-white rounded-full shadow-md px-2 py-1 z-20 transition-all duration-200 
-  ${
-    hovered ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
-  }`}
-        >
-          {["👍", "❤️", "😆", "😮", "😂"].map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => toggleReaction(emoji)}
-              className={`px-1 flex items-center gap-1 hover:bg-gray-100 rounded-full ${
-                didIReact(emoji) ? "bg-gray-200" : ""
-              }`}
-              title={`React ${emoji}`}
-            >
-              <span>{emoji}</span>
-              {getEmojiCount(emoji) > 0 && (
-                <span className="text-xs">{getEmojiCount(emoji)}</span>
+        {hovered && (
+          <div
+            className={`absolute -top-8 ${
+              isOwn ? "right-2" : "left-2"
+            } flex items-center gap-1.5 bg-white/90 backdrop-blur-md rounded-full shadow-md px-2 py-1 z-20 border border-gray-200 transition-all duration-200`}
+          >
+            {/* Quick Emojis (smaller size) */}
+            {["👍", "❤️", "😆", "😮", "😂"].map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => toggleReaction(emoji)}
+                className={`relative px-1.5 py-0.5 text-base flex items-center justify-center rounded-full transition-all duration-200 hover:scale-110 ${
+                  didIReact(emoji)
+                    ? "bg-gradient-to-r from-purple-500 to-purple-700 text-white"
+                    : "bg-transparent text-gray-700 hover:bg-purple-100"
+                }`}
+                title={`React ${emoji}`}
+              >
+                <span>{emoji}</span>
+                {getEmojiCount(emoji) > 0 && (
+                  <span className="absolute -top-2 -right-1 text-[9px] bg-white text-gray-700 px-1 rounded-full shadow-sm">
+                    {getEmojiCount(emoji)}
+                  </span>
+                )}
+              </button>
+            ))}
+
+            {/* Emoji Picker */}
+            <div className="relative">
+              <button
+                className="p-1 text-gray-600 hover:bg-purple-100 rounded-full transition-all duration-200"
+                onClick={() => setShowEmojiPicker((s) => !s)}
+                title="More emojis"
+              >
+                <FaSmile className="text-purple-600 text-sm" />
+              </button>
+              {showEmojiPicker && (
+                <div className="absolute top-8 right-0 z-30 transform scale-90 origin-top-right transition-all duration-200">
+                  <div className="rounded-xl shadow-lg border border-gray-200 bg-white/95 backdrop-blur-md">
+                    <EmojiPicker
+                      onEmojiClick={handlePickerEmoji}
+                      theme="light"
+                      width={260}
+                      height={320}
+                    />
+                  </div>
+                </div>
               )}
-            </button>
-          ))}
+            </div>
 
-          {/* Emoji picker button */}
-          <div className="relative">
-            <button
-              className="p-1 text-gray-600 hover:bg-gray-100 rounded-full"
-              onClick={() => setShowEmojiPicker((s) => !s)}
-              title="Pick emoji"
-            >
-              <FaSmile />
-            </button>
-            {showEmojiPicker && (
-              <div className="absolute top-8 right-0 z-30">
-                <EmojiPicker onEmojiClick={handlePickerEmoji} theme="light" />
-              </div>
-            )}
-          </div>
+            {/* Options Menu */}
+            <div className="relative">
+              <button
+                className="p-1 text-gray-600 hover:bg-purple-100 rounded-full transition-all duration-200"
+                onClick={() => setMenuOpen((m) => !m)}
+                title="Options"
+              >
+                <FaEllipsisV className="text-purple-600 text-sm" />
+              </button>
 
-          {/* Options menu */}
-          <div className="relative">
-            <button
-              className="p-1 text-gray-600 hover:bg-gray-100 rounded-full"
-              onClick={() => setMenuOpen((m) => !m)}
-              title="Options"
-            >
-              <FaEllipsisV />
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-8 w-44 bg-white shadow-lg rounded-lg z-30 border border-gray-200 text-gray-700">
-                {isOwn && message.type === "text" && (
-                  <button
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-purple-100 rounded transition-colors"
-                    onClick={() => {
-                      setIsEditing(true);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    ✏️ <span>Edit</span>
-                  </button>
-                )}
-                {isOwn && (
-                  <button
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-red-100 text-red-600 rounded transition-colors"
-                    onClick={() => {
-                      onDelete?.(message.id);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    🗑️ <span>Delete</span>
-                  </button>
-                )}
-                <button
-                  className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-blue-100 rounded transition-colors"
-                  onClick={() => {
-                    onForward?.(message);
-                    setMenuOpen(false);
-                  }}
-                >
-                  🔄 <span>Forward</span>
-                </button>
-              </div>
-            )}
+              {menuOpen && (
+                <div className="absolute right-0 top-8 w-36 bg-white/95 backdrop-blur-md border border-gray-200 rounded-lg shadow-xl z-40 animate-fadeIn transition-all duration-200">
+                  <div className="flex flex-col divide-y divide-gray-100 text-sm">
+                    {isOwn && message.type === "text" && (
+                      <button
+                        className="flex items-center gap-2 px-3 py-1.5 text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
+                        onClick={() => {
+                          setIsEditing(true);
+                          setMenuOpen(false);
+                        }}
+                      >
+                        ✏️ <span>Edit</span>
+                      </button>
+                    )}
+                    {isOwn && (
+                      <button
+                        className="flex items-center gap-2 px-3 py-1.5 text-red-600 hover:bg-red-50 transition-all duration-150"
+                        onClick={() => {
+                          onDelete?.(message.id);
+                          setMenuOpen(false);
+                        }}
+                      >
+                        🗑️ <span>Delete</span>
+                      </button>
+                    )}
+                    <button
+                      className="flex items-center gap-2 px-3 py-1.5 text-blue-600 hover:bg-blue-50 transition-all duration-150"
+                      onClick={() => {
+                        onForward?.(message);
+                        setMenuOpen(false);
+                      }}
+                    >
+                      🔄 <span>Forward</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Reactions below bubble */}
