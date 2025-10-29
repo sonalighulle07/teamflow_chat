@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash } from "react-icons/fa";
-import socket from "../../hooks/socket"
+import socket from "../../hooks/socket";
 
 const MediaConfirmation = ({ userId, currentUser }) => {
   const videoRef = useRef(null);
@@ -11,8 +11,9 @@ const MediaConfirmation = ({ userId, currentUser }) => {
   const [joining, setJoining] = useState(false);
   const navigate = useNavigate();
   const { code } = useParams();
+  const initialized = useRef(false);
 
-  // Cleanup session on leave/broadcast
+  // --- Cleanup session on broadcast leave ---
   useEffect(() => {
     const channel = new BroadcastChannel("meeting-session");
     channel.onmessage = (e) => {
@@ -23,86 +24,105 @@ const MediaConfirmation = ({ userId, currentUser }) => {
     return () => channel.close();
   }, [code, userId]);
 
-  // Init preview stream
+  // --- Initialize media preview (safe on reload) ---
   useEffect(() => {
-    const initStream = async () => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    let activeStream;
+    const initPreview = async () => {
       try {
-        const fullStream = await navigator.mediaDevices.getUserMedia({
-          audio: micOn,
-          video: cameraOn,
-        });
-        setStream(fullStream);
-      } catch {
-        setStream(new MediaStream());
+        const constraints = {};
+        if (micOn) constraints.audio = true;
+        if (cameraOn) constraints.video = true;
+
+        if (constraints.audio || constraints.video) {
+          activeStream = await navigator.mediaDevices.getUserMedia(constraints);
+          setStream(activeStream);
+        } else {
+          setStream(null);
+        }
+      } catch (err) {
+        console.warn("Media init warning:", err);
       }
     };
-    initStream();
 
-    return () => {
-      if (videoRef.current) videoRef.current.srcObject = null;
-      if (stream) stream.getTracks().forEach((t) => t.stop());
+    initPreview();
+
+    // stop all media tracks on unload / unmount
+    const cleanup = () => {
+      if (activeStream) {
+        activeStream.getTracks().forEach((t) => t.stop());
+      }
     };
-  }, []);
 
-  // Attach stream to video element
+    window.addEventListener("beforeunload", cleanup);
+    return () => {
+      cleanup();
+      window.removeEventListener("beforeunload", cleanup);
+    };
+  }, [micOn, cameraOn]);
+
+  // --- Bind stream to video element ---
   useEffect(() => {
-
-if (videoRef.current) {
+    if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
 
-  // Toggle mic (stop/restart stream)
+  // --- Toggle microphone ---
   const toggleMic = async () => {
-    if (stream) stream.getAudioTracks().forEach((t) => t.stop());
-
     const enabled = !micOn;
     setMicOn(enabled);
-    sessionStorage.setItem("micOn", enabled ? "true" : "false");
+    sessionStorage.setItem("micOn", enabled.toString());
 
-    try {
-      const micStream = await navigator.mediaDevices.getUserMedia({ audio: enabled });
-      const newStream = new MediaStream([
-        ...stream?.getVideoTracks() || [],
-        ...micStream.getAudioTracks(),
-      ]);
-      setStream(newStream);
-    } catch (err) {
-      console.error("Mic toggle failed:", err);
+    if (!enabled && stream) {
+      stream.getAudioTracks().forEach((t) => t.stop());
+    } else if (enabled) {
+      try {
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const newStream = new MediaStream([...stream?.getVideoTracks(), ...micStream.getAudioTracks()]);
+        setStream(newStream);
+      } catch (err) {
+        console.error("Mic toggle failed:", err);
+      }
     }
   };
 
-  // Toggle camera (stop/restart stream)
+  // --- Toggle camera ---
   const toggleCam = async () => {
-    if (stream) stream.getVideoTracks().forEach((t) => t.stop());
-
     const enabled = !cameraOn;
     setCameraOn(enabled);
-    sessionStorage.setItem("cameraOn", enabled ? "true" : "false");
+    sessionStorage.setItem("cameraOn", enabled.toString());
 
-    try {
-      const camStream = await navigator.mediaDevices.getUserMedia({ video: enabled });
-      const newStream = new MediaStream([
-        ...stream?.getAudioTracks() || [],
-        ...camStream.getVideoTracks(),
-      ]);
-      setStream(newStream);
-    } catch (err) {
-      console.error("Camera toggle failed:", err);
+    if (!enabled && stream) {
+      stream.getVideoTracks().forEach((t) => t.stop());
+    } else if (enabled) {
+      try {
+        const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const newStream = new MediaStream([...stream?.getAudioTracks(), ...camStream.getVideoTracks()]);
+        setStream(newStream);
+      } catch (err) {
+        console.error("Camera toggle failed:", err);
+      }
     }
   };
 
+  // --- Join meeting ---
   const handleJoin = () => {
-    if (!stream || joining) return;
+    if (joining) return;
+    setJoining(true);
 
-
-  setJoining(true);
     const sessionKey = `joined_${code}_${userId}`;
 
+    const cleanup = () => {
+      setJoining(false);
+      socket.off("error", onError);
+      socket.off("existingUsers", onSuccess);
+    };
+
     const onError = ({ message }) => {
-      if (message.includes("already in this meeting")) {
-        alert("You are already in this meeting.");
-      }
+      alert(message);
       cleanup();
     };
 
@@ -114,45 +134,32 @@ if (videoRef.current) {
       sessionStorage.setItem("cameraOn", cameraOn.toString());
 
       if (stream) stream.getTracks().forEach((t) => t.stop());
-
       window.open(`/meet/${code}`, "_blank", "width=1200,height=800");
-
       cleanup();
-    };
-
-    const cleanup = () => {
-      setJoining(false);
-      socket.off("error", onError);
-      socket.off("existingUsers", onSuccess);
     };
 
     socket.once("error", onError);
     socket.once("existingUsers", onSuccess);
-
     socket.emit("joinRoom", { userId, roomCode: code });
   };
 
+  // --- Cancel meeting ---
   const handleCancel = () => {
     if (stream) stream.getTracks().forEach((t) => t.stop());
     sessionStorage.removeItem(`joined_${code}_${userId}`);
     navigate("/");
   };
 
-  // --- User Info ---
   const username = currentUser?.username || "Guest";
   const fullname = currentUser?.fullname || "";
   const avatarSrc = currentUser?.profile_image || null;
   const userIdDisplay = currentUser?.id || "";
 
- return (
+  return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white relative">
       <div className="absolute top-6 flex items-center gap-4 bg-gray-800/80 px-4 py-2 rounded-2xl shadow-lg border border-gray-700">
         {avatarSrc ? (
-          <img
-            src={avatarSrc}
-            alt={username}
-            className="h-12 w-12 rounded-full object-cover border-2 border-purple-600"
-          />
+          <img src={avatarSrc} alt={username} className="h-12 w-12 rounded-full object-cover border-2 border-purple-600" />
         ) : (
           <div className="h-12 w-12 rounded-full bg-purple-600 flex items-center justify-center text-lg font-bold">
             {username[0]?.toUpperCase()}
@@ -176,23 +183,16 @@ if (videoRef.current) {
       />
 
       <div className="flex gap-6 mb-4">
-        <button
-          onClick={toggleMic}
-          className={`p-3 rounded-full ${micOn ? "bg-green-600" : "bg-red-600"} hover:opacity-80`}
-        >
+        <button onClick={toggleMic} className={`p-3 rounded-full ${micOn ? "bg-green-600" : "bg-red-600"} hover:opacity-80`}>
           {micOn ? <FaMicrophone /> : <FaMicrophoneSlash />}
         </button>
-        <button
-          onClick={toggleCam}
-          className={`p-3 rounded-full ${cameraOn ? "bg-green-600" : "bg-red-600"} hover:opacity-80`}
-        >
+        <button onClick={toggleCam} className={`p-3 rounded-full ${cameraOn ? "bg-green-600" : "bg-red-600"} hover:opacity-80`}>
           {cameraOn ? <FaVideo /> : <FaVideoSlash />}
         </button>
       </div>
 
       <div className="flex gap-4">
-
-  <button onClick={handleCancel} className="bg-gray-600 px-4 py-2 rounded-lg hover:bg-gray-700">
+        <button onClick={handleCancel} className="bg-gray-600 px-4 py-2 rounded-lg hover:bg-gray-700">
           Cancel
         </button>
         <button
@@ -200,7 +200,7 @@ if (videoRef.current) {
           disabled={joining}
           className="bg-green-600 px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
         >
-          Join Meeting
+          {joining ? "Joining..." : "Join Meeting"}
         </button>
       </div>
     </div>
@@ -208,4 +208,3 @@ if (videoRef.current) {
 };
 
 export default MediaConfirmation;
-

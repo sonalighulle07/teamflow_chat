@@ -8,8 +8,6 @@ export function useMeeting(userId, roomCode) {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  // const currentUser = useSelector((state) => state.user.currentUser);
-  
 
   const peerMap = useRef(new Map());
   const hasJoinedRef = useRef(false);
@@ -33,6 +31,7 @@ export function useMeeting(userId, roomCode) {
         audio: true,
         video: true,
       });
+      // apply initial enabled flags
       stream.getAudioTracks().forEach((t) => (t.enabled = !!micEnabled));
       stream.getVideoTracks().forEach((t) => (t.enabled = !!camEnabled));
     } catch (err) {
@@ -40,7 +39,7 @@ export function useMeeting(userId, roomCode) {
       stream = new MediaStream();
     }
 
-    setLocalStream(stream);
+    setLocalStream(new MediaStream(stream.getTracks())); // ensure new instance
     setIsMuted(!micEnabled);
     setIsVideoEnabled(!!camEnabled);
 
@@ -83,16 +82,14 @@ export function useMeeting(userId, roomCode) {
 
     socket.off("answer").on("answer", async ({ from, answer }) => {
       const peer = peerMap.current.get(from);
-      if (peer)
-        await peer.setRemoteDescription(new RTCSessionDescription(answer));
+      if (peer) await peer.setRemoteDescription(new RTCSessionDescription(answer));
     });
 
     socket
       .off("iceCandidate")
       .on("iceCandidate", async ({ from, candidate }) => {
         const peer = peerMap.current.get(from);
-        if (peer && candidate)
-          await peer.addIceCandidate(new RTCIceCandidate(candidate));
+        if (peer && candidate) await peer.addIceCandidate(new RTCIceCandidate(candidate));
       });
 
     socket
@@ -112,29 +109,29 @@ export function useMeeting(userId, roomCode) {
           })
         );
       });
-      let userStr = sessionStorage.getItem("chatUser");
-      let user = userStr ? JSON.parse(userStr) : null;
-      let username = user?.username || "Unknown User";
 
+    let userStr = sessionStorage.getItem("chatUser");
+    let user = userStr ? JSON.parse(userStr) : null;
+    let username = user?.username || "Unknown User";
 
-    socket.emit("joinRoom", { userId,username, roomCode });
+    socket.emit("joinRoom", { userId, username, roomCode });
   }
 
   function createPeer(remoteId, stream, initiator) {
     const peer = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
+
+    // add tracks that exist at the moment of peer creation
     stream.getTracks().forEach((track) => peer.addTrack(track, stream));
 
     peer.onicecandidate = (e) => {
-      if (e.candidate)
-        socket.emit("iceCandidate", { to: remoteId, candidate: e.candidate });
+      if (e.candidate) socket.emit("iceCandidate", { to: remoteId, candidate: e.candidate });
     };
 
     peer.ontrack = (e) => {
       const remoteStream = e.streams[0];
-      if (remoteStream)
-        setPeers((prev) => new Map(prev).set(remoteId, remoteStream));
+      if (remoteStream) setPeers((prev) => new Map(prev).set(remoteId, remoteStream));
     };
 
     if (initiator)
@@ -148,69 +145,96 @@ export function useMeeting(userId, roomCode) {
   }
 
   function leaveMeeting() {
-  if (!hasJoinedRef.current) return;
-  hasJoinedRef.current = false;
+    if (!hasJoinedRef.current) return;
+    hasJoinedRef.current = false;
 
-  // Parse session storage safely
-  const userStr = sessionStorage.getItem("chatUser");
-  const user = userStr ? JSON.parse(userStr) : null;
-  const username = user?.username || "Unknown User";
+    const userStr = sessionStorage.getItem("chatUser");
+    const user = userStr ? JSON.parse(userStr) : null;
+    const username = user?.username || "Unknown User";
 
-  socket.emit("leaveRoom", { userId, username, roomCode });
+    socket.emit("leaveRoom", { userId, username, roomCode });
 
-  socket.off("existingUsers");
-  socket.off("userJoined");
-  socket.off("offer");
-  socket.off("answer");
-  socket.off("iceCandidate");
-  socket.off("userLeft");
+    socket.off("existingUsers");
+    socket.off("userJoined");
+    socket.off("offer");
+    socket.off("answer");
+    socket.off("iceCandidate");
+    socket.off("userLeft");
 
-  peerMap.current.forEach((peer) => peer.close());
-  peerMap.current.clear();
-  setPeers(new Map());
+    peerMap.current.forEach((peer) => peer.close());
+    peerMap.current.clear();
+    setPeers(new Map());
 
-  if (localStream) localStream.getTracks().forEach((t) => t.stop());
-  setLocalStream(null);
+    if (localStream) localStream.getTracks().forEach((t) => t.stop());
+    setLocalStream(null);
 
-  try {
-    sessionStorage.removeItem(`joined_${roomCode}_${userId}`);
-    const channel = new BroadcastChannel("meeting-session");
-    channel.postMessage(`left_${roomCode}_${userId}`);
-    channel.close();
-  } catch {}
-}
+    try {
+      sessionStorage.removeItem(`joined_${roomCode}_${userId}`);
+      const channel = new BroadcastChannel("meeting-session");
+      channel.postMessage(`left_${roomCode}_${userId}`);
+      channel.close();
+    } catch {}
+  }
 
-
-  // ---- Toggle Camera ----
+  // --------- Camera toggle (fixed) ----------
   const toggleCam = async () => {
     if (!localStream) return;
 
-    const videoTracks = localStream.getVideoTracks();
+    // current video track (if any)
+    const existingVideo = localStream.getVideoTracks()[0];
 
-    if (videoTracks.length > 0) {
-      // Camera is ON → turn OFF
-      const track = videoTracks[0];
-      track.stop(); // actually turns off camera
-      localStream.removeTrack(track); // remove from stream
+    if (isVideoEnabled && existingVideo) {
+      // TURN OFF: stop and remove video track, update state with new MediaStream reference
+      existingVideo.stop();
+      // build new stream that contains only audio tracks
+      const newStream = new MediaStream(localStream.getAudioTracks());
+      // replace video sender tracks with null so peers stop receiving video
+      peerMap.current.forEach((peer) => {
+        const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+        if (sender) {
+          try {
+            sender.replaceTrack(null);
+          } catch (err) {
+            console.warn("replaceTrack(null) failed:", err);
+          }
+        }
+      });
+
+      setLocalStream(newStream);
       setIsVideoEnabled(false);
       sessionStorage.setItem("cameraOn", "false");
     } else {
-      // Camera is OFF → turn ON
+      // TURN ON: get a fresh video track and create a new MediaStream reference
       try {
-        const newStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        const newTrack = newStream.getVideoTracks()[0];
-        localStream.addTrack(newTrack);
+        const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const newTrack = camStream.getVideoTracks()[0];
 
+        // create a new MediaStream combining existing audio tracks (if any) + new video
+        const newStream = new MediaStream([
+          ...localStream.getAudioTracks(),
+          newTrack,
+        ]);
+
+        // update all peers: prefer replaceTrack if sender exists, otherwise addTrack
         peerMap.current.forEach((peer) => {
-          const sender = peer
-            .getSenders()
-            .find((s) => s.track?.kind === "video");
-          if (sender) sender.replaceTrack(newTrack);
-          else peer.addTrack(newTrack, localStream);
+          const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+          if (sender) {
+            try {
+              sender.replaceTrack(newTrack);
+            } catch (err) {
+              console.warn("replaceTrack failed, falling back to addTrack:", err);
+              peer.addTrack(newTrack, newStream);
+            }
+          } else {
+            try {
+              peer.addTrack(newTrack, newStream);
+            } catch (err) {
+              console.warn("peer.addTrack failed:", err);
+            }
+          }
         });
 
+        setLocalStream(newStream); // IMPORTANT: update state with new object
         setIsVideoEnabled(true);
         sessionStorage.setItem("cameraOn", "true");
       } catch (err) {
@@ -219,7 +243,7 @@ export function useMeeting(userId, roomCode) {
     }
   };
 
-  // ---- Toggle Mic ----
+  // ---- Toggle Mic (keeps it simple: just enable/disable) ----
   const toggleMic = () => {
     if (!localStream) return;
     const track = localStream.getAudioTracks()[0];
@@ -233,21 +257,33 @@ export function useMeeting(userId, roomCode) {
   async function startScreenShare() {
     if (!localStream) return;
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-      });
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       const screenTrack = screenStream.getVideoTracks()[0];
 
+      // replace sender tracks
       peerMap.current.forEach((peer) => {
         const sender = peer.getSenders().find((s) => s.track?.kind === "video");
-        if (sender) sender.replaceTrack(screenTrack);
+        if (sender) {
+          try {
+            sender.replaceTrack(screenTrack);
+          } catch (err) {
+            console.warn("replaceTrack screen failed:", err);
+          }
+        } else {
+          peer.addTrack(screenTrack, screenStream);
+        }
       });
 
-      screenTrack.onended = stopScreenShare;
+      // update local preview stream reference
+      const newStream = new MediaStream([
+        ...localStream.getAudioTracks(),
+        screenTrack,
+      ]);
+      setLocalStream(newStream);
 
-      // Replace local video track for preview
-      localStream.getVideoTracks().forEach((t) => localStream.removeTrack(t));
-      localStream.addTrack(screenTrack);
+      screenTrack.onended = () => {
+        stopScreenShare();
+      };
 
       setIsScreenSharing(true);
       setIsVideoEnabled(true);
@@ -259,19 +295,29 @@ export function useMeeting(userId, roomCode) {
   async function stopScreenShare() {
     if (!localStream) return;
     try {
-      const camStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-      });
+      const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
       const camTrack = camStream.getVideoTracks()[0];
 
-      localStream.getVideoTracks().forEach((t) => localStream.removeTrack(t));
-      localStream.addTrack(camTrack);
+      // replace local stream tracks and peer senders
+      const newStream = new MediaStream([
+        ...localStream.getAudioTracks(),
+        camTrack,
+      ]);
 
       peerMap.current.forEach((peer) => {
         const sender = peer.getSenders().find((s) => s.track?.kind === "video");
-        if (sender) sender.replaceTrack(camTrack);
+        if (sender) {
+          try {
+            sender.replaceTrack(camTrack);
+          } catch (err) {
+            console.warn("replaceTrack when stopping screen failed:", err);
+          }
+        } else {
+          peer.addTrack(camTrack, newStream);
+        }
       });
 
+      setLocalStream(newStream);
       setIsScreenSharing(false);
       setIsVideoEnabled(true);
     } catch (err) {

@@ -41,6 +41,9 @@ export default function MeetingRoom() {
   useEffect(() => {
     const initialMic = sessionStorage.getItem("micOn") === "true";
     const initialCam = sessionStorage.getItem("cameraOn") === "true";
+
+    console.log("Joining meeting with mic:", initialMic, "cam:", initialCam);
+
     joinMeeting({ micEnabled: initialMic, camEnabled: initialCam });
     return () => leaveMeeting();
   }, []);

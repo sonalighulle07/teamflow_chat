@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiLogOut } from "react-icons/fi";
 import { FaUserCog, FaSearch, FaPhone, FaVideo } from "react-icons/fa";
 import { useSelector } from "react-redux";
 import ProfileModal from "./ProfileModal";
