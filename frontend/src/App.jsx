@@ -27,6 +27,7 @@ import { rehydrateUser } from "./Store/Features/Users/userSlice";
 import ProtectedRoute from "./utils/ProtectedRoute";
 import { urlBase64ToUint8Array } from "./utils/pushUtils";
 import TeamChat from "./components/TeamChat";
+import { setActiveNav } from "./Store/Features/Users/userSlice";
 
 function AppRoutes({
   isAuthenticated,
@@ -40,7 +41,9 @@ function AppRoutes({
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [userMessages, setUserMessages] = useState([]);
   const [teamMessages, setTeamMessages] = useState([]);
-  const [activeNav, setActiveNav] = useState("Chat");
+  const { activeNav} = useSelector((state) => state.user);
+  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
@@ -130,7 +133,6 @@ function AppRoutes({
                 <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
                   <Sidebar
                     activeNav={activeNav}
-                    setActiveNav={setActiveNav}
                     setSelectedTeam={setSelectedTeam}
                   />
                 </div>

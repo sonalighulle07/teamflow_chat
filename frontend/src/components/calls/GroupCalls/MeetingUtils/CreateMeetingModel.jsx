@@ -2,6 +2,8 @@ import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { createMeeting } from "./meetingUtils";
+import { setActiveNav } from "../../../../Store/Features/Users/userSlice";
+import { useDispatch } from "react-redux";
 import {
   FaVideo,
   FaMicrophone,
@@ -10,12 +12,13 @@ import {
   FaCalendarAlt,
 } from "react-icons/fa";
 
-export default function CreateMeetingModal({ userId, setActiveNav }) {
+export default function CreateMeetingModal({ userId }) {
   const [title, setTitle] = useState("");
   const [type, setType] = useState("video");
   const [scheduledAt, setScheduledAt] = useState(new Date());
   const [meetingLink, setMeetingLink] = useState("");
   const [copied, setCopied] = useState(false);
+  const dispatch = useDispatch();
 
   const handleCreate = async () => {
     console.log("Button clicked...")
@@ -36,7 +39,7 @@ export default function CreateMeetingModal({ userId, setActiveNav }) {
   };
 
   const handleViewCalendar = () => {
-    setActiveNav("Calendar"); // ✅ Switch main view to Calendar
+    dispatch(setActiveNav("Calendar")); // ✅ Switch main view to Calendar
   };
 
   return (

@@ -28,6 +28,7 @@ export default function Header({
   );
 
   useEffect(() => {
+    console.log("Username:", username);
     if (activeUser?.profile_image) {
       const imgUrl = `${URL}${activeUser.profile_image}`;
       setProfileImage(imgUrl);
@@ -164,16 +165,15 @@ export default function Header({
                 alt="Profile"
                 className="h-8 w-8 rounded-full object-cover"
               />
+
             ) : (
               <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold border-2 border-purple-500">
                 {username?.[0]?.toUpperCase() || "G"}
               </div>
             )}
-
-
-            <span className="absolute -bottom-5 text-xs font-medium bg-gray-800 text-white px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap">
+            <div className="text-black font-semibold text-xs mt-1">
               {username}
-            </span>
+            </div>
           </div>
         </div>
       </div>

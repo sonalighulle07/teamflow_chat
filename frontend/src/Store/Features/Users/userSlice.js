@@ -17,6 +17,7 @@ const initialState = {
   currentUser: null,
   userList: [],
   selectedUser: null,
+  activeNav:'Calendar',
   loading: false,
   error: null,
 };
@@ -28,6 +29,10 @@ const userSlice = createSlice({
     setCurrentUser: (state, action) => {
       state.currentUser = action.payload;
       sessionStorage.setItem("chatUser", JSON.stringify(action.payload));
+    },
+    setActiveNav: (state, action) => {
+      console.log("Setting activeNav to:", action.payload);
+      state.activeNav = action.payload;
     },
     logout: (state) => {
       state.currentUser = null;
@@ -98,6 +103,7 @@ export const {
   rehydrateUser,
   setSelectedUser,
   setUserList,
+  setActiveNav
 } = userSlice.actions;
 export default userSlice.reducer;
 

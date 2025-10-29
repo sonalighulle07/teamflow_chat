@@ -1,4 +1,5 @@
 import React, { memo, useMemo, useRef, useEffect } from "react";
+import { useSelector } from "react-redux";
 
 // Utility to get initials
 function getInitials(name) {
@@ -9,7 +10,7 @@ function getInitials(name) {
 
 // Memoized UserItem component
 const UserItem = memo(
-  ({ item, isSelected, onClick, searchQuery, setSelectedTeam }) => {
+  ({ item, isSelected, onClick, searchQuery }) => {
     const name = item.type === "user" ? item.username || "" : item.name || "";
 
     // Highlight search match
@@ -32,7 +33,7 @@ const UserItem = memo(
 
     return (
       <li
-        onClick={() => setSelectedTeam(item)}
+        onClick={() => onClick(item)}
         className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1  text-gray-400 text-[14px]
         ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
       >
@@ -82,10 +83,21 @@ export default function UserList({
   selectedUser,
   setSelectedTeam,
 }) {
+
+  // const {activeNav} = useSelector((state) => state.user);
+
   const listRef = useRef(null);
   const itemRefs = useRef({});
 
-  const handleSelect = (item) => onSelectUser(item);
+  const handleSelect = (item) =>{
+
+    if (item.type === "user") {
+      onSelectUser(item);
+    } else if (item.type === "team") {
+      setSelectedTeam(item);
+    }
+
+  };
 
   // Merge users and teams
   const displayedItems = useMemo(() => {
@@ -144,7 +156,6 @@ export default function UserList({
             isSelected={isSelected}
             onClick={handleSelect}
             searchQuery={searchQuery}
-            setSelectedTeam={setSelectedTeam}
             ref={(el) => {
               if (el && item.id) itemRefs.current[item.id] = el;
             }}

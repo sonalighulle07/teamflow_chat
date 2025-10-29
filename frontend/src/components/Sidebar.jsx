@@ -14,11 +14,12 @@ import axios from "axios";
 import UserList from "./UserList";
 // import TeamChat from "./TeamChat"; // ✅ Import TeamChat
 import { URL } from "../config";
+import { setActiveNav } from "../Store/Features/Users/userSlice";
 
-export default function Sidebar({ activeNav, setActiveNav, setSelectedTeam }) {
+export default function Sidebar({ setSelectedTeam }) {
   const dispatch = useDispatch();
 
-  const { currentUser, userList, selectedUser, loading, error } = useSelector(
+  const { currentUser, userList, selectedUser, loading, error,activeNav } = useSelector(
     (state) => state.user
   );
 
@@ -156,7 +157,7 @@ export default function Sidebar({ activeNav, setActiveNav, setSelectedTeam }) {
               <div
                 key={label}
                 className="group relative flex flex-col items-center cursor-pointer"
-                onClick={() => setActiveNav(label)}
+                onClick={() => dispatch(setActiveNav(label))}
               >
                 <div
                   className={`text-xl transition-colors ${
