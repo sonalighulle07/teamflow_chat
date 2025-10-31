@@ -1,6 +1,7 @@
 const { TeamMember } = require("../models/TeamModel");
 
 async function teamAuthMiddleware(req, res, next) {
+  console.log("teamAuthMiddleware invoked for team ID:", req.params.id);
   const userId = req.user?.id; // must come from authMiddleware
   const teamId = req.params.id;
 

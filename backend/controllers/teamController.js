@@ -19,6 +19,7 @@ const getAllTeams = async (req, res) => {
 // GET teams for a user
 // -----------------------
 const getUserTeams = async (req, res) => {
+  console.log("getUserTeams called with query:", req.query);
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: "Missing userId in query" });
 
@@ -36,6 +37,7 @@ const getUserTeams = async (req, res) => {
 // GET single team by ID
 // -----------------------
 const getTeamById = async (req, res) => {
+  console.log("getTeamById called with params:", req.params);
   const { id } = req.params;
   try {
     const [team] = await Team.getById(id);
@@ -127,6 +129,7 @@ const getTeamMembers = async (req, res) => {
   const { id } = req.params;
   try {
     const [members] = await TeamMember.getMembers(id);
+    console.log("Fetched team members:", members);
     res.json(members);
   } catch (err) {
     console.error("Failed to fetch team members:", err);
