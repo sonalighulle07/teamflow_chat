@@ -41,8 +41,7 @@ function AppRoutes({
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [userMessages, setUserMessages] = useState([]);
   const [teamMessages, setTeamMessages] = useState([]);
-  const { activeNav} = useSelector((state) => state.user);
-  
+  const { activeNav } = useSelector((state) => state.user);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [forwardModalOpen, setForwardModalOpen] = useState(false);

@@ -164,7 +164,6 @@ export default function Header({
                 alt="Profile"
                 className="h-8 w-8 rounded-full object-cover"
               />
-
             ) : (
               <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold border-2 border-purple-500">
                 {username?.[0]?.toUpperCase() || "G"}

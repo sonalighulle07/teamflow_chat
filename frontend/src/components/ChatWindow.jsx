@@ -14,7 +14,6 @@ export default function ChatWindow({
   currentUserId,
   searchQuery,
 }) {
-  const [deleteAlert, setDeleteAlert] = useState("");
   const [forwardAlert, setForwardAlert] = useState("");
   const { selectedUser, currentUser } = useSelector((state) => state.user);
 
@@ -23,6 +22,7 @@ export default function ChatWindow({
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [deleteAlert, setDeleteAlert] = useState("");
   const [forwardMsg, setForwardMsg] = useState(null);
   const [filteredMessages, setFilteredMessages] = useState([]);
 
@@ -53,13 +53,14 @@ export default function ChatWindow({
   };
 
   // Initialize Socket.IO
+  // single socket init -- put this once in your component
   useEffect(() => {
     const socket = io(URL);
     socketRef.current = socket;
 
     if (currentUserId) socket.emit("register", { userId: currentUserId });
 
-    // Listen for private messages
+    // private messages
     socket.on("privateMessage", (msg) => {
       if (
         selectedUser &&
@@ -70,34 +71,52 @@ export default function ChatWindow({
       }
     });
 
-    // Listen for team messages
+    // team messages
     socket.on("teamMessage", (msg) => {
       if (selectedTeam && msg.team_id === selectedTeam.id) {
         setMessages((prev) => [...prev, msg]);
       }
     });
 
-    // Listen for reactions
+    // reactions
     socket.on("reaction", ({ messageId, reactions }) => {
       setMessages((prev) =>
-        prev.map((msg) => (msg.id === messageId ? { ...msg, reactions } : msg))
+        prev.map((m) => (m.id === messageId ? { ...m, reactions } : m))
       );
     });
 
-    // Listen for deleted messages
+    // message deleted (remove + toast)
     socket.on("messageDeleted", ({ messageId }) => {
-      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      console.log("🟢 messageDeleted received on client", messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+      // show toast for deletion
+      setDeleteAlert("Message deleted successfully");
+      setTimeout(() => setDeleteAlert(""), 3000);
     });
 
-    // Listen for edited messages
+    // message edited (update + toast)
     socket.on("messageEdited", (updatedMsg) => {
+      console.log("🟣 messageEdited received on client", updatedMsg);
       setMessages((prev) =>
-        prev.map((msg) => (msg.id === updatedMsg.id ? updatedMsg : msg))
+        prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
       );
+
+      // optional: show toast only for sender
+      if (updatedMsg.sender_id === currentUserId) {
+        setDeleteAlert("Message edited successfully");
+        setTimeout(() => setDeleteAlert(""), 3000);
+      }
     });
 
-    return () => socket.disconnect();
-  }, [currentUserId, selectedUser, selectedTeam]);
+    return () => {
+      socket.disconnect();
+    };
+  }, [
+    currentUserId,
+    selectedUser,
+    selectedTeam /* leave these if you want socket re-init on change */,
+  ]);
 
   // Fetch messages when conversation changes
   useEffect(() => {
@@ -132,28 +151,24 @@ export default function ChatWindow({
     socketRef.current.emit("deleteMessage", { messageId });
   };
 
+  // ✅ Fix toast for message delete
   useEffect(() => {
     if (!socketRef.current) return;
 
     const socket = socketRef.current;
 
-    socket.on("messageDeleted", ({ messageId, senderId, currentUserId }) => {
-      // Remove message for all users
+    socket.on("messageDeleted", ({ messageId }) => {
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
 
-      // Show temporary alert only to the sender
-      if (senderId === currentUserId) {
-        setDeleteAlert("Message deleted successfully ");
-
-        // Hide alert after 3 seconds
-        setTimeout(() => setDeleteAlert(""), 3000);
-      }
+      // Show success toast immediately for the user who deleted
+      setDeleteAlert("Message deleted successfully");
+      setTimeout(() => setDeleteAlert(""), 3000);
     });
 
     return () => {
       socket.off("messageDeleted");
     };
-  }, []);
+  }, [currentUserId, setMessages]);
 
   // Edit message
   const handleEdit = async (updatedMsg) => {
@@ -174,7 +189,25 @@ export default function ChatWindow({
       console.error("Edit failed:", err);
     }
   };
+  // ✅ Toast for message edit
+  useEffect(() => {
+    if (!socketRef.current) return;
+    const socket = socketRef.current;
 
+    socket.on("messageEdited", (updatedMsg) => {
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === updatedMsg.id ? updatedMsg : msg))
+      );
+
+      // ✅ Show alert only for the sender
+      if (updatedMsg.sender_id === currentUserId) {
+        setDeleteAlert("Message edited successfully");
+        setTimeout(() => setDeleteAlert(""), 3000);
+      }
+    });
+
+    return () => socket.off("messageEdited");
+  }, [currentUserId, setMessages]);
   // Forward message
   const handleForward = async (messageId, toUserIds) => {
     if (!messageId || !toUserIds?.length) return;
@@ -208,12 +241,13 @@ export default function ChatWindow({
     else {
       const lowerQuery = searchQuery.toLowerCase();
       setFilteredMessages(
-        messages.filter(
-          (msg) =>
-            msg.text?.toLowerCase().includes(lowerQuery) ||
-            (msg.forwarded_from &&
-              msg.forwarded_from.toLowerCase().includes(lowerQuery))
-        )
+        messages.filter((msg) => {
+          const textMatch = msg.text?.toLowerCase().includes(lowerQuery);
+          const forwardedFromMatch =
+            typeof msg.forwarded_from === "string" &&
+            msg.forwarded_from.toLowerCase().includes(lowerQuery);
+          return textMatch || forwardedFromMatch;
+        })
       );
     }
   }, [messages, searchQuery]);
@@ -225,15 +259,23 @@ export default function ChatWindow({
 
   // Scroll to first search match
   useEffect(() => {
-    if (!searchQuery) return;
-    if (filteredMessages.length > 0) {
+    if (!searchQuery || filteredMessages.length === 0) return;
+
+    // Wait for React to render filtered messages first
+    const timer = setTimeout(() => {
       const firstMsg = filteredMessages[0];
       const key = firstMsg.id || messages.indexOf(firstMsg);
-      messageRefs.current[key]?.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }
+
+      const ref = messageRefs.current[key];
+      if (ref?.current) {
+        ref.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    }, 300); // delay to allow render
+
+    return () => clearTimeout(timer);
   }, [searchQuery, filteredMessages]);
 
   // Handle file selection
@@ -305,14 +347,14 @@ export default function ChatWindow({
     <div className="flex-1 flex flex-col h-full relative">
       {/* Temporary delete alert */}
       {deleteAlert && (
-        <div className="fixed top-5 right-5 bg-green-500 text-white p-3 rounded shadow z-50">
+        <div className="fixed top-[100px] right-[36%] bg-green-500 text-white p-3 rounded shadow z-50">
           {deleteAlert}
         </div>
       )}
 
       {/* Temporary forward alert */}
       {forwardAlert && (
-        <div className="fixed top-16 right-5 bg-blue-400 text-white p-3 rounded shadow z-50">
+        <div className="fixed top-[100px] right-[36%] bg-blue-400 text-white p-3 rounded shadow z-50">
           {forwardAlert}
         </div>
       )}

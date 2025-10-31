@@ -12,7 +12,7 @@ import { setSelectedUser } from "../Store/Features/Users/userSlice";
 import { fetchUsers } from "../Store/Features/Users/userThunks";
 import axios from "axios";
 import UserList from "./UserList";
-// import TeamChat from "./TeamChat"; // ✅ Import TeamChat
+// import TeamChat from "./TeamChat";
 import { URL } from "../config";
 import { setActiveNav } from "../Store/Features/Users/userSlice";
 
@@ -29,7 +29,7 @@ export default function Sidebar({ setSelectedTeam }) {
   const [teams, setTeams] = useState([]);
   const token = sessionStorage.getItem("chatToken");
 
-  // ✅ Add state for selected team and members
+ 
   // const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedTeamMembers, setSelectedTeamMembers] = useState([]);
 
