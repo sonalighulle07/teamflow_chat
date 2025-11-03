@@ -71,7 +71,6 @@ export default function ChatWindow({
       }
     });
 
-    // team messages
     socket.on("teamMessage", (msg) => {
       if (selectedTeam && msg.team_id === selectedTeam.id) {
         setMessages((prev) => [...prev, msg]);

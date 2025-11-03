@@ -31,7 +31,6 @@ const userSlice = createSlice({
       sessionStorage.setItem("chatUser", JSON.stringify(action.payload));
     },
     setActiveNav: (state, action) => {
-      console.log("Setting activeNav to:", action.payload);
       state.activeNav = action.payload;
     },
     logout: (state) => {
@@ -47,7 +46,6 @@ const userSlice = createSlice({
     },
     setSelectedUser: (state, action) => {
       state.selectedUser = action.payload;
-      console.log("from slice:"+JSON.stringify(state.selectedUser));
     },
     setUserList: (state, action) => {
       const newList = action.payload || [];

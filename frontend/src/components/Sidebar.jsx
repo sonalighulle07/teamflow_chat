@@ -12,67 +12,47 @@ import { setSelectedUser } from "../Store/Features/Users/userSlice";
 import { fetchUsers } from "../Store/Features/Users/userThunks";
 import axios from "axios";
 import UserList from "./UserList";
-// import TeamChat from "./TeamChat";
+
 import { URL } from "../config";
 import { setActiveNav } from "../Store/Features/Users/userSlice";
 
-export default function Sidebar({ setSelectedTeam }) {
+export default function Sidebar({ setSelectedTeam, setShowModal }) {
   const dispatch = useDispatch();
 
-  const { currentUser, userList, selectedUser, loading, error,activeNav } = useSelector(
-    (state) => state.user
-  );
+  const { currentUser, userList, selectedUser, loading, error, activeNav } =
+    useSelector((state) => state.user);
+
+  const { teamList, selectedTeam } = useSelector((state) => state.team);
 
   const { activities = [] } = useSelector((state) => state.activity || {});
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [teams, setTeams] = useState([]);
   const token = sessionStorage.getItem("chatToken");
 
- 
   // const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedTeamMembers, setSelectedTeamMembers] = useState([]);
 
-  // Fetch users
-  useEffect(() => {
-    if (!currentUser) return;
-    dispatch(fetchUsers(currentUser.id));
-
-    const interval = setInterval(() => {
-      dispatch(fetchUsers(currentUser.id));
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [dispatch, currentUser]);
-
   // Fetch teams when "Communities" is active
   useEffect(() => {
-    const fetchTeams = async () => {
-      if (!token) {
-        console.warn("Token not available. Cannot fetch teams.");
-        return;
-      }
+    console.log("Active Nav:", activeNav);
+    if (activeNav === "Communities" && currentUser?.id) {
+      const interval = setInterval(() => {
+        dispatch(fetchTeams());
+      }, 1000);
 
-      try {
-        console.log("Getting teams..");
-        const res = await axios.get(
-          `${URL}/api/teams?userId=${currentUser.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        setTeams(Array.isArray(res.data) ? res.data : []);
-      } catch (err) {
-        console.error(
-          "Failed to fetch teams:",
-          err.response?.data || err.message
-        );
-        setTeams([]);
-      }
-    };
+      return () => clearInterval(interval);
+    }
+    if (activeNav === "Chat") {
+      if (!currentUser) return;
+      dispatch(fetchUsers(currentUser.id));
 
-    if (currentUser?.id) fetchTeams();
-  }, [currentUser, token]);
+      const interval = setInterval(() => {
+        dispatch(fetchUsers(currentUser.id));
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [activeNav, currentUser, dispatch]);
 
   const handleSelectUser = (item) => {
     dispatch(setSelectedUser(item));
@@ -132,11 +112,11 @@ export default function Sidebar({ setSelectedTeam }) {
   }, [userList, searchQuery]);
 
   const filteredTeams = useMemo(() => {
-    if (!searchQuery) return teams;
-    return teams.filter((t) =>
+    if (!searchQuery) return teamList;
+    return teamList.filter((t) =>
       t.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [teams, searchQuery]);
+  }, [teamList, searchQuery]);
 
   const navItems = [
     { icon: <FaCommentDots />, label: "Chat" },
@@ -177,7 +157,11 @@ export default function Sidebar({ setSelectedTeam }) {
                 >
                   {label}
                 </span>
-                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1 rounded-lg bg-white text-gray-600 text-xs font-medium whitespace-nowrap opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 pointer-events-none z-50">
+                <div
+                  className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1 rounded-lg bg-white text-gray-600 text-xs 
+                font-medium whitespace-nowrap opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all 
+                duration-300 pointer-events-none z-50"
+                >
                   {label}
                 </div>
               </div>
@@ -203,6 +187,14 @@ export default function Sidebar({ setSelectedTeam }) {
                 className="w-full pl-10 pr-3 py-1.5 rounded bg-white border border-gray-300 text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
+            {activeNav === "Communities" && (
+              <button
+                onClick={() => setShowModal(true)}
+                className="mt-2 w-full bg-blue-600 text-white py-1.5 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                + Create Team
+              </button>
+            )}
           </div>
 
           {/* List */}
@@ -231,17 +223,6 @@ export default function Sidebar({ setSelectedTeam }) {
                   No {activeNav === "Chat" ? "users" : "teams"} found
                 </p>
               )}
-
-            {/* ✅ Render TeamChat when a team is selected
-            {selectedTeam && activeNav === "Communities" && (
-              <div className="border-t mt-2 h-[400px] overflow-y-auto">
-                <TeamChat
-                  team={selectedTeam}
-                  currentUser={currentUser}
-                  members={selectedTeamMembers}
-                />
-              </div>
-            )} */}
           </div>
         </div>
       )}

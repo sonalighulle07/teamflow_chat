@@ -21,13 +21,13 @@ import ForwardModal from "./components/ForwardModal";
 import MeetingRoom from "./components/calls/GroupCalls/MeetingRoom";
 import MediaConfirmation from "./components/calls/GroupCalls/MeetingUtils/MediaConfirmation";
 import MyCalendar from "./components/calender/MyCalender";
-import TeamsSidebar from "./components/TeamsSidebar";
 import { useSelector, useDispatch } from "react-redux";
 import { rehydrateUser } from "./Store/Features/Users/userSlice";
 import ProtectedRoute from "./utils/ProtectedRoute";
 import { urlBase64ToUint8Array } from "./utils/pushUtils";
 import TeamChat from "./components/TeamChat";
 import { setActiveNav } from "./Store/Features/Users/userSlice";
+import CreateTeam from "./components/CreateTeams";
 
 function AppRoutes({
   isAuthenticated,
@@ -38,11 +38,12 @@ function AppRoutes({
   handleAuthSuccess,
   setIsAuthenticated,
 }) {
-  const [selectedTeam, setSelectedTeam] = useState(null);
   const [userMessages, setUserMessages] = useState([]);
   const [teamMessages, setTeamMessages] = useState([]);
   const { activeNav } = useSelector((state) => state.user);
 
+  const { selectedTeam } = useSelector((state) => state.team);
+  const [showModal, setShowModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
@@ -130,10 +131,7 @@ function AppRoutes({
               <div className="flex flex-1 overflow-hidden w-full">
                 {/* Sidebar */}
                 <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
-                  <Sidebar
-                    activeNav={activeNav}
-                    setSelectedTeam={setSelectedTeam}
-                  />
+                  <Sidebar setShowModal={setShowModal} activeNav={activeNav} />
                 </div>
 
                 {/* Main content */}
@@ -153,11 +151,7 @@ function AppRoutes({
                   )}
 
                   {activeNav === "Communities" && (
-                    <TeamChat
-                      team={selectedTeam}
-                      currentUser={currentUser}
-                      // members={selectedTeamMembers}
-                    />
+                    <TeamChat team={selectedTeam} currentUser={currentUser} />
                   )}
 
                   {activeNav === "Meet" && (
@@ -169,15 +163,6 @@ function AppRoutes({
                     </div>
                   )}
 
-                  {/* {activeNav === "Communities" && (
-                    <TeamsSidebar
-                      currentUser={currentUser}
-                      currentUserId={userId}
-                      selectedTeam={selectedTeam}
-                      onSelectTeam={(team) => setSelectedTeam(team)}
-                    />
-                  )} */}
-
                   {activeNav === "Calendar" && (
                     <div className="flex flex-col items-center justify-center h-full w-full">
                       <MyCalendar />
@@ -188,6 +173,14 @@ function AppRoutes({
                     <div className="flex items-center justify-center h-full text-gray-500 text-xl">
                       🔔 Activity tab coming soon!
                     </div>
+                  )}
+
+                  {showModal && (
+                    <CreateTeam
+                      currentUser={currentUser}
+                      showModal={showModal}
+                      setShowModal={setShowModal}
+                    />
                   )}
                 </div>
               </div>

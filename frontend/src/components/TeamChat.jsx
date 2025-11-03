@@ -6,8 +6,11 @@ import Message from "./Message";
 import ForwardModal from "./ForwardModal";
 import { URL } from "../config";
 import axios from "axios";
+import { useDispatch } from "react-redux";
+import { fetchTeamMembers } from "../Store/Features/Teams/teamThunk";
+import { useSelector } from "react-redux";
 
-export default function TeamChat({ team, currentUser, members = [] }) {
+export default function TeamChat({ team, currentUser }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -21,6 +24,9 @@ export default function TeamChat({ team, currentUser, members = [] }) {
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const messageRefs = useRef({});
+
+  const dispatch = useDispatch();
+  const selectedTeamMembers = useSelector((state) => state.team.selectedTeamMembers);
 
   // --- Initialize socket ---
   useEffect(() => {
@@ -49,6 +55,8 @@ export default function TeamChat({ team, currentUser, members = [] }) {
   // --- Fetch messages ---
   useEffect(() => {
     if (!team?.id || !token) return;
+
+    dispatch(fetchTeamMembers());
 
     const fetchMessages = async () => {
       try {
@@ -174,7 +182,7 @@ export default function TeamChat({ team, currentUser, members = [] }) {
                     onForward={(msg) => setForwardMsg(msg)}
                   />
                   <span className="text-xs text-gray-500 ml-1">
-                    {members.find((u) => u.id === msg.sender_id)?.username ||
+                    {selectedTeamMembers.find((u) => u.id === msg.sender_id)?.username ||
                       "Unknown"}
                   </span>
                 </div>

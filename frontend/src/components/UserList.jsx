@@ -1,5 +1,7 @@
 import React, { memo, useMemo, useRef, useEffect } from "react";
 import { useSelector } from "react-redux";
+import { setSelectedTeam } from "../Store/Features/Teams/teamSlice";
+import { useDispatch } from "react-redux";
 
 // Utility to get initials
 function getInitials(name) {
@@ -80,23 +82,24 @@ export default function UserList({
   teams = [],
   onSelectUser,
   searchQuery = "",
-  selectedUser,
-  setSelectedTeam,
+  selectedUser
 }) {
 
   // const {activeNav} = useSelector((state) => state.user);
+
+  const dispatch = useDispatch();
 
   const listRef = useRef(null);
   const itemRefs = useRef({});
 
   const handleSelect = (item) =>{
-
     if (item.type === "user") {
       onSelectUser(item);
+      dispatch(setSelectedTeam(null)); // Clear selected team when selecting a user
     } else if (item.type === "team") {
-      setSelectedTeam(item);
+      onSelectUser(null); // Clear selected user when selecting a team
+      dispatch(setSelectedTeam(item));
     }
-
   };
 
   // Merge users and teams
