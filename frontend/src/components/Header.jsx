@@ -13,12 +13,52 @@ export default function Header({
   setSearchQuery,
   setIsAuthenticated,
 }) {
+  const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
   const navigate = useNavigate();
   const [showSearch, setShowSearch] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const searchInputRef = useRef(null);
   const { selectedUser } = useSelector((state) => state.user);
+
+  const startGroupCall = async () => {
+    if (!selectedTeam) return;
+    
+    setIsCreatingMeeting(true);
+    try {
+      const meetingCode = `team-${selectedTeam.id}-${Date.now()}`;
+      const meetingUrl = `${window.location.origin}/prejoin/${meetingCode}`;
+      
+      // Send meeting link as a message
+      const token = sessionStorage.getItem("chatToken");
+      const messageData = {
+        text: `📞 Team Meeting\n\nCreated by: ${activeUser.username}\n\n🔗 Join using this link:\n${meetingUrl}`,
+        team_id: selectedTeam.id,
+        sender_id: activeUser.id,
+        metadata: {
+          type: 'meeting-invite',
+          url: meetingUrl,
+          creator: activeUser.username
+        }
+      };
+
+      await fetch(`${URL}/api/teams/${selectedTeam.id}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(messageData)
+      });
+
+      // Navigate to the meeting
+      navigate(`/prejoin/${meetingCode}`);
+    } catch (error) {
+      console.error("Failed to create meeting:", error);
+    } finally {
+      setIsCreatingMeeting(false);
+    }
+  };
   const { selectedTeam } = useSelector((state) => state.team);
 
   const username = activeUser?.username || "Guest";
@@ -101,25 +141,41 @@ export default function Header({
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
-          {/* Audio Call */}
-          <button
-            className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-            title="Audio Call"
-            disabled={!canCall}
-            onClick={() => onStartCall("audio", selectedUser)}
-          >
-            <FaPhone size={15} />
-          </button>
+          {selectedTeam ? (
+            // Group Call Button for Teams
+            <button
+              className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"
+              title="Start Group Call"
+              onClick={startGroupCall}
+              disabled={isCreatingMeeting}
+            >
+              <FaVideo />
+              <span className="text-sm">
+                {isCreatingMeeting ? "Creating..." : "Start Meeting"}
+              </span>
+            </button>
+          ) : (
+            // Individual Call Buttons
+            <>
+              <button
+                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm transform rotate-45"
+                title="Audio Call"
+                disabled={!canCall}
+                onClick={() => onStartCall("audio", selectedUser)}
+              >
+                <FaPhone style={{ transform: "rotate(45deg)" }} size={15} />
+              </button>
 
-          {/* Video Call */}
-          <button
-            className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-            title="Video Call"
-            disabled={!canCall}
-            onClick={() => onStartCall("video", selectedUser)}
-          >
-            <FaVideo />
-          </button>
+              <button
+                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                title="Video Call"
+                disabled={!canCall}
+                onClick={() => onStartCall("video", selectedUser)}
+              >
+                <FaVideo />
+              </button>
+            </>
+          )}
 
           {/* Search */}
           <div className="relative">

@@ -3,6 +3,26 @@ import { FaSmile, FaEllipsisV } from "react-icons/fa";
 import EmojiPicker from "emoji-picker-react";
 import { URL } from "../config";
 
+const renderMeetingInvite = (text, metadata) => {
+  const lines = text.split('\n');
+  return (
+    <div className="meeting-invite bg-blue-50 p-3 rounded-lg border border-blue-200">
+      <div className="font-semibold text-blue-800">{lines[0]}</div>
+      <div className="text-gray-600 mt-2">{lines[2]}</div>
+      <div className="mt-3">
+        <a
+          href={metadata?.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors"
+        >
+          Join Meeting
+        </a>
+      </div>
+    </div>
+  );
+};
+
 export default function Message({
   message,
   isOwn,
@@ -386,7 +406,10 @@ export default function Message({
               </span>
             )}
             <p className="break-words">
-              {highlightText(message.text || "")}
+              {message.metadata?.type === "meeting-invite" 
+                ? renderMeetingInvite(message.text, message.metadata)
+                : highlightText(message.text || "")
+              }
               {message.edited === 1 && (
                 <span className="text-[12px] text-gray-800 ml-1">(Edited)</span>
               )}
