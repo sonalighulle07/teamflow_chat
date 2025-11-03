@@ -47,7 +47,7 @@ export default function TeamChat({ currentUser }) {
     });
 
     // message deleted (server should emit messageDeleted with { messageId, senderId, teamId })
-<<<<<<< HEAD
+
     socket.on(
       "messageDeleted",
       ({ messageId, senderId, teamId }) => {
@@ -60,16 +60,6 @@ export default function TeamChat({ currentUser }) {
       },
       [selectedTeam, currentUser, selectedTeamMembers]
     );
-=======
-    socket.on("messageDeleted", ({ messageId, senderId, teamId }) => {
-      if (teamId && teamId !== team.id) return; // ignore other teams
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
-      if (senderId === currentUser.id) {
-        setDeleteAlert("Message deleted successfully");
-        setTimeout(() => setDeleteAlert(""), 3000);
-      }
-    },[selectedTeam, currentUser,selectedTeamMembers]);
->>>>>>> eeb48fb7539bc500ff9c7da708036908eb683630
 
     // message edited (server should emit messageEdited with updated message)
     socket.on("messageEdited", (updatedMsg) => {
@@ -95,18 +85,13 @@ export default function TeamChat({ currentUser }) {
 
     const fetchMessages = async () => {
       try {
-<<<<<<< HEAD
         const res = await axios.get(
           `${URL}/api/teams/${selectedTeam.id}/messages`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-=======
-        const res = await axios.get(`${URL}/api/teams/${selectedTeam.id}/messages`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
->>>>>>> eeb48fb7539bc500ff9c7da708036908eb683630
+
         setMessages(Array.isArray(res.data) ? res.data : []);
         messageRefs.current = {};
       } catch (err) {
@@ -412,13 +397,9 @@ export default function TeamChat({ currentUser }) {
         <div className="flex items-center gap-2 relative bg-white px-3 py-1 rounded-full border border-gray-300 shadow-sm">
           <input
             type="text"
-<<<<<<< HEAD
             placeholder={
               selectedTeam ? "Type a message..." : "Select a team..."
             }
-=======
-            placeholder={selectedTeam ? "Type a message..." : "Select a team..."}
->>>>>>> eeb48fb7539bc500ff9c7da708036908eb683630
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyPress}
