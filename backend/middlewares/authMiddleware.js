@@ -11,7 +11,6 @@ function authenticateToken(req, res, next) {
       const errorType = err.name === 'TokenExpiredError' ? 'Token expired' : 'Invalid token';
       return res.status(403).json({ error: errorType });
     }
-
     req.user = user;
     next();
   });
