@@ -49,7 +49,7 @@ const teamSlice = createSlice({
       .addCase(fetchTeamMembers.fulfilled, (state, action) => {
         state.loading = false;
         // ✅ Also update team members with a new reference
-        state.selectedTeamMembers = [...action.payload];
+        state.selectedTeamMembers = [action.payload];
         console.log("Fetched team members:", action.payload);
       })
       .addCase(fetchTeamMembers.rejected, (state, action) => {

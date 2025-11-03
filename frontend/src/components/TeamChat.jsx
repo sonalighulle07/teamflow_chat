@@ -54,7 +54,7 @@ export default function TeamChat({ currentUser }) {
         setDeleteAlert("Message deleted successfully");
         setTimeout(() => setDeleteAlert(""), 3000);
       }
-    });
+    },[selectedTeam, currentUser,selectedTeamMembers]);
 
     // message edited (server should emit messageEdited with updated message)
     socket.on("messageEdited", (updatedMsg) => {
