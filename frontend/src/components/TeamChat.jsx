@@ -30,6 +30,10 @@ export default function TeamChat({ currentUser }) {
     (state) => state.team.selectedTeamMembers
   );
 
+  useEffect(() => {
+    console.log("Team members updated:", selectedTeamMembers);
+  }, [selectedTeamMembers]);
+
   const selectedTeam = useSelector((state) => state.team.selectedTeam);
 
   // --- Initialize socket ---
@@ -81,9 +85,11 @@ export default function TeamChat({ currentUser }) {
   useEffect(() => {
     if (!selectedTeam?.id || !token) return;
 
+    console.log("Fetching team members for team:", selectedTeam.id);
     dispatch(fetchTeamMembers());
 
     const fetchMessages = async () => {
+      console.log("Fetching messages for team:", selectedTeam.id);
       try {
         const res = await axios.get(
           `${URL}/api/teams/${selectedTeam.id}/messages`,
@@ -92,7 +98,9 @@ export default function TeamChat({ currentUser }) {
           }
         );
 
-        setMessages(Array.isArray(res.data) ? res.data : []);
+        const messagesData = Array.isArray(res.data) ? res.data : [];
+        console.log("Fetched messages:", messagesData);
+        setMessages(messagesData);
         messageRefs.current = {};
       } catch (err) {
         console.error(
@@ -298,12 +306,17 @@ export default function TeamChat({ currentUser }) {
                   className="flex flex-col items-start gap-1"
                 >
                   <Message
-                    message={msg}
+                    message={{
+                      ...msg,
+                      username: msg.sender_id !== currentUser.id 
+                        ? selectedTeamMembers?.find(u => Number(u.user_id) === Number(msg.sender_id))?.username 
+                        : undefined
+                    }}
                     isOwn={msg.sender_id === currentUser.id}
                     socket={socketRef.current}
                     onForward={(m) => setForwardMsg(m)}
-                    onEdit={handleEdit} // <<< pass edit handler
-                    onDelete={handleDelete} // <<< pass delete handler
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
                     onReact={async (messageId, emoji) => {
                       // optional: call route to update reaction similar to ChatWindow
                       try {
@@ -340,10 +353,6 @@ export default function TeamChat({ currentUser }) {
                       }
                     }}
                   />
-                  <span className="text-xs text-gray-500 ml-1">
-                    {selectedTeamMembers.find((u) => u.id === msg.sender_id)
-                      ?.username || "Unknown"}
-                  </span>
                 </div>
               );
             })
