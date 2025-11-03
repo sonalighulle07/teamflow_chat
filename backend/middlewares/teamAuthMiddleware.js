@@ -7,7 +7,7 @@ async function teamAuthMiddleware(req, res, next) {
   console.log("User fromreq"+JSON.stringify(req.user));
   console.log("Authenticated user ID:", userId);
 
-  const teamId = req.params.id;
+  const teamId = req.params.teamId;
 
   console.log("teamAuthMiddleware invoked for team ID:", teamId);
   console.log("teamAuthMiddleware - userId:", userId);

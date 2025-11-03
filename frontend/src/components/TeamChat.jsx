@@ -10,7 +10,7 @@ import { useDispatch } from "react-redux";
 import { fetchTeamMembers } from "../Store/Features/Teams/teamThunk";
 import { useSelector } from "react-redux";
 
-export default function TeamChat({ team, currentUser }) {
+export default function TeamChat({ currentUser }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -30,9 +30,11 @@ export default function TeamChat({ team, currentUser }) {
     (state) => state.team.selectedTeamMembers
   );
 
+  const selectedTeam = useSelector((state) => state.team.selectedTeam);
+
   // --- Initialize socket ---
   useEffect(() => {
-    if (!team || !currentUser) return;
+    if (!selectedTeam || !currentUser) return;
 
     const socket = io(URL);
     socketRef.current = socket;
@@ -56,7 +58,7 @@ export default function TeamChat({ team, currentUser }) {
 
     // message edited (server should emit messageEdited with updated message)
     socket.on("messageEdited", (updatedMsg) => {
-      if (updatedMsg?.team_id && updatedMsg.team_id !== team.id) return;
+      if (updatedMsg?.team_id && updatedMsg.team_id !== selectedTeam.id) return;
       setMessages((prev) =>
         prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
       );
@@ -68,17 +70,17 @@ export default function TeamChat({ team, currentUser }) {
     });
 
     return () => socket.disconnect();
-  }, [team, currentUser]);
+  }, [selectedTeam, currentUser]);
 
   // --- Fetch messages ---
   useEffect(() => {
-    if (!team?.id || !token) return;
+    if (!selectedTeam?.id || !token) return;
 
     dispatch(fetchTeamMembers());
 
     const fetchMessages = async () => {
       try {
-        const res = await axios.get(`${URL}/api/teams/${team.id}/messages`, {
+        const res = await axios.get(`${URL}/api/teams/${selectedTeam.id}/messages`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setMessages(Array.isArray(res.data) ? res.data : []);
@@ -93,7 +95,7 @@ export default function TeamChat({ team, currentUser }) {
     };
 
     fetchMessages();
-  }, [team, token, dispatch]);
+  }, [selectedTeam, token, dispatch]);
 
   // --- Scroll to bottom ---
   useEffect(() => {
@@ -125,7 +127,7 @@ export default function TeamChat({ team, currentUser }) {
   // --- Send message ---
   const handleSend = async () => {
     if (!text.trim() && !selectedFile) return;
-    if (!team?.id) return;
+    if (!selectedTeam?.id) return;
     if (!token) return alert("Not authorized");
 
     const formData = new FormData();
@@ -133,7 +135,7 @@ export default function TeamChat({ team, currentUser }) {
     if (selectedFile) formData.append("file", selectedFile);
 
     try {
-      const res = await fetch(`${URL}/api/teams/${team.id}/messages`, {
+      const res = await fetch(`${URL}/api/teams/${selectedTeam.id}/messages`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -172,7 +174,7 @@ export default function TeamChat({ team, currentUser }) {
     if (!updatedMsg?.id) return;
     try {
       const res = await fetch(
-        `${URL}/api/teams/${team.id}/messages/${updatedMsg.id}`,
+        `${URL}/api/teams/${selectedTeam.id}/messages/${updatedMsg.id}`,
         {
           method: "PUT",
           headers: {
@@ -198,7 +200,7 @@ export default function TeamChat({ team, currentUser }) {
       // emit socket event so others update
       socketRef.current?.emit("messageEdited", {
         ...updatedMsg,
-        team_id: team.id,
+        team_id: selectedTeam.id,
       });
     } catch (err) {
       console.error("Edit failed:", err);
@@ -207,10 +209,11 @@ export default function TeamChat({ team, currentUser }) {
 
   // --- Delete message (team) ---
   const handleDelete = async (messageId) => {
-    if (!team?.id) return;
+    if (!selectedTeam?.id) return;
     try {
+      let teamId = selectedTeam.id;
       const res = await fetch(
-        `${URL}/api/teams/${team.id}/messages/${messageId}`,
+        `${URL}/api/teams/${teamId}/messages/${messageId}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
@@ -273,7 +276,7 @@ export default function TeamChat({ team, currentUser }) {
 
       {/* Messages */}
       <div className="flex-1 p-4 bg-gray-50 overflow-y-auto border border-gray-300 rounded-lg shadow-md">
-        {team ? (
+        {selectedTeam ? (
           messages.length > 0 ? (
             messages.map((msg, index) => {
               const key = msg.id || index;
@@ -319,7 +322,7 @@ export default function TeamChat({ team, currentUser }) {
                         );
                         socketRef.current?.emit("reaction", {
                           messageId,
-                          teamId: team.id,
+                          teamId: selectedTeam.id,
                           emoji,
                           userId: currentUser.id,
                         });
@@ -385,11 +388,11 @@ export default function TeamChat({ team, currentUser }) {
         <div className="flex items-center gap-2 relative bg-white px-3 py-1 rounded-full border border-gray-300 shadow-sm">
           <input
             type="text"
-            placeholder={team ? "Type a message..." : "Select a team..."}
+            placeholder={selectedTeam ? "Type a message..." : "Select a team..."}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyPress}
-            disabled={!team}
+            disabled={!selectedTeam}
             className="flex-1 bg-transparent px-2 py-1 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-gray-400 disabled:cursor-not-allowed"
           />
 
@@ -420,7 +423,7 @@ export default function TeamChat({ team, currentUser }) {
           {/* Send */}
           <button
             onClick={handleSend}
-            disabled={!team}
+            disabled={!selectedTeam}
             className="flex items-center justify-center p-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             <svg
