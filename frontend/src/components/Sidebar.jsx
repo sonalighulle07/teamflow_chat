@@ -34,30 +34,26 @@ export default function Sidebar({ setSelectedTeam,setShowModal }) {
   // const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedTeamMembers, setSelectedTeamMembers] = useState([]);
 
-  // Fetch users
+  // Fetch teams when "Communities" is active
   useEffect(() => {
+    console.log("Active Nav:", activeNav);
+    if (activeNav === "Communities" && currentUser?.id) {
+      const interval = setInterval(() => {
+        dispatch(fetchTeams());
+      }, 1000);
 
+      return () => clearInterval(interval);
+    } 
     if(activeNav === "Chat") {
     if (!currentUser) return;
     dispatch(fetchUsers(currentUser.id));
 
     const interval = setInterval(() => {
       dispatch(fetchUsers(currentUser.id));
-    }, 10000);
+    }, 1000);
 
     return () => clearInterval(interval);
   }
-  }, [dispatch, currentUser]);
-
-  // Fetch teams when "Communities" is active
-  useEffect(() => {
-    if (activeNav === "Communities" && currentUser?.id) {
-      const interval = setInterval(() => {
-        dispatch(fetchTeams());
-      }, 10000);
-
-      return () => clearInterval(interval);
-    } 
   }, [activeNav, currentUser, dispatch]);
 
   const handleSelectUser = (item) => {

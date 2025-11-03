@@ -37,6 +37,7 @@ export const loginUser = createAsyncThunk(
 export const fetchUsers = createAsyncThunk(
   "user/fetchUsers",
   async (currentUserId, { rejectWithValue }) => {
+    console.log("Fetching users from server...");
     try {
       const res = await fetch(`${URL}/api/users`, {
         credentials: "include", // include cookies if needed
