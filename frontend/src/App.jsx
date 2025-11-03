@@ -41,9 +41,9 @@ function AppRoutes({
   const [userMessages, setUserMessages] = useState([]);
   const [teamMessages, setTeamMessages] = useState([]);
   const { activeNav } = useSelector((state) => state.user);
+
   const { selectedTeam } = useSelector((state) => state.team);
   const [showModal, setShowModal] = useState(false);
-  
   const [searchQuery, setSearchQuery] = useState("");
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
@@ -131,10 +131,7 @@ function AppRoutes({
               <div className="flex flex-1 overflow-hidden w-full">
                 {/* Sidebar */}
                 <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
-                  <Sidebar
-                    setShowModal={setShowModal}
-                    activeNav={activeNav}
-                  />
+                  <Sidebar setShowModal={setShowModal} activeNav={activeNav} />
                 </div>
 
                 {/* Main content */}
@@ -154,10 +151,7 @@ function AppRoutes({
                   )}
 
                   {activeNav === "Communities" && (
-                    <TeamChat
-                      team={selectedTeam}
-                      currentUser={currentUser}
-                    />
+                    <TeamChat team={selectedTeam} currentUser={currentUser} />
                   )}
 
                   {activeNav === "Meet" && (
@@ -182,7 +176,6 @@ function AppRoutes({
                       setShowModal={setShowModal}
                     />
                   )}
-
                 </div>
               </div>
 

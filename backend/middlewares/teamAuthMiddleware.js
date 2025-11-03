@@ -1,16 +1,22 @@
 const { TeamMember } = require("../models/TeamModel");
 
 async function teamAuthMiddleware(req, res, next) {
+
   console.log("teamAuthMiddleware invoked for team ID:", req.params.id);
   const userId = req.user?.id;
   console.log("User fromreq"+JSON.stringify(req.user));
   console.log("Authenticated user ID:", userId);
+
   const teamId = req.params.id;
+
+  console.log("teamAuthMiddleware invoked for team ID:", teamId);
+  console.log("teamAuthMiddleware - userId:", userId);
 
   if (!userId) return res.status(401).json({ error: "Not authorized" });
 
   try {
     const members = await TeamMember.getMembers(teamId);
+    console.log("teamAuthMiddleware - members:", members);
 
     const isMember = members.some(
       (member) => Number(member.user_id) === Number(userId)

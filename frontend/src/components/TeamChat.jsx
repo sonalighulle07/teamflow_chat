@@ -26,7 +26,9 @@ export default function TeamChat({ team, currentUser }) {
   const messageRefs = useRef({});
 
   const dispatch = useDispatch();
-  const selectedTeamMembers = useSelector((state) => state.team.selectedTeamMembers);
+  const selectedTeamMembers = useSelector(
+    (state) => state.team.selectedTeamMembers
+  );
 
   // --- Initialize socket ---
   useEffect(() => {
@@ -37,15 +39,31 @@ export default function TeamChat({ team, currentUser }) {
 
     socket.emit("register", { userId: currentUser.id });
 
+    // new team message
     socket.on("teamMessage", (msg) => {
       if (msg?.team_id === team.id) setMessages((prev) => [...prev, msg]);
     });
 
-    socket.on("messageDeleted", ({ messageId, senderId }) => {
-      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+    // message deleted (server should emit messageDeleted with { messageId, senderId, teamId })
+    socket.on("messageDeleted", ({ messageId, senderId, teamId }) => {
+      if (teamId && teamId !== team.id) return; // ignore other teams
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
       if (senderId === currentUser.id) {
         setDeleteAlert("Message deleted successfully");
         setTimeout(() => setDeleteAlert(""), 3000);
+      }
+    });
+
+    // message edited (server should emit messageEdited with updated message)
+    socket.on("messageEdited", (updatedMsg) => {
+      if (updatedMsg?.team_id && updatedMsg.team_id !== team.id) return;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
+      );
+      // optional toast only for the sender
+      if (updatedMsg?.sender_id === currentUser.id) {
+        setForwardAlert("Message edited successfully");
+        setTimeout(() => setForwardAlert(""), 3000);
       }
     });
 
@@ -75,7 +93,7 @@ export default function TeamChat({ team, currentUser }) {
     };
 
     fetchMessages();
-  }, [team, token]);
+  }, [team, token, dispatch]);
 
   // --- Scroll to bottom ---
   useEffect(() => {
@@ -108,7 +126,6 @@ export default function TeamChat({ team, currentUser }) {
   const handleSend = async () => {
     if (!text.trim() && !selectedFile) return;
     if (!team?.id) return;
-
     if (!token) return alert("Not authorized");
 
     const formData = new FormData();
@@ -131,6 +148,7 @@ export default function TeamChat({ team, currentUser }) {
       const newMessage = await res.json();
       setMessages((prev) => [...prev, newMessage]);
 
+      // broadcast new message
       socketRef.current?.emit("teamMessage", newMessage);
 
       setText("");
@@ -145,6 +163,98 @@ export default function TeamChat({ team, currentUser }) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  // --- Edit message (team) ---
+  const handleEdit = async (updatedMsg) => {
+    // updatedMsg should include id and new text
+    if (!updatedMsg?.id) return;
+    try {
+      const res = await fetch(
+        `${URL}/api/teams/${team.id}/messages/${updatedMsg.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ text: updatedMsg.text }),
+        }
+      );
+      if (!res.ok) {
+        console.error("Edit failed:", await res.text());
+        return;
+      }
+      // optimistic update (server will also emit messageEdited)
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === updatedMsg.id
+            ? { ...m, text: updatedMsg.text, edited: 1 }
+            : m
+        )
+      );
+
+      // emit socket event so others update
+      socketRef.current?.emit("messageEdited", {
+        ...updatedMsg,
+        team_id: team.id,
+      });
+    } catch (err) {
+      console.error("Edit failed:", err);
+    }
+  };
+
+  // --- Delete message (team) ---
+  const handleDelete = async (messageId) => {
+    if (!team?.id) return;
+    try {
+      const res = await fetch(
+        `${URL}/api/teams/${team.id}/messages/${messageId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (res.ok) {
+        // remove message from state
+        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      } else {
+        const data = await res.json();
+        console.error("Delete failed:", data);
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
+  };
+
+  // --- Forward team message ---
+  // If you want to forward a team message to users (private chats) reuse your chats forward endpoint:
+  // POST /api/chats/:messageId/forward { toUserIds: [...], senderId }
+  const handleForward = async (messageId, toUserIds) => {
+    if (!messageId || !Array.isArray(toUserIds) || toUserIds.length === 0)
+      return;
+    try {
+      const res = await fetch(`${URL}/api/chats/${messageId}/forward`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ toUserIds, senderId: currentUser.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setForwardAlert("Message forwarded successfully");
+        setTimeout(() => setForwardAlert(""), 3000);
+      } else {
+        setForwardAlert("Forward failed");
+        setTimeout(() => setForwardAlert(""), 3000);
+      }
+    } catch (err) {
+      console.error("Forward failed:", err);
+      setForwardAlert("Forward failed due to server error");
+      setTimeout(() => setForwardAlert(""), 3000);
     }
   };
 
@@ -179,11 +289,48 @@ export default function TeamChat({ team, currentUser }) {
                     message={msg}
                     isOwn={msg.sender_id === currentUser.id}
                     socket={socketRef.current}
-                    onForward={(msg) => setForwardMsg(msg)}
+                    onForward={(m) => setForwardMsg(m)}
+                    onEdit={handleEdit} // <<< pass edit handler
+                    onDelete={handleDelete} // <<< pass delete handler
+                    onReact={async (messageId, emoji) => {
+                      // optional: call route to update reaction similar to ChatWindow
+                      try {
+                        await fetch(
+                          `${URL}/api/teams/messages/${messageId}/react`,
+                          {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ emoji }),
+                          }
+                        );
+                        // update local reactions (optimistic)
+                        setMessages((prev) =>
+                          prev.map((m) =>
+                            m.id === messageId
+                              ? {
+                                  ...m,
+                                  reactions: m.reactions ? m.reactions : null,
+                                }
+                              : m
+                          )
+                        );
+                        socketRef.current?.emit("reaction", {
+                          messageId,
+                          teamId: team.id,
+                          emoji,
+                          userId: currentUser.id,
+                        });
+                      } catch (err) {
+                        console.error("Reaction error:", err);
+                      }
+                    }}
                   />
                   <span className="text-xs text-gray-500 ml-1">
-                    {selectedTeamMembers.find((u) => u.id === msg.sender_id)?.username ||
-                      "Unknown"}
+                    {selectedTeamMembers.find((u) => u.id === msg.sender_id)
+                      ?.username || "Unknown"}
                   </span>
                 </div>
               );
@@ -294,6 +441,7 @@ export default function TeamChat({ team, currentUser }) {
           open={!!forwardMsg}
           message={forwardMsg}
           onClose={() => setForwardMsg(null)}
+          onForward={handleForward}
         />
       )}
     </div>

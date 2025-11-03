@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { fetchTeams,fetchTeamMembers } from "./teamThunk";
+import { fetchTeams, fetchTeamMembers } from "./teamThunk";
 
 const initialState = {
   teamList: [],
@@ -7,15 +7,16 @@ const initialState = {
   selectedTeamMembers: [],
   loading: false,
   error: null,
-}; 
+};
 
 const teamSlice = createSlice({
   name: "teams",
   initialState,
-    reducers: {
+
+  reducers: {
     setTeamList: (state, action) => {
-      state.teamList = action.payload;
-    }   ,
+      state.teamList = [...action.payload]; // ✅ Create new array for UI re-render
+    },
     setSelectedTeam: (state, action) => {
       state.selectedTeam = action.payload;
       console.log("Setting State selected team to:", state.selectedTeam);
@@ -23,9 +24,10 @@ const teamSlice = createSlice({
     clearTeams: (state) => {
       state.teamList = [];
       state.selectedTeam = null;
-    },  
-    },  
-    extraReducers: (builder) => {
+    },
+  },
+
+  extraReducers: (builder) => {
     builder
       .addCase(fetchTeams.pending, (state) => {
         state.loading = true;
@@ -33,7 +35,8 @@ const teamSlice = createSlice({
       })
       .addCase(fetchTeams.fulfilled, (state, action) => {
         state.loading = false;
-        state.teamList = action.payload;
+        // ✅ Important change - force re-render by creating a new array
+        state.teamList = [...action.payload];
       })
       .addCase(fetchTeams.rejected, (state, action) => {
         state.loading = false;
@@ -45,15 +48,14 @@ const teamSlice = createSlice({
       })
       .addCase(fetchTeamMembers.fulfilled, (state, action) => {
         state.loading = false;
-        state.selectedTeamMembers = action.payload;
+        // ✅ Also update team members with a new reference
+        state.selectedTeamMembers = [...action.payload];
         console.log("Fetched team members:", action.payload);
-        // Handle team members if needed
       })
       .addCase(fetchTeamMembers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
-      
   },
 });
 

@@ -500,6 +500,7 @@ export default function Message({
                         🗑️ <span>Delete</span>
                       </button>
                     )}
+
                     <button
                       className="flex items-center gap-2 px-3 py-1.5 text-blue-600 hover:bg-blue-50 transition-all duration-150"
                       onClick={() => {

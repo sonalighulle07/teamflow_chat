@@ -216,9 +216,10 @@ const editTeamMessage = async (req, res) => {
 // DELETE team message
 // -----------------------
 const deleteTeamMessage = async (req, res) => {
+  console.log("Delete team msg")
   const { messageId } = req.params;
   try {
-    await TeamMessage.delete(messageId);
+    await TeamMessage.deletePermanent(messageId);
     res.json({ success: true });
   } catch (err) {
     console.error("Failed to delete message:", err);
