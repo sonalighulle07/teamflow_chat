@@ -59,18 +59,27 @@ const TeamMember = {
     );
     return result;
   },
+  // Get members of a specific team
+getMembers: async (team_id) => {
+  const [rows] = await db.query(
+    `SELECT 
+  t.id AS team_id,
+  t.name AS team_name,
+  u.id AS user_id,
+  u.username,
+  u.profile_image,
+  tm.role
+FROM team_members tm
+JOIN teams t ON tm.team_id = t.id
+JOIN users u ON tm.user_id = u.id
+WHERE t.id = 11;
 
-  // Get members of a team
-  getMembers: async (team_id) => {
-    const [rows] = await db.query(
-      `SELECT u.id, u.username, u.profile_image
-       FROM team_members tm
-       JOIN users u ON tm.user_id = u.id
-       WHERE tm.team_id = ?`,
-      [team_id]
-    );
-    return rows;
-  },
+`,
+    [team_id]
+  );
+  return rows;
+},
+
 };
 
 const TeamChat = {

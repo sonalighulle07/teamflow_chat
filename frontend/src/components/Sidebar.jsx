@@ -125,7 +125,6 @@ export default function Sidebar({ setSelectedTeam,setShowModal }) {
     { icon: <FaVideo />, label: "Meet" },
     { icon: <FaUsers />, label: "Communities" },
     { icon: <FaCalendar />, label: "Calendar" },
-    { icon: <FaBell />, label: "Activity" },
   ];
 
   return (
@@ -199,9 +198,9 @@ export default function Sidebar({ setSelectedTeam,setShowModal }) {
 
           {/* List */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            {loading && activeNav === "Chat" && (
+            {/* {loading && activeNav === "Chat" && (
               <p className="p-4 text-sm text-gray-500">Loading users…</p>
-            )}
+            )} */}
             {error && <p className="p-4 text-sm text-red-500">{error}</p>}
             {!loading && !error && (
               <UserList
@@ -227,7 +226,7 @@ export default function Sidebar({ setSelectedTeam,setShowModal }) {
         </div>
       )}
 
-      {activeNav === "Activity" && (
+      {/* {activeNav === "Activity" && (
         <div className="flex-1 flex flex-col overflow-y-auto">
           {activities.length === 0 ? (
             <p className="p-4 text-gray-500">No recent activity</p>
@@ -243,7 +242,7 @@ export default function Sidebar({ setSelectedTeam,setShowModal }) {
             ))
           )}
         </div>
-      )}
+      )} */}
     </div>
   );
 }

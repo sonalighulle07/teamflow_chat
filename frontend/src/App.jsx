@@ -111,7 +111,7 @@ function AppRoutes({
         path="/"
         element={
           !isAuthenticated ? (
-            <Navigate to="/login" replace />
+            <Navigate to="/login" replace/>
           ) : !currentUser ? (
             <div className="flex-1 flex items-center justify-center text-xl text-gray-600">
               Loading your account...
@@ -172,12 +172,6 @@ function AppRoutes({
                   {activeNav === "Calendar" && (
                     <div className="flex flex-col items-center justify-center h-full w-full">
                       <MyCalendar />
-                    </div>
-                  )}
-
-                  {activeNav === "Activity" && (
-                    <div className="flex items-center justify-center h-full text-gray-500 text-xl">
-                      🔔 Activity tab coming soon!
                     </div>
                   )}
 
