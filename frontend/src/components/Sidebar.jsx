@@ -15,6 +15,7 @@ import UserList from "./UserList";
 
 import { URL } from "../config";
 import { setActiveNav } from "../Store/Features/Users/userSlice";
+import { fetchTeams } from "../Store/Features/Teams/teamThunk";
 
 export default function Sidebar({ setSelectedTeam, setShowModal }) {
   const dispatch = useDispatch();
@@ -34,32 +35,35 @@ export default function Sidebar({ setSelectedTeam, setShowModal }) {
 
   // Fetch teams when "Communities" is active
   useEffect(() => {
-    console.log("Active Nav:", activeNav);
-    if (activeNav === "Communities" && currentUser?.id) {
-      const interval = setInterval(() => {
-        dispatch(fetchTeams());
-      }, 1000);
+    if (!currentUser?.id) return;
 
-      return () => clearInterval(interval);
-    }
     if (activeNav === "Chat") {
-      if (!currentUser) return;
-      dispatch(fetchUsers(currentUser.id));
+      dispatch(fetchUsers(currentUser.id)); // first fetch
 
       const interval = setInterval(() => {
-        dispatch(fetchUsers(currentUser.id));
-      }, 1000);
+        dispatch(fetchUsers(currentUser.id)); // refresh
+      }, 5000);
 
       return () => clearInterval(interval);
     }
-  }, [activeNav, currentUser, dispatch]);
+
+    if (activeNav === "Communities") {
+      dispatch(fetchTeams()); // initial fetch
+
+      const interval = setInterval(() => {
+        dispatch(fetchTeams()); // refresh
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }
+  }, [activeNav, currentUser?.id, dispatch]);
 
   const handleSelectUser = (item) => {
     dispatch(setSelectedUser(item));
     setSearchQuery("");
   };
 
-  // ✅ Add team click handler
+  //  Add team click handler
   const handleSelectTeam = async (team) => {
     setSelectedTeam(team); // set clicked team
 
@@ -209,9 +213,7 @@ export default function Sidebar({ setSelectedTeam, setShowModal }) {
                 teams={activeNav === "Communities" ? filteredTeams : []}
                 selectedUser={selectedUser}
                 onSelectUser={handleSelectUser}
-                onSelectTeam={handleSelectTeam} // ✅ pass to UserList
-                searchQuery={searchQuery}
-                setSelectedTeam={setSelectedTeam}
+                onSelectTeam={handleSelectTeam}
               />
             )}
             {!loading &&

@@ -17,7 +17,7 @@ const initialState = {
   currentUser: null,
   userList: [],
   selectedUser: null,
-  activeNav:'Calendar',
+  activeNav: "Chat",
   loading: false,
   error: null,
 };
@@ -47,17 +47,13 @@ const userSlice = createSlice({
     setSelectedUser: (state, action) => {
       state.selectedUser = action.payload;
     },
+
+    // ✅ Force UI update by creating a NEW array
     setUserList: (state, action) => {
-      const newList = action.payload || [];
-      const merged = newList.map((newUser) => {
-        const existing = state.userList.find((u) => u.id === newUser.id);
-        return existing && shallowEqual(existing, newUser)
-          ? existing
-          : { ...existing, ...newUser };
-      });
-      state.userList = merged;
+      state.userList = [...(action.payload || [])];
     },
   },
+
   extraReducers: (builder) => {
     builder
       .addCase(loginUser.pending, (state) => {
@@ -73,20 +69,15 @@ const userSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+
+      // ✅ Makes sure UI refreshes when fetchUsers runs
       .addCase(fetchUsers.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.loading = false;
-        const newList = action.payload || [];
-        const merged = newList.map((newUser) => {
-          const existing = state.userList.find((u) => u.id === newUser.id);
-          return existing && shallowEqual(existing, newUser)
-            ? existing
-            : { ...existing, ...newUser };
-        });
-        state.userList = merged;
+        state.userList = [...(action.payload || [])]; // ✅ IMPORTANT CHANGE
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
@@ -101,7 +92,7 @@ export const {
   rehydrateUser,
   setSelectedUser,
   setUserList,
-  setActiveNav
+  setActiveNav,
 } = userSlice.actions;
-export default userSlice.reducer;
 
+export default userSlice.reducer;

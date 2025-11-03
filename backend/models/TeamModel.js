@@ -92,7 +92,6 @@ const TeamChat = {
     return result;
   },
 };
-
 const TeamMessage = {
   // Insert team message (text or file)
   insert: async (senderId, teamId, text = "", fileUrl = null, type = "text", fileName = null) => {
@@ -105,13 +104,13 @@ const TeamMessage = {
     return { insertId: result.insertId };
   },
 
-  // Get message by ID
+  // Get single message
   getById: async (messageId) => {
     const [rows] = await db.query("SELECT * FROM team_messages WHERE id = ?", [messageId]);
     return rows[0];
   },
 
-  // Update message text
+  // ✅ Edit message text
   updateText: async (messageId, text) => {
     const [result] = await db.query(
       "UPDATE team_messages SET text = ?, edited = 1 WHERE id = ?",
@@ -120,13 +119,22 @@ const TeamMessage = {
     return result;
   },
 
-  // Delete message
-  delete: async (messageId) => {
+  // ✅ Soft Delete Message (Recommended)
+  softDelete: async (messageId) => {
+    const [result] = await db.query(
+      "UPDATE team_messages SET deleted = 1 WHERE id = ?",
+      [messageId]
+    );
+    return result;
+  },
+
+  // ✅ Hard Delete (if you want to remove from DB)
+  deletePermanent: async (messageId) => {
     const [result] = await db.query("DELETE FROM team_messages WHERE id = ?", [messageId]);
     return result;
   },
 
-  // Update message reactions
+  // ✅ Update reactions (like 👍❤️😢)
   updateReactions: async (messageId, reactions) => {
     const [result] = await db.query(
       "UPDATE team_messages SET reactions = ? WHERE id = ?",
