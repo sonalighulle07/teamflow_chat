@@ -57,6 +57,7 @@ export default function Message({
   const [editText, setEditText] = useState(message.text || "");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
 
   const audioRef = useRef(null);
@@ -159,6 +160,11 @@ export default function Message({
         part
       )
     );
+  };
+  const handleSave = () => {
+    if (editText.trim() === "") return;
+    onEdit({ ...message, text: editText }); // send updated text to parent
+    setIsEditing(false);
   };
 
   const handleDownload = (url, fileName) => {
@@ -576,6 +582,7 @@ export default function Message({
             <button
               className="px-3 py-1 bg-purple-600 text-white rounded"
               onClick={async () => {
+                handleSave();
                 try {
                   const token = sessionStorage.getItem("chatToken");
                   if (!token) return console.error("No token found");

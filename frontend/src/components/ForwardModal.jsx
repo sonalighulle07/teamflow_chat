@@ -1,4 +1,4 @@
-import  { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 
 export default function ForwardModal({
@@ -9,7 +9,7 @@ export default function ForwardModal({
   currentUserId,
 }) {
   const [selectedUserIds, setSelectedUserIds] = useState([]);
-  const { userList } = useSelector((state)=>state.user)
+  const { userList } = useSelector((state) => state.user);
 
   useEffect(() => {
     if (!open) setSelectedUserIds([]);

@@ -179,7 +179,6 @@ export default function TeamChat({ currentUser }) {
 
   // --- Edit message (team) ---
   const handleEdit = async (updatedMsg) => {
-    // updatedMsg should include id and new text
     if (!updatedMsg?.id) return;
     try {
       const res = await fetch(
@@ -197,7 +196,7 @@ export default function TeamChat({ currentUser }) {
         console.error("Edit failed:", await res.text());
         return;
       }
-      // optimistic update (server will also emit messageEdited)
+      // optimistic update
       setMessages((prev) =>
         prev.map((m) =>
           m.id === updatedMsg.id
@@ -206,7 +205,6 @@ export default function TeamChat({ currentUser }) {
         )
       );
 
-      // emit socket event so others update
       socketRef.current?.emit("messageEdited", {
         ...updatedMsg,
         team_id: selectedTeam.id,
@@ -305,7 +303,7 @@ export default function TeamChat({ currentUser }) {
                     onEdit={handleEdit} // <<< pass edit handler
                     onDelete={handleDelete} // <<< pass delete handler
                     onReact={async (messageId, emoji) => {
-                      // optional: call route to update reaction similar to ChatWindow
+                     
                       try {
                         await fetch(
                           `${URL}/api/teams/messages/${messageId}/react`,
