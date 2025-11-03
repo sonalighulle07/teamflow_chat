@@ -36,6 +36,7 @@ export default function Header({
     }
   }, [activeUser]);
 
+  // Focus search input when opened
   useEffect(() => {
     if (showSearch && searchInputRef.current) searchInputRef.current.focus();
   }, [showSearch]);
@@ -47,12 +48,12 @@ export default function Header({
 
   const logout = () => {
     sessionStorage.clear();
-    localStorage.removeItem("profileImage");
+    localStorage.removeItem(`profileImage_${activeUser?.id}`);
     setIsAuthenticated(false);
     navigate("/");
   };
 
-  // Determine display name and image
+  // Determine display name and profile image
   const displayName = selectedTeam
     ? selectedTeam.name
     : selectedUser
@@ -64,13 +65,13 @@ export default function Header({
       ? `${URL}${selectedUser.profile_image}`
       : null;
 
-  // Disable call buttons if no user or team selected, or if a team is selected
+  // Enable call buttons only if a user is selected and not a team
   const canCall = selectedUser && !selectedTeam;
 
   return (
     <>
       <div className="flex items-center justify-between px-4 py-2 pt-[20px] bg-slate-200 shadow-md border-b border-gray-200">
-        {/* Left */}
+        {/* Left Section */}
         <div className="flex items-center gap-4 ml-[5px]">
           <img
             src="/logo - no background.png"
@@ -92,23 +93,22 @@ export default function Header({
                 {displayName?.[0] || "?"}
               </div>
             )}
-
             <span className="text-gray-600 font-medium text-[15px] truncate max-w-[120px]">
               {displayName}
             </span>
           </div>
         </div>
 
-        {/* Right */}
+        {/* Right Section */}
         <div className="flex items-center gap-3">
           {/* Audio Call */}
           <button
-            className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm transform rotate-45"
+            className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
             title="Audio Call"
             disabled={!canCall}
             onClick={() => onStartCall("audio", selectedUser)}
           >
-            <FaPhone style={{ transform: "rotate(45deg)" }} size={15} />
+            <FaPhone size={15} />
           </button>
 
           {/* Video Call */}
@@ -178,6 +178,7 @@ export default function Header({
         </div>
       </div>
 
+      {/* Profile Modal */}
       {showProfileModal && activeUser && (
         <ErrorBoundary>
           <ProfileModal
@@ -186,8 +187,9 @@ export default function Header({
             onLogout={logout}
             setProfileImage={(img) => {
               setProfileImage(img);
-              if (img) localStorage.setItem("profileImage", img);
-              else localStorage.removeItem("profileImage");
+              if (img)
+                localStorage.setItem(`profileImage_${activeUser.id}`, img);
+              else localStorage.removeItem(`profileImage_${activeUser.id}`);
             }}
             setIsAuthenticated={setIsAuthenticated}
           />

@@ -111,7 +111,7 @@ function AppRoutes({
         path="/"
         element={
           !isAuthenticated ? (
-            <Navigate to="/login" replace/>
+            <Navigate to="/login" replace />
           ) : !currentUser ? (
             <div className="flex-1 flex items-center justify-center text-xl text-gray-600">
               Loading your account...
@@ -151,7 +151,11 @@ function AppRoutes({
                   )}
 
                   {activeNav === "Communities" && (
-                    <TeamChat team={selectedTeam} currentUser={currentUser} />
+                    <TeamChat
+                      team={selectedTeam}
+                      currentUser={currentUser}
+                      searchQuery={searchQuery} // <-- add this
+                    />
                   )}
 
                   {activeNav === "Meet" && (

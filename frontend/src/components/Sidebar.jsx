@@ -193,7 +193,7 @@ export default function Sidebar({ setSelectedTeam, setShowModal }) {
             {activeNav === "Communities" && (
               <button
                 onClick={() => setShowModal(true)}
-                className="mt-2 w-full bg-blue-600 text-white py-1.5 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                className="mt-2 w-full bg-blue-400 text-white py-1.5 rounded-lg hover:bg-blue-700 transition-colors text-sm"
               >
                 + Create Team
               </button>

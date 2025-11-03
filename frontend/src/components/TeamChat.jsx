@@ -9,7 +9,7 @@ import axios from "axios";
 import { useDispatch } from "react-redux";
 import { fetchTeamMembers } from "../Store/Features/Teams/teamThunk";
 import { useSelector } from "react-redux";
-
+import Header from "./Header";
 export default function TeamChat({ currentUser }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -20,10 +20,15 @@ export default function TeamChat({ currentUser }) {
   const [deleteAlert, setDeleteAlert] = useState("");
   const [forwardAlert, setForwardAlert] = useState("");
   const token = sessionStorage.getItem("chatToken");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const messageRefs = useRef({});
+  const formatDate = (dateString) => {
+    const options = { year: "numeric", month: "short", day: "numeric" };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  };
 
   const dispatch = useDispatch();
   const selectedTeamMembers = useSelector(
@@ -118,6 +123,25 @@ export default function TeamChat({ currentUser }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+  useEffect(() => {
+    if (!searchQuery) return;
+
+    const query = searchQuery.toLowerCase();
+    for (let key in messageRefs.current) {
+      const msg = messages.find((m) => m.id === Number(key));
+      if (!msg) continue;
+
+      const text = msg.text || "";
+      if (text.toLowerCase().includes(query)) {
+        // scroll to first matched message
+        messageRefs.current[key]?.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        break; // scroll to first match only
+      }
+    }
+  }, [searchQuery, messages]);
 
   // --- File handling ---
   const handleFileChange = (e) => {
@@ -177,12 +201,54 @@ export default function TeamChat({ currentUser }) {
       console.error("Error sending message:", err);
     }
   };
+  const highlightText = (text, query) => {
+    if (!query) return text;
+    const regex = new RegExp(`(${query})`, "gi");
+    return text.split(regex).map((part, i) =>
+      regex.test(part) ? (
+        <mark key={i} className="bg-yellow-200">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  };
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const formatMessageDate = (rawDate) => {
+    if (!rawDate) return "";
+    const date = new Date(rawDate);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    // Compare only the dates (ignore time)
+    const isToday =
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate();
+
+    const isYesterday =
+      date.getFullYear() === yesterday.getFullYear() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getDate() === yesterday.getDate();
+
+    if (isToday) return "Today";
+    if (isYesterday) return "Yesterday";
+
+    // Otherwise show short date like 'Oct 16, 2025'
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   // --- Edit message (team) ---
@@ -293,67 +359,90 @@ export default function TeamChat({ currentUser }) {
       <div className="flex-1 p-4 bg-gray-50 overflow-y-auto border border-gray-300 rounded-lg shadow-md">
         {selectedTeam ? (
           messages.length > 0 ? (
-            messages.map((msg, index) => {
-              const key = msg.id || index;
-              messageRefs.current[key] =
-                messageRefs.current[key] || React.createRef();
-              return (
-                <div
-                  key={key}
-                  ref={messageRefs.current[key]}
-                  className="flex flex-col items-start gap-1"
-                >
-                  <Message
-                    message={{
-                      ...msg,
-                      username: msg.sender_id !== currentUser.id 
-                        ? selectedTeamMembers?.find(u => Number(u.user_id) === Number(msg.sender_id))?.username 
-                        : undefined
-                    }}
-                    isOwn={msg.sender_id === currentUser.id}
-                    socket={socketRef.current}
-                    onForward={(m) => setForwardMsg(m)}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onReact={async (messageId, emoji) => {
-                     
-                      try {
-                        await fetch(
-                          `${URL}/api/teams/messages/${messageId}/react`,
-                          {
-                            method: "POST",
-                            headers: {
-                              "Content-Type": "application/json",
-                              Authorization: `Bearer ${token}`,
-                            },
-                            body: JSON.stringify({ emoji }),
+            (() => {
+              let lastDate = null; // track last message date
+              return messages.map((msg, index) => {
+                const key = msg.id || index;
+                messageRefs.current[key] =
+                  messageRefs.current[key] || React.createRef();
+
+                const rawDate = msg.createdAt || msg.timestamp || msg.date;
+                const messageDate = rawDate ? new Date(rawDate) : new Date();
+
+                // Change this line
+                const messageDateStr = messageDate.toDateString(); // Mon Nov 03 2025
+
+                const showDateSeparator = lastDate !== messageDateStr;
+                lastDate = messageDateStr;
+
+                return (
+                  <React.Fragment key={key}>
+                    {showDateSeparator && (
+                      <div className="w-full flex justify-center my-4">
+                        <span className="text-gray-500  py-1 rounded-full text-xs  select-none">
+                          {messageDateStr}
+                        </span>
+                      </div>
+                    )}
+
+                    <div
+                      ref={messageRefs.current[key]}
+                      className="flex flex-col items-start gap-1"
+                    >
+                      <Message
+                        message={{
+                          ...msg,
+                          text: highlightText(msg.text, searchQuery), // <-- highlight applied
+                          username:
+                            msg.sender_id !== currentUser.id
+                              ? selectedTeamMembers?.find(
+                                  (u) =>
+                                    Number(u.user_id) === Number(msg.sender_id)
+                                )?.username
+                              : undefined,
+                        }}
+                        isOwn={msg.sender_id === currentUser.id}
+                        socket={socketRef.current}
+                        onForward={(m) => setForwardMsg(m)}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onReact={async (messageId, emoji) => {
+                          try {
+                            await fetch(
+                              `${URL}/api/teams/messages/${messageId}/react`,
+                              {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  Authorization: `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({ emoji }),
+                              }
+                            );
+                            // update local reactions (optimistic)
+                            setMessages((prev) =>
+                              prev.map((m) =>
+                                m.id === messageId
+                                  ? { ...m, reactions: m.reactions || null }
+                                  : m
+                              )
+                            );
+                            socketRef.current?.emit("reaction", {
+                              messageId,
+                              teamId: selectedTeam.id,
+                              emoji,
+                              userId: currentUser.id,
+                            });
+                          } catch (err) {
+                            console.error("Reaction error:", err);
                           }
-                        );
-                        // update local reactions (optimistic)
-                        setMessages((prev) =>
-                          prev.map((m) =>
-                            m.id === messageId
-                              ? {
-                                  ...m,
-                                  reactions: m.reactions ? m.reactions : null,
-                                }
-                              : m
-                          )
-                        );
-                        socketRef.current?.emit("reaction", {
-                          messageId,
-                          teamId: selectedTeam.id,
-                          emoji,
-                          userId: currentUser.id,
-                        });
-                      } catch (err) {
-                        console.error("Reaction error:", err);
-                      }
-                    }}
-                  />
-                </div>
-              );
-            })
+                        }}
+                      />
+                    </div>
+                  </React.Fragment>
+                );
+              });
+            })()
           ) : (
             <div className="text-center text-gray-400 mt-10">
               No messages yet
@@ -401,7 +490,7 @@ export default function TeamChat({ currentUser }) {
           </div>
         )}
 
-        <div className="flex items-center gap-2 relative bg-white px-3 py-1 rounded-full border border-gray-300 shadow-sm">
+        <div className="flex items-center gap-2 relative bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
           <input
             type="text"
             placeholder={
@@ -411,26 +500,51 @@ export default function TeamChat({ currentUser }) {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyPress}
             disabled={!selectedTeam}
-            className="flex-1 bg-transparent px-2 py-1 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-gray-400 disabled:cursor-not-allowed"
+            className="flex-1 bg-transparent px-3 py-1 border-0 border-b-2 border-transparent focus:outline-none focus:ring-0 placeholder-gray-400
+    focus:border-transparent focus:bg-gradient-to-r focus:from-purple-400 focus:to-purple-600 focus:[background-position:0_100%] focus:[background-size:100%_2px] focus:[background-repeat:no-repeat] rounded-full"
           />
 
-          {/* Emoji */}
-          <button
-            type="button"
-            onClick={() => setShowEmoji((prev) => !prev)}
-            className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-purple-200 transition-colors bg-purple-100"
-          >
-            😀
-          </button>
-          {showEmoji && (
-            <div className="absolute bottom-14 right-12 z-50">
-              <Picker onEmojiClick={onEmojiClick} />
-            </div>
-          )}
+          {/* Emoji Picker */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmoji((prev) => !prev)}
+              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-purple-100 transition-all duration-200"
+              title="Emoji"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-6 h-6 text-gray-500 hover:text-purple-700"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M12 20c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z"
+                />
+              </svg>
+            </button>
+
+            {showEmoji && (
+              <div className="absolute bottom-14 right-0 z-30 transform scale-90 origin-bottom-right transition-all duration-200">
+                <div className="rounded-xl shadow-lg border border-gray-200 bg-white/95 backdrop-blur-md">
+                  <Picker
+                    onEmojiClick={onEmojiClick}
+                    theme="light"
+                    width={260}
+                    height={320}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* File upload */}
-          <label className="relative flex items-center justify-center w-12 h-12 bg-purple-100 text-purple-600 rounded-full cursor-pointer hover:bg-purple-200 transition">
-            <PaperClipIcon className="w-6 h-6" />
+          <label className="relative flex items-center justify-center w-7 h-7 rounded-full cursor-pointer hover:bg-purple-100 transition">
+            <PaperClipIcon className="w-5 h-5 text-gray-600 hover:text-purple-700" />
             <input
               type="file"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -438,15 +552,15 @@ export default function TeamChat({ currentUser }) {
             />
           </label>
 
-          {/* Send */}
+          {/* Send Button */}
           <button
             onClick={handleSend}
             disabled={!selectedTeam}
-            className="flex items-center justify-center p-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="flex items-center justify-center p-[4px] bg-white text-purple-600 rounded-full hover:bg-purple-100 transition disabled:cursor-not-allowed"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
+              className="h-5 w-5 text-gray-500 hover:text-purple-700"
               viewBox="0 0 24 24"
               fill="currentColor"
             >
