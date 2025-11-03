@@ -29,19 +29,19 @@ const {
 
 router.get("/all", authenticateToken, getAllTeams);
 router.get("/", authenticateToken, getUserTeams);
-router.get("/:id", authenticateToken, checkTeamMember, getTeamById);
+router.get("/:teamId", authenticateToken, checkTeamMember, getTeamById);
 router.post("/", authenticateToken, createTeam);
-router.put("/:id", authenticateToken, checkTeamMember, updateTeam);
-router.delete("/:id", authenticateToken, checkTeamMember, deleteTeam);
-router.post("/:id/members", authenticateToken, checkTeamMember, addTeamMember);
-router.get("/:id/members", authenticateToken, checkTeamMember, getTeamMembers);
+router.put("/:teamId", authenticateToken, checkTeamMember, updateTeam);
+router.delete("/:teamId", authenticateToken, checkTeamMember, deleteTeam);
+router.post("/:teamId/members", authenticateToken, checkTeamMember, addTeamMember);
+router.get("/:teamId/members", authenticateToken, checkTeamMember, getTeamMembers);
 
 // -----------------------
 // Team Chat Routes
 // -----------------------
 
-router.get("/:id/messages", authenticateToken, checkTeamMember, getTeamMessages);
-router.post("/:id/messages",
+router.get("/:teamId/messages", authenticateToken, checkTeamMember, getTeamMessages);
+router.post("/:teamId/messages",
   authenticateToken,
   checkTeamMember,
   uploadMiddleware.single("file"),

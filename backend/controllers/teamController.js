@@ -37,9 +37,9 @@ const getUserTeams = async (req, res) => {
 // -----------------------
 const getTeamById = async (req, res) => {
   console.log("getTeamById called with params:", req.params);
-  const { id } = req.params;
+  const { teamId } = req.params;
   try {
-    const [team] = await Team.getById(id);
+    const [team] = await Team.getById(teamId);
     if (!team.length) return res.status(404).json({ error: "Team not found" });
     res.json(team[0]);
   } catch (err) {
@@ -77,13 +77,13 @@ const createTeam = async (req, res) => {
 // UPDATE a team
 // -----------------------
 const updateTeam = async (req, res) => {
-  const { id } = req.params;
+  const { teamId } = req.params;
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: "Team name is required" });
 
   try {
-    await Team.update(id, name);
-    res.json({ id, name });
+    await Team.update(teamId, name);
+    res.json({ teamId, name });
   } catch (err) {
     console.error("Failed to update team:", err);
     res.status(500).json({ error: "Failed to update team" });
@@ -94,9 +94,9 @@ const updateTeam = async (req, res) => {
 // DELETE a team
 // -----------------------
 const deleteTeam = async (req, res) => {
-  const { id } = req.params;
+  const { teamId } = req.params;
   try {
-    await Team.delete(id);
+    await Team.delete(teamId);
     res.json({ success: true });
   } catch (err) {
     console.error("Failed to delete team:", err);
@@ -108,12 +108,12 @@ const deleteTeam = async (req, res) => {
 // ADD member to a team
 // -----------------------
 const addTeamMember = async (req, res) => {
-  const { id } = req.params;
+  const { teamId } = req.params;
   const { user_id } = req.body;
   if (!user_id) return res.status(400).json({ error: "User ID is required" });
 
   try {
-    await TeamMember.add(id, user_id);
+    await TeamMember.add(teamId, user_id);
     res.json({ success: true });
   } catch (err) {
     console.error("Failed to add member:", err);
@@ -125,12 +125,12 @@ const addTeamMember = async (req, res) => {
 // GET members of a team
 // -----------------------
 const getTeamMembers = async (req, res) => {
-  const { id } = req.params;
-  console.log("getTeamMembers called with team ID:", id);
+  const { teamId } = req.params;
+  console.log("getTeamMembers called with team ID:", teamId);
   try {
-    const members = await TeamMember.getMembers(id);
+    const members = await TeamMember.getMembers(teamId);
     
-    console.log("Fetched team members:", [members]);
+    console.log("Fetched team members:", members);
     res.json(members);
   } catch (err) {
     console.error("Failed to fetch team members:", err);
@@ -142,11 +142,11 @@ const getTeamMembers = async (req, res) => {
 // GET team messages
 // -----------------------
 const getTeamMessages = async (req, res) => {
-  const { id } = req.params;
+  const { teamId } = req.params;
   try {
     const [messages] = await db.query(
       "SELECT * FROM team_messages WHERE team_id = ? ORDER BY created_at ASC",
-      [id]
+      [teamId]
     );
     res.json(messages);
   } catch (err) {
@@ -159,7 +159,7 @@ const getTeamMessages = async (req, res) => {
 // SEND team message (with file support)
 // -----------------------
 const sendTeamMessage = async (req, res) => {
-  const teamId = req.params.id;           // team ID from URL
+  const teamId = req.params.teamId;           // team ID from URL
   const senderId = req.user?.id;          // user ID from auth middleware
   const { text, type } = req.body;        // message text and type
   const file = req.file;                  // file from upload middleware

@@ -38,7 +38,6 @@ export const fetchTeamMembers = createAsyncThunk(
         console.warn("No selected team found in state");
         return [];
       }
-
       const res = await axios.get(`${URL}/api/teams/${selectedTeam.id}/members`, {
         headers: { Authorization: `Bearer ${token}` },
       });
