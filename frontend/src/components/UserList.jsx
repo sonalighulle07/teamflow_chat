@@ -1,7 +1,6 @@
-import React, { memo, useMemo, useRef, useEffect } from "react";
-import { useSelector } from "react-redux";
+import React, { memo, useMemo, useRef, useEffect, forwardRef } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import { setSelectedTeam } from "../Store/Features/Teams/teamSlice";
-import { useDispatch } from "react-redux";
 
 // Utility to get initials
 function getInitials(name) {
@@ -10,37 +9,43 @@ function getInitials(name) {
   return (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
 }
 
-// Memoized UserItem component
+// Memoized UserItem component with forwardRef
 const UserItem = memo(
-  ({ item, isSelected, onClick, searchQuery }) => {
+  forwardRef(({ item, isSelected, onClick, searchQuery }, ref) => {
     const name = item.type === "user" ? item.username || "" : item.name || "";
 
-    // Highlight search match
+    // Highlight search match in yellow
     const highlightMatch = (text) => {
-      if (!searchQuery) return text;
-      const regex = new RegExp(`(${searchQuery})`, "gi");
-      const parts = text.split(regex);
-      return parts.map((part, idx) =>
-        regex.test(part) ? (
-          <span key={idx} className="bg-sky-300 text-black px-1 rounded">
-            {part}
-          </span>
-        ) : (
-          <span key={idx}>{part}</span>
-        )
-      );
-    };
+  if (!searchQuery) return text;
+
+  const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${escapedQuery})`, "gi");
+
+  const parts = text.split(regex);
+
+  return parts.map((part, idx) =>
+    regex.test(part) ? (
+      <span key={idx} className="bg-yellow-300 text-black px-1 rounded">
+        {part}
+      </span>
+    ) : (
+      <span key={idx}>{part}</span>
+    )
+  );
+};
+
 
     const hasActivity = item.recentActivity && !item.recentActivity.read_status;
 
     return (
       <li
+        ref={ref}
         onClick={() => onClick(item)}
-        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1  text-gray-400 text-[14px]
-        ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
+        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1 text-gray-400 text-[14px]
+          ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
       >
         <div
-          className={`w-9 h-9 text-center ml-[15px]  rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-white overflow-hidden relative ${
+          className={`w-9 h-9 text-center ml-[15px] rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-white overflow-hidden relative ${
             isSelected
               ? "bg-green-600 text-[11px]"
               : item.type === "user"
@@ -58,7 +63,7 @@ const UserItem = memo(
             getInitials(name)
           )}
           {hasActivity && (
-            <span className="absolute top-0 right-0 w-3  h-3 rounded-full bg-green-500 border-2 border-white  "></span>
+            <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-white"></span>
           )}
         </div>
 
@@ -74,7 +79,7 @@ const UserItem = memo(
         </div>
       </li>
     );
-  }
+  })
 );
 
 export default function UserList({
@@ -82,22 +87,19 @@ export default function UserList({
   teams = [],
   onSelectUser,
   searchQuery = "",
-  selectedUser
+  selectedUser,
 }) {
-
-  // const {activeNav} = useSelector((state) => state.user);
-
   const dispatch = useDispatch();
 
   const listRef = useRef(null);
   const itemRefs = useRef({});
 
-  const handleSelect = (item) =>{
+  const handleSelect = (item) => {
     if (item.type === "user") {
       onSelectUser(item);
-      dispatch(setSelectedTeam(null)); // Clear selected team when selecting a user
+      dispatch(setSelectedTeam(null)); // Clear selected team
     } else if (item.type === "team") {
-      onSelectUser(null); // Clear selected user when selecting a team
+      onSelectUser(null); // Clear selected user
       dispatch(setSelectedTeam(item));
     }
   };
@@ -117,24 +119,25 @@ export default function UserList({
       ].filter(Boolean);
     }
 
-    return allItems; // Ensure always an array
+    return allItems;
   }, [users, teams, selectedUser]);
 
   // Scroll to first search match
   useEffect(() => {
     if (!searchQuery) return;
-    const firstMatch = displayedItems.find(
+    const firstMatch = [...users, ...teams].find(
       (item) =>
         item.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
     if (firstMatch && firstMatch.id && itemRefs.current[firstMatch.id]) {
       itemRefs.current[firstMatch.id].scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
     }
-  }, [searchQuery, displayedItems]);
+  }, [searchQuery, users, teams]);
 
   if (!displayedItems || !displayedItems.length) {
     return (

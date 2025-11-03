@@ -208,9 +208,10 @@ export default function Sidebar({ setSelectedTeam, setShowModal }) {
             {error && <p className="p-4 text-sm text-red-500">{error}</p>}
             {!loading && !error && (
               <UserList
-                users={activeNav === "Chat" ? filteredUsers : []}
-                teams={activeNav === "Communities" ? filteredTeams : []}
+                users={activeNav === "Chat" ? userList : []} // FULL user list
+                teams={activeNav === "Communities" ? teamList : []} // FULL team list
                 selectedUser={selectedUser}
+                searchQuery={searchQuery} // Pass search query
                 onSelectUser={handleSelectUser}
                 onSelectTeam={handleSelectTeam}
               />

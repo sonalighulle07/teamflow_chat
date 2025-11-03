@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaUserCog, FaSearch, FaPhone, FaVideo } from "react-icons/fa";
+import { FaSearch, FaPhone, FaVideo } from "react-icons/fa";
 import { useSelector } from "react-redux";
 import ProfileModal from "./ProfileModal";
 import ErrorBoundary from "./ErrorBoundary";
@@ -19,6 +19,7 @@ export default function Header({
 
   const searchInputRef = useRef(null);
   const { selectedUser } = useSelector((state) => state.user);
+  const { selectedTeam } = useSelector((state) => state.team);
 
   const username = activeUser?.username || "Guest";
 
@@ -26,8 +27,8 @@ export default function Header({
     () => localStorage.getItem(`profileImage_${activeUser?.id}`) || null
   );
 
+  // Update profile image when activeUser changes
   useEffect(() => {
-    console.log("Username:", username);
     if (activeUser?.profile_image) {
       const imgUrl = `${URL}${activeUser.profile_image}`;
       setProfileImage(imgUrl);
@@ -51,9 +52,24 @@ export default function Header({
     navigate("/");
   };
 
+  // Determine display name and image
+  const displayName = selectedTeam
+    ? selectedTeam.name
+    : selectedUser
+    ? selectedUser.username
+    : "Select a chat";
+
+  const displayProfileImage =
+    selectedUser && !selectedTeam && selectedUser.profile_image
+      ? `${URL}${selectedUser.profile_image}`
+      : null;
+
+  // Disable call buttons if no user or team selected, or if a team is selected
+  const canCall = selectedUser && !selectedTeam;
+
   return (
     <>
-      <div className="flex items-center justify-between px-4 py-2 pt-[20px] bg-slate-200  shadow-md border-b border-gray-200   ">
+      <div className="flex items-center justify-between px-4 py-2 pt-[20px] bg-slate-200 shadow-md border-b border-gray-200">
         {/* Left */}
         <div className="flex items-center gap-4 ml-[5px]">
           <img
@@ -63,28 +79,22 @@ export default function Header({
           />
           <h2 className="font-bold text-gray-600 text-[15px]">Chat</h2>
 
-          {/* Selected user pill */}
+          {/* Selected user/team pill */}
           <div className="flex items-center gap-2 ml-[170px]">
-            {selectedUser ? (
-              selectedUser.profile_image ? (
-                <img
-                  src={`${URL}${selectedUser.profile_image}`}
-                  alt={selectedUser.username}
-                  className="w-8 h-8 rounded-full object-cover border border-gray-300"
-                />
-              ) : (
-                <div className="w-8 h-8 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold uppercase">
-                  {selectedUser?.username?.[0] || "?"}
-                </div>
-              )
+            {displayProfileImage ? (
+              <img
+                src={displayProfileImage}
+                alt={displayName}
+                className="w-8 h-8 rounded-full object-cover border border-gray-300"
+              />
             ) : (
-              <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-xs text-white font-semibold">
-                ?
+              <div className="w-8 h-8 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold uppercase">
+                {displayName?.[0] || "?"}
               </div>
             )}
 
             <span className="text-gray-600 font-medium text-[15px] truncate max-w-[120px]">
-              {selectedUser ? selectedUser.username : "Select a chat"}
+              {displayName}
             </span>
           </div>
         </div>
@@ -95,7 +105,7 @@ export default function Header({
           <button
             className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm transform rotate-45"
             title="Audio Call"
-            disabled={!selectedUser}
+            disabled={!canCall}
             onClick={() => onStartCall("audio", selectedUser)}
           >
             <FaPhone style={{ transform: "rotate(45deg)" }} size={15} />
@@ -105,7 +115,7 @@ export default function Header({
           <button
             className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
             title="Video Call"
-            disabled={!selectedUser}
+            disabled={!canCall}
             onClick={() => onStartCall("video", selectedUser)}
           >
             <FaVideo />
@@ -143,14 +153,6 @@ export default function Header({
               </div>
             )}
           </div>
-
-          {/* Manage Group */}
-          <button
-            className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition-all duration-200 shadow-sm"
-            title="Manage Group"
-          >
-            <FaUserCog />
-          </button>
 
           {/* Profile Avatar */}
           <div

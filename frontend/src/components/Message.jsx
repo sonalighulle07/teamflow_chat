@@ -492,8 +492,9 @@ export default function Message({
                     {isOwn && (
                       <button
                         className="flex items-center gap-2 px-3 py-1.5 text-red-600 hover:bg-red-50 transition-all duration-150"
-                        onClick={() => {
-                          onDelete?.(message.id);
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete?.(message.id); // ✅ use the prop function
                           setMenuOpen(false);
                         }}
                       >
