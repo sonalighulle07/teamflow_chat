@@ -558,16 +558,21 @@ export default function Message({
         )}
       </div>
 
-      <span
-        className={`text-xs text-gray-400 mt-1 ${
+      <div
+        className={`flex items-center gap-2 text-xs text-gray-400 mt-1 ${
           isOwn ? "self-end" : "self-start"
         }`}
       >
-        {new Date(message.created_at || message.timestamp).toLocaleTimeString(
-          [],
-          { hour: "2-digit", minute: "2-digit" }
+        {!isOwn && message.username && (
+          <span className="font-medium text-gray-600">{message.username}</span>
         )}
-      </span>
+        <span>
+          {new Date(message.created_at || message.timestamp).toLocaleTimeString(
+            [],
+            { hour: "2-digit", minute: "2-digit" }
+          )}
+        </span>
+      </div>
 
       {/* Editing UI */}
       {isEditing && (
