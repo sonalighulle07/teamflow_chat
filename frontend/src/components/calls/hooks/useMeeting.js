@@ -11,6 +11,12 @@ export function useMeeting(userId, roomCode) {
 
   const peerMap = useRef(new Map());
   const hasJoinedRef = useRef(false);
+  const localStreamRef = useRef(null);
+
+  const updateLocalStream = (s) => {
+    localStreamRef.current = s;
+    setLocalStream(s);
+  };
 
   async function joinMeeting({ micEnabled = true, camEnabled = true } = {}) {
     if (hasJoinedRef.current) return;
@@ -39,7 +45,9 @@ export function useMeeting(userId, roomCode) {
       stream = new MediaStream();
     }
 
-    setLocalStream(new MediaStream(stream.getTracks())); // ensure new instance
+  // ensure new MediaStream instance and keep a ref to the latest stream
+  const initialStream = new MediaStream(stream.getTracks());
+  updateLocalStream(initialStream);
     setIsMuted(!micEnabled);
     setIsVideoEnabled(!!camEnabled);
 
@@ -47,7 +55,7 @@ export function useMeeting(userId, roomCode) {
     socket.off("existingUsers").on("existingUsers", ({ users }) => {
       users.forEach((remoteId) => {
         if (!peerMap.current.has(remoteId)) {
-          const peer = createPeer(remoteId, stream, true);
+          const peer = createPeer(remoteId, true);
           peerMap.current.set(remoteId, peer);
         }
       });
@@ -57,7 +65,7 @@ export function useMeeting(userId, roomCode) {
       .off("userJoined")
       .on("userJoined", ({ userId: remoteId, username: remoteUsername }) => {
         if (!peerMap.current.has(remoteId)) {
-          const peer = createPeer(remoteId, stream, false);
+          const peer = createPeer(remoteId, false);
           peerMap.current.set(remoteId, peer);
         }
 
@@ -71,7 +79,7 @@ export function useMeeting(userId, roomCode) {
     socket.off("offer").on("offer", async ({ from, offer }) => {
       let peer = peerMap.current.get(from);
       if (!peer) {
-        peer = createPeer(from, stream, false);
+        peer = createPeer(from, false);
         peerMap.current.set(from, peer);
       }
       await peer.setRemoteDescription(new RTCSessionDescription(offer));
@@ -117,13 +125,20 @@ export function useMeeting(userId, roomCode) {
     socket.emit("joinRoom", { userId, username, roomCode });
   }
 
-  function createPeer(remoteId, stream, initiator) {
+  function createPeer(remoteId, initiator) {
     const peer = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
 
     // add tracks that exist at the moment of peer creation
-    stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+    const s = localStreamRef.current || new MediaStream();
+    s.getTracks().forEach((track) => {
+      try {
+        peer.addTrack(track, s);
+      } catch (err) {
+        console.warn("addTrack failed for peer", remoteId, err);
+      }
+    });
 
     peer.onicecandidate = (e) => {
       if (e.candidate) socket.emit("iceCandidate", { to: remoteId, candidate: e.candidate });
@@ -136,9 +151,13 @@ export function useMeeting(userId, roomCode) {
 
     if (initiator)
       (async () => {
-        const offer = await peer.createOffer();
-        await peer.setLocalDescription(offer);
-        socket.emit("offer", { to: remoteId, offer });
+        try {
+          const offer = await peer.createOffer();
+          await peer.setLocalDescription(offer);
+          socket.emit("offer", { to: remoteId, offer });
+        } catch (err) {
+          console.error("Failed to create/send offer", err);
+        }
       })();
 
     return peer;
@@ -165,8 +184,8 @@ export function useMeeting(userId, roomCode) {
     peerMap.current.clear();
     setPeers(new Map());
 
-    if (localStream) localStream.getTracks().forEach((t) => t.stop());
-    setLocalStream(null);
+  if (localStream) localStream.getTracks().forEach((t) => t.stop());
+  updateLocalStream(null);
 
     try {
       sessionStorage.removeItem(`joined_${roomCode}_${userId}`);
@@ -200,7 +219,7 @@ export function useMeeting(userId, roomCode) {
         }
       });
 
-      setLocalStream(newStream);
+  updateLocalStream(newStream);
       setIsVideoEnabled(false);
       sessionStorage.setItem("cameraOn", "false");
     } else {
@@ -234,7 +253,7 @@ export function useMeeting(userId, roomCode) {
           }
         });
 
-        setLocalStream(newStream); // IMPORTANT: update state with new object
+  updateLocalStream(newStream); // IMPORTANT: update state with new object
         setIsVideoEnabled(true);
         sessionStorage.setItem("cameraOn", "true");
       } catch (err) {
@@ -279,7 +298,7 @@ export function useMeeting(userId, roomCode) {
         ...localStream.getAudioTracks(),
         screenTrack,
       ]);
-      setLocalStream(newStream);
+  updateLocalStream(newStream);
 
       screenTrack.onended = () => {
         stopScreenShare();
@@ -317,7 +336,7 @@ export function useMeeting(userId, roomCode) {
         }
       });
 
-      setLocalStream(newStream);
+  updateLocalStream(newStream);
       setIsScreenSharing(false);
       setIsVideoEnabled(true);
     } catch (err) {
