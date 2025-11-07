@@ -30,7 +30,7 @@ export default function ChatWindow({
   const socketRef = useRef(null);
   const messageRefs = useRef({});
 
-  // Reset messageRefs when conversation changes
+  // Reset messageRefs when conversation 
   useEffect(() => {
     messageRefs.current = {};
   }, [selectedUser, selectedTeam]);
@@ -53,7 +53,7 @@ export default function ChatWindow({
   };
 
   // Initialize Socket.IO
-  // single socket init -- put this once in your component
+  // single socket init -- 
   useEffect(() => {
     const socket = io(URL);
     socketRef.current = socket;
@@ -272,7 +272,7 @@ export default function ChatWindow({
           block: "center",
         });
       }
-    }, 300); // delay to allow render
+    }, 300); 
 
     return () => clearTimeout(timer);
   }, [searchQuery, filteredMessages]);

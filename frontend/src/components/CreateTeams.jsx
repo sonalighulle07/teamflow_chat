@@ -79,7 +79,7 @@ export default function CreateTeam({ currentUser, showModal, setShowModal }) {
             </button>
           </div>
 
-          {/* Body */}
+         
           <div className="p-6 flex flex-col gap-4">
             <input
               type="text"
@@ -109,7 +109,7 @@ export default function CreateTeam({ currentUser, showModal, setShowModal }) {
                       type="checkbox"
                       checked={selectedUsers.includes(u.id)}
                       onChange={() => toggleUser(u.id)}
-                      disabled={u.id === currentUser.id} // ✅ current user always included, can't uncheck
+                      disabled={u.id === currentUser.id} 
                       className="accent-purple-600 w-4 h-4"
                     />
                     <span className="text-gray-700 font-medium">

@@ -76,7 +76,7 @@ export default function Header({
     }
   }, [activeUser]);
 
-  // Focus search input when opened
+  
   useEffect(() => {
     if (showSearch && searchInputRef.current) searchInputRef.current.focus();
   }, [showSearch]);
@@ -93,7 +93,7 @@ export default function Header({
     navigate("/");
   };
 
-  // Determine display name and profile image
+  
   const displayName = selectedTeam
     ? selectedTeam.name
     : selectedUser
@@ -120,7 +120,7 @@ export default function Header({
           />
           <h2 className="font-bold text-gray-600 text-[15px]">Chat</h2>
 
-          {/* Selected user/team pill */}
+          
           <div className="flex items-center gap-2 ml-[170px]">
             {displayProfileImage ? (
               <img
