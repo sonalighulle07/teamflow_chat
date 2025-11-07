@@ -6,8 +6,8 @@ const { encrypt, decrypt } = require("../Utils/crypto");
 
 // GET all messages
 exports.getMessages = async (req, res) => {
-  try {
-    const messages = await chatModel.getAllMessages(); // messages already decrypted in model
+  try {   
+    const messages = await chatModel.getAllMessages(); 
     res.json(messages);
   } catch (err) {
     console.error("Error fetching messages:", err);

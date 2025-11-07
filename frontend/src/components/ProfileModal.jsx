@@ -4,7 +4,6 @@ import {
   FaCamera,
   FaTrash,
   FaSignOutAlt,
-  
   FaUserPlus,
   FaTimes,
 } from "react-icons/fa";
