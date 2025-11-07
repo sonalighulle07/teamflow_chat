@@ -29,13 +29,9 @@ export default function MeetingControls({
         { isVideoEnabled ? <FaVideo /> : <FaVideoSlash /> }
       </button>
 
-      {/* Screen Share */}
-      <button
-        onClick={isScreenSharing ? onStopScreenShare : onStartScreenShare}
-        className="p-3 rounded-full bg-blue-600 hover:opacity-80"
-      >
-        {isScreenSharing ? "🛑" : "🖥️"}
-      </button>
+    {/* Screen Share */} 
+    <button onClick={isScreenSharing ? onStopScreenShare : onStartScreenShare} className="p-3 rounded-full bg-blue-600 hover:opacity-80" > {isScreenSharing ? "🛑" : "🖥️"} </button>
+
 
       {/* Leave */}
       <button onClick={onLeave} className="text-red-500 p-3 rounded-full border border-red-500 hover:bg-red-500 hover:text-white">

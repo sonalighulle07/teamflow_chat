@@ -145,7 +145,6 @@ export default function Message({
     audioRef.current.muted = newMuted;
     setIsMuted(newMuted);
   };
-
   const userId = currentUser?.id;
   const toggleReaction = (emoji) => {
     setReactedEmojis((prev) => {
@@ -405,15 +404,19 @@ export default function Message({
                 Forwarded
               </span>
             )}
-            <p className="break-words">
-              {message.metadata?.type === "meeting-invite" 
-                ? renderMeetingInvite(message.text, message.metadata)
-                : highlightText(message.text || "")
-              }
-              {message.edited === 1 && (
-                <span className="text-[12px] text-gray-800 ml-1">(Edited)</span>
-              )}
-            </p>
+ {/* ✅ FIXED: use a wrapper div instead of <p> */}
+            {message.metadata?.type === "meeting-invite" ? (
+              <div className="mt-1">
+                {renderMeetingInvite(message.text, message.metadata)}
+              </div>
+            ) : (
+              <p className="break-words">
+                {highlightText(message.text || "")}
+                {message.edited === 1 && (
+                  <span className="text-[12px] text-gray-800 ml-1">(Edited)</span>
+                )}
+              </p>
+            )}
           </div>
         );
     }
@@ -422,7 +425,7 @@ export default function Message({
   const bubbleClasses = isOwn
     ? "bg-purple-600 text-white self-end rounded-tr-none"
     : "bg-gray-200 text-gray-900 self-start rounded-tl-none";
-  const getEmojiCount = (emoji) => {
+   const getEmojiCount = (emoji) => {
     const data = reactedEmojis[emoji];
     if (!data) return 0;
     return typeof data.count === "number"
@@ -514,7 +517,7 @@ export default function Message({
                           setIsEditing(true);
                           setMenuOpen(false);
                         }}
-                      >
+                       >
                         ✏️ <span>Edit</span>
                       </button>
                     )}

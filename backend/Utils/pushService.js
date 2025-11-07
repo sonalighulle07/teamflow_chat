@@ -8,7 +8,6 @@ webpush.setVapidDetails(
 );
 
 function sendPushNotification(subscription, payload) {
-  console.log("inside sendPushNotification")
   return webpush.sendNotification(subscription, JSON.stringify(payload));
 }
 

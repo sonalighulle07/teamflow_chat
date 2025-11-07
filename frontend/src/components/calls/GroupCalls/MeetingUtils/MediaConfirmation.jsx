@@ -12,7 +12,7 @@ const MediaConfirmation = ({ userId, currentUser }) => {
   const navigate = useNavigate();
   const { code } = useParams();
   const initialized = useRef(false);
-
+  
   // --- Cleanup session on broadcast leave ---
   useEffect(() => {
     const channel = new BroadcastChannel("meeting-session");

@@ -26,6 +26,9 @@ export const loginUser = createAsyncThunk(
       sessionStorage.setItem("chatUser", JSON.stringify(data.user));
       sessionStorage.setItem("chatToken", data.token);
 
+      localStorage.setItem("chatUser", JSON.stringify(data.user));
+      localStorage.setItem("chatToken", data.token);
+
       return data.user; // returned to slice
     } catch (err) {
       return rejectWithValue("Server error, try again later.");

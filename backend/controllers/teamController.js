@@ -156,13 +156,14 @@ const getTeamMessages = async (req, res) => {
 };
 
 // -----------------------
-// SEND team message (with file support)
+// SEND team message (with file support + metadata)
 // -----------------------
 const sendTeamMessage = async (req, res) => {
-  const teamId = req.params.teamId;           // team ID from URL
-  const senderId = req.user?.id;          // user ID from auth middleware
-  const { text, type } = req.body;        // message text and type
-  const file = req.file;                  // file from upload middleware
+  const teamId = req.params.teamId;
+  const senderId = req.user?.id;
+  const { text, type, metadata } = req.body; // include metadata
+
+  const file = req.file;
 
   if (!senderId) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -173,12 +174,20 @@ const sendTeamMessage = async (req, res) => {
     let fileName = null;
 
     if (file) {
-      fileUrl = `/uploads/${file.filename}`;   // path to serve file
-      fileName = file.originalname;           // original file name
+      fileUrl = `/uploads/${file.filename}`;
+      fileName = file.originalname;
     }
 
     // Insert message into DB
-    const result = await TeamMessage.insert(senderId, teamId, text || "", fileUrl, type || (file ? "file" : "text"), fileName);
+    const result = await TeamMessage.insert(
+      senderId,
+      teamId,
+      text || "",
+      fileUrl,
+      type || (file ? "file" : "text"),
+      fileName,
+      metadata || null
+    );
 
     res.json({
       id: result.insertId,
@@ -188,6 +197,7 @@ const sendTeamMessage = async (req, res) => {
       file_url: fileUrl,
       file_name: fileName,
       type: type || (file ? "file" : "text"),
+      metadata: metadata || null,
       created_at: new Date(),
     });
   } catch (err) {
@@ -195,6 +205,7 @@ const sendTeamMessage = async (req, res) => {
     res.status(500).json({ error: "Failed to send message" });
   }
 };
+
 
 
 // -----------------------
