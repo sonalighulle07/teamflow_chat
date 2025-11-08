@@ -60,6 +60,7 @@ export default function Header({
       setIsCreatingMeeting(false);
     }
   };
+
   const { selectedTeam } = useSelector((state) => state.team);
 
   const username = activeUser?.username || "Guest";

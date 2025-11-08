@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
+const meetServ = require("../controllers/services/groupMeetings");
 
 // Middlewares
-const { authenticateToken } = require("../middlewares/authMiddleware");
+const { authenticateToken } = require("../middlewares/authMiddleware")
 const checkTeamMember = require("../middlewares/teamAuthMiddleware");
 const uploadMiddleware = require("../middlewares/uploadMiddleware");
 
@@ -20,7 +21,8 @@ const {
   sendTeamMessage,
   editTeamMessage,              
   deleteTeamMessage,           // ✅ correct
-  updateTeamMessageReactions   // ✅ correct
+  updateTeamMessageReactions,   // ✅ correct
+  getTeamMeetingLink
 } = require("../controllers/teamController");
 
 // -----------------------
@@ -70,5 +72,40 @@ router.put("/:teamId/messages/:messageId/reactions",
   checkTeamMember,
   updateTeamMessageReactions
 );
+
+// -----------------------
+// Team Meeting Routes
+// -----------------------
+
+// Team-level meeting link
+router.get("/teams/:teamId/meeting-link", getTeamMeetingLink);
+
+// End meeting
+router.post("/meetings/end/:teamId", async (req, res) => {
+  const { teamId } = req.params;
+  const userId = req.user?.id || null;
+  try {
+    const result = await meetServ.endMeeting(teamId, userId);
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to end meeting" });
+  }
+});
+
+// ✅ Get active meeting for a team
+router.get("/team/:teamId/active", async (req, res) => {
+  const { teamId } = req.params;
+  try {
+    const active = await meetServ.getActiveMeeting(teamId);
+    res.json({ active: !!active, meeting: active });
+  } catch (err) {
+    console.error("Error getting active meeting:", err);
+    res.status(500).json({ error: "Failed to get active meeting" });
+  }
+});
+
+
+
 
 module.exports = router;

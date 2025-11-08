@@ -74,7 +74,7 @@ exports.login = async (req, res) => {
     }
 
     // Optional: set user as online
-    const pool = require('../Utils/db');
+    const pool = require('../config/db');
     await pool.query('UPDATE users SET is_online = 1 WHERE id = ?', [user.id]);
 
     // Generate JWT
