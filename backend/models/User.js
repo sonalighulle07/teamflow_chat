@@ -1,4 +1,4 @@
-const pool = require("../Utils/db");
+const pool = require("../config/db");
 const fs = require("fs").promises;
 
 class User {

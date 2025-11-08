@@ -1,4 +1,4 @@
-const pool = require("../Utils/db");
+const pool = require("../config/db");
 
 exports.createMeeting = async ({ hostId, title, scheduledAt, type, code }) => {
   await pool.query(

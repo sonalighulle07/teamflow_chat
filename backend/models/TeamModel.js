@@ -1,4 +1,4 @@
-const db = require("../Utils/db");
+const db = require("../config/db");
 
 const Team = {
   // Get all teams

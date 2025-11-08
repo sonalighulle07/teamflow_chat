@@ -1,12 +1,13 @@
 const chatModel = require("../models/chatModel");
 const User = require("../models/User");
 const { sendPushNotification } = require("../Utils/pushService");
-const db = require("../Utils/db"); 
+const db = require("../config/db"); 
 const { encrypt, decrypt } = require("../Utils/crypto");
 
 // GET all messages
 exports.getMessages = async (req, res) => {
   try {   
+    
     const messages = await chatModel.getAllMessages(); 
     res.json(messages);
   } catch (err) {

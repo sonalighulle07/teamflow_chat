@@ -1,5 +1,5 @@
 const { Team, TeamMember, TeamMessage } = require("../models/TeamModel");
-const db = require("../Utils/db");
+const db = require("../config/db");
 const path = require("path");
 
 // -----------------------

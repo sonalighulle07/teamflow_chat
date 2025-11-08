@@ -1,4 +1,4 @@
-const db = require("../Utils/db");
+const db = require("../config/db");
 const { encrypt, decrypt } = require("../Utils/crypto");
 
 const getAllMessages = async () => {

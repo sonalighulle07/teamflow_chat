@@ -10,7 +10,7 @@ const meetingRoutes = require("./routes/meetingRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
-const reactionRoutes = require("./routes/reactionRoutes");
+
 const teamRoutes = require("./routes/teamRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
@@ -49,7 +49,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chats", chatRoutes);
-app.use("/api/reactions", reactionRoutes);
+
 app.use("/api/subscribe", notificationRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/teams", teamRoutes);

@@ -1,6 +1,6 @@
 
 const moment = require('moment');
-const db = require("../Utils/db"); 
+const db = require("../config/db"); 
 
 class Event {
   static async getAll() {
