@@ -102,14 +102,32 @@ const TeamChat = {
   },
 };
 const TeamMessage = {
-  // Insert team message (text or file)
-  insert: async (senderId, teamId, text = "", fileUrl = null, type = "text", fileName = null) => {
+  // Insert team message (text, file, or custom type like meeting-invite)
+  insert: async (
+    senderId,
+    teamId,
+    text = "",
+    fileUrl = null,
+    type = "text",
+    fileName = null,
+    metadata = null
+  ) => {
     const query = `
       INSERT INTO team_messages 
-      (sender_id, team_id, text, file_url, file_name, type, deleted, edited, reactions, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 0, 0, NULL, NOW())
+      (sender_id, team_id, text, file_url, file_name, type, metadata, deleted, edited, reactions, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, NULL, NOW())
     `;
-    const [result] = await db.query(query, [senderId, teamId, text, fileUrl, fileName, type]);
+
+    const [result] = await db.query(query, [
+      senderId,
+      teamId,
+      text,
+      fileUrl,
+      fileName,
+      type,
+      metadata ? JSON.stringify(metadata) : null,
+    ]);
+
     return { insertId: result.insertId };
   },
 

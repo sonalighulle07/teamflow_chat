@@ -197,70 +197,74 @@ export function useMeeting(userId, roomCode) {
  
   // --------- Camera toggle (fixed) ----------
   const toggleCam = async () => {
-    if (!localStream) return;
- 
-    // current video track (if any)
-    const existingVideo = localStream.getVideoTracks()[0];
- 
-    if (isVideoEnabled && existingVideo) {
-      // TURN OFF: stop and remove video track, update state with new MediaStream reference
-      existingVideo.stop();
-      // build new stream that contains only audio tracks
-      const newStream = new MediaStream(localStream.getAudioTracks());
-      // replace video sender tracks with null so peers stop receiving video
-      peerMap.current.forEach((peer) => {
-        const sender = peer.getSenders().find((s) => s.track?.kind === "video");
-        if (sender) {
-          try {
-            sender.replaceTrack(null);
-          } catch (err) {
-            console.warn("replaceTrack(null) failed:", err);
-          }
-        }
-      });
- 
-  updateLocalStream(newStream);
-      setIsVideoEnabled(false);
-      sessionStorage.setItem("cameraOn", "false");
-    } else {
-      // TURN ON: get a fresh video track and create a new MediaStream reference
-      try {
+  if (!localStreamRef.current) return;
+
+  // current video track (if any)
+  let existingVideo = localStreamRef.current.getVideoTracks()[0];
+
+  if (isVideoEnabled && existingVideo) {
+    // TURN OFF: do NOT stop/remove the track. Disable it so senders keep the same RTP sender
+    // but the track will stop sending frames. This avoids removing senders and requiring renegotiation.
+    try {
+      existingVideo.enabled = false;
+    } catch (err) {
+      console.warn("Failed to disable video track:", err);
+    }
+
+    // keep the same local stream object (so PeerTile and media elements update via state)
+    updateLocalStream(localStreamRef.current);
+    setIsVideoEnabled(false);
+    sessionStorage.setItem("cameraOn", "false");
+  } else {
+    // TURN ON: if we already have a video track, just enable it. Otherwise request a new one.
+    try {
+      existingVideo = localStreamRef.current.getVideoTracks()[0];
+      if (existingVideo) {
+        existingVideo.enabled = true;
+        updateLocalStream(localStreamRef.current);
+      } else {
         const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
         const newTrack = camStream.getVideoTracks()[0];
- 
-        // create a new MediaStream combining existing audio tracks (if any) + new video
-        const newStream = new MediaStream([
-          ...localStream.getAudioTracks(),
-          newTrack,
-        ]);
- 
-        // update all peers: prefer replaceTrack if sender exists, otherwise addTrack
+        // add the new track to the existing local stream
+        try {
+          localStreamRef.current.addTrack(newTrack);
+        } catch (err) {
+          console.warn("addTrack to local stream failed:", err);
+        }
+
+        // update peers: prefer replaceTrack on existing sender, otherwise addTrack (rare)
         peerMap.current.forEach((peer) => {
-          const sender = peer.getSenders().find((s) => s.track?.kind === "video");
+          const sender = peer.getSenders().find((s) => s.track && s.track.kind === "video");
           if (sender) {
             try {
               sender.replaceTrack(newTrack);
             } catch (err) {
               console.warn("replaceTrack failed, falling back to addTrack:", err);
-              peer.addTrack(newTrack, newStream);
+              try {
+                peer.addTrack(newTrack, localStreamRef.current);
+              } catch (e) {
+                console.warn("peer.addTrack failed:", e);
+              }
             }
           } else {
             try {
-              peer.addTrack(newTrack, newStream);
+              peer.addTrack(newTrack, localStreamRef.current);
             } catch (err) {
               console.warn("peer.addTrack failed:", err);
             }
           }
         });
- 
-  updateLocalStream(newStream); // IMPORTANT: update state with new object
-        setIsVideoEnabled(true);
-        sessionStorage.setItem("cameraOn", "true");
-      } catch (err) {
-        console.error("Unable to access camera:", err);
+
+        updateLocalStream(localStreamRef.current);
       }
+
+      setIsVideoEnabled(true);
+      sessionStorage.setItem("cameraOn", "true");
+    } catch (err) {
+      console.error("Unable to access camera:", err);
     }
-  };
+  }
+};
  
   // ---- Toggle Mic (keeps it simple: just enable/disable) ----
   const toggleMic = () => {
@@ -358,3 +362,5 @@ export function useMeeting(userId, roomCode) {
     isScreenSharing,
   };
 }
+ 
+ 

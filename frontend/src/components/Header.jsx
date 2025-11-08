@@ -35,6 +35,7 @@ export default function Header({
         text: `📞 Team Meeting\n\nCreated by: ${activeUser.username}\n\n🔗 Join using this link:\n${meetingUrl}`,
         team_id: selectedTeam.id,
         sender_id: activeUser.id,
+        type: 'meeting-invite',
         metadata: {
           type: 'meeting-invite',
           url: meetingUrl,
@@ -88,6 +89,8 @@ export default function Header({
 
   const logout = () => {
     sessionStorage.clear();
+    localStorage.removeItem("chatToken");
+    localStorage.removeItem("chatUser");
     localStorage.removeItem(`profileImage_${activeUser?.id}`);
     setIsAuthenticated(false);
     navigate("/");
