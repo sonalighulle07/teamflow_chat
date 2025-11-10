@@ -19,7 +19,11 @@ export default function Header({
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const searchInputRef = useRef(null);
-  const { selectedUser } = useSelector((state) => state.user);
+  const { selectedUser,activeNav } = useSelector((state) => state.user);
+  const username = activeUser?.username || "Guest";
+  const { selectedTeam } = useSelector((state) => state.team);
+
+  const isChatVisible = (activeNav === "Chat" && selectedUser) || (activeNav === "Communities" && selectedTeam);
 
   const startGroupCall = async () => {
     if (!selectedTeam) return;
@@ -61,10 +65,6 @@ export default function Header({
     }
   };
 
-  const { selectedTeam } = useSelector((state) => state.team);
-
-  const username = activeUser?.username || "Guest";
-
   const [profileImage, setProfileImage] = useState(
     () => localStorage.getItem(`profileImage_${activeUser?.id}`) || null
   );
@@ -98,9 +98,9 @@ export default function Header({
   };
 
   // Determine display name and profile image
-  const displayName = selectedTeam
+  const displayName = selectedTeam && activeNav === "Communities"
     ? selectedTeam.name
-    : selectedUser
+    : selectedUser && activeNav === "Chat"
     ? selectedUser.username
     : "Select a chat";
 
@@ -122,69 +122,79 @@ export default function Header({
             alt="Logo"
             className="w-12 h-12 object-contain"
           />
-          <h2 className="font-bold text-gray-600 text-[15px]">Chat</h2>
+          <h2 className="font-bold text-gray-600 text-[15px]">{activeNav}</h2>
 
-          {/* Selected user/team pill */}
-          <div className="flex items-center gap-2 ml-[170px]">
-            {displayProfileImage ? (
-              <img
-                src={displayProfileImage}
-                alt={displayName}
-                className="w-8 h-8 rounded-full object-cover border border-gray-300"
-              />
-            ) : (
-              <div className="w-8 h-8 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold uppercase">
-                {displayName?.[0] || "?"}
-              </div>
-            )}
-            <span className="text-gray-600 font-medium text-[15px] truncate max-w-[120px]">
-              {displayName}
-            </span>
-          </div>
+          {/* ✅ Show selected team/user only for Chat or Communities */}
+          {isChatVisible && (selectedTeam || selectedUser) && (
+            <div className="flex items-center gap-2 ml-[170px]">
+              {displayProfileImage ? (
+                <img
+                  src={displayProfileImage}
+                  alt={displayName}
+                  className="w-8 h-8 rounded-full object-cover border border-gray-300"
+                />
+              ) : (
+                <div className="w-8 h-8 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold uppercase">
+                  {displayName?.[0] || "?"}
+                </div>
+              )}
+              <span className="text-gray-600 font-medium text-[15px] truncate max-w-[120px]">
+                {displayName}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
-          {selectedTeam ? (
-            // Group Call Button for Teams
-            <button
-              className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"
-              title="Start Group Call"
-              onClick={startGroupCall}
-              disabled={isCreatingMeeting}
-            >
-              <FaVideo />
-              <span className="text-sm">
-                {isCreatingMeeting ? "Creating..." : "Start Meeting"}
-              </span>
-            </button>
-          ) : (
-            // Individual Call Buttons
+          {/* ✅ Show call buttons only for Chat or Communities */}
+          {isChatVisible && (
             <>
-              <button
-                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm transform rotate-45"
-                title="Audio Call"
-                disabled={!canCall}
-                onClick={() => onStartCall("audio", selectedUser)}
-              >
-                <FaPhone style={{ transform: "rotate(45deg)" }} size={15} />
-              </button>
+              { activeNav === "Communities" ? (
+                // Group Call Button for Teams
+                <button
+                  className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"
+                  title="Start Group Call"
+                  onClick={startGroupCall}
+                  disabled={isCreatingMeeting}
+                >
+                  <FaVideo />
+                  <span className="text-sm">
+                    {isCreatingMeeting ? "Creating..." : "Start Meeting"}
+                  </span>
+                </button>
+              ) : (
+                // Individual Call Buttons
+                <>
+                  <button
+                    className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm transform rotate-45"
+                    title="Audio Call"
+                    disabled={!canCall}
+                    onClick={() => onStartCall("audio", selectedUser)}
+                  >
+                    <FaPhone style={{ transform: "rotate(45deg)" }} size={15} />
+                  </button>
 
-              <button
-                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                title="Video Call"
-                disabled={!canCall}
-                onClick={() => onStartCall("video", selectedUser)}
-              >
-                <FaVideo />
-              </button>
+                  <button
+                    className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                    title="Video Call"
+                    disabled={!canCall}
+                    onClick={() => onStartCall("video", selectedUser)}
+                  >
+                    <FaVideo />
+                  </button>
+                </>
+              )}
             </>
           )}
 
           {/* Search */}
           <div className="relative">
             <button
-              onClick={toggleSearch}
+              onClick={() => {
+                if (showSearch) setSearchQuery("");
+                setShowSearch((prev) => !prev);
+              }}
               className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition-all duration-200 shadow-sm"
               title="Search in Chat"
             >
