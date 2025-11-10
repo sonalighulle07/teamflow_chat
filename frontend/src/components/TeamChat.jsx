@@ -48,11 +48,15 @@ export default function TeamChat({ currentUser }) {
     const socket = io(URL);
     socketRef.current = socket;
 
-    socket.emit("register", { userId: currentUser.id });
-
     // new team message
+    socket.emit("register", { userId: currentUser.id });
+    socket.emit("joinRoom", { teamId: selectedTeam.id }); // ✅ add this
+
+    // Listen for new team messages
     socket.on("teamMessage", (msg) => {
-      if (msg?.team_id === team.id) setMessages((prev) => [...prev, msg]);
+      if (msg?.team_id === selectedTeam.id) {
+        setMessages((prev) => [...prev, msg]);
+      }
     });
 
     // message deleted (server should emit messageDeleted with { messageId, senderId, teamId })

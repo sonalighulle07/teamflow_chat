@@ -16,24 +16,23 @@ const UserItem = memo(
 
     // Highlight search match in yellow
     const highlightMatch = (text) => {
-  if (!searchQuery) return text;
+      if (!searchQuery) return text;
 
-  const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regex = new RegExp(`(${escapedQuery})`, "gi");
+      const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`(${escapedQuery})`, "gi");
 
-  const parts = text.split(regex);
+      const parts = text.split(regex);
 
-  return parts.map((part, idx) =>
-    regex.test(part) ? (
-      <span key={idx} className="bg-yellow-300 text-black px-1 rounded">
-        {part}
-      </span>
-    ) : (
-      <span key={idx}>{part}</span>
-    )
-  );
-};
-
+      return parts.map((part, idx) =>
+        regex.test(part) ? (
+          <span key={idx} className="bg-yellow-300 text-black px-1 rounded">
+            {part}
+          </span>
+        ) : (
+          <span key={idx}>{part}</span>
+        )
+      );
+    };
 
     const hasActivity = item.recentActivity && !item.recentActivity.read_status;
 

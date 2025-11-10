@@ -228,24 +228,6 @@ export default function Sidebar({ setSelectedTeam, setShowModal }) {
           </div>
         </div>
       )}
-
-      {/* {activeNav === "Activity" && (
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          {activities.length === 0 ? (
-            <p className="p-4 text-gray-500">No recent activity</p>
-          ) : (
-            activities.map((act) => (
-              <div
-                key={act.id}
-                className="p-3 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
-              >
-                <span className="font-semibold">{act.sender_id}</span>{" "}
-                {act.type.replace("_", " ")}
-              </div>
-            ))
-          )}
-        </div>
-      )} */}
     </div>
   );
 }
