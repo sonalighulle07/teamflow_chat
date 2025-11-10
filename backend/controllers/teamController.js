@@ -1,7 +1,7 @@
 const { Team, TeamMember, TeamMessage } = require("../models/TeamModel");
 const db = require("../config/db");
 const path = require("path");
-
+const meetServ = require("./services/groupMeetings");
 // -----------------------
 // GET all teams
 // -----------------------
@@ -58,6 +58,11 @@ const createTeam = async (req, res) => {
   try {
     const result = await Team.create(name, created_by);
     const teamId = result.insertId;
+
+    const meetRes = await meetServ.createMeeting(teamId);
+
+    console.log("Meeting creation result:", meetRes);
+
     if (!teamId) throw new Error("Team creation failed: missing teamId");
 
     if (members && members.length > 0) {
@@ -253,6 +258,29 @@ const updateTeamMessageReactions = async (req, res) => {
   }
 };
 
+
+// -----------------------
+// GET or CREATE meeting link for a team
+// -----------------------
+const getTeamMeetingLink = async (req, res) => {
+  const { teamId } = req.params;
+  const userId = req.user?.id || null;
+
+  if (!teamId) return res.status(400).json({ error: "teamId is required" });
+
+  try {
+    const { meetingCode, status } = await meetServ.getOrCreateMeetingCode(teamId, userId);
+    const baseUrl = process.env.APP_URL || "http://localhost:5173";
+    const meetingUrl = `${baseUrl}/prejoin/${meetingCode}`;
+
+    res.json({ teamId, meetingCode, meetingUrl, status });
+  } catch (err) {
+    console.error("Failed to fetch/create meeting link:", err);
+    res.status(500).json({ error: "Failed to fetch/create meeting link" });
+  }
+};
+
+
 module.exports = {
   getAllTeams,
   getUserTeams,
@@ -267,4 +295,5 @@ module.exports = {
   editTeamMessage,
   deleteTeamMessage,
   updateTeamMessageReactions,
+  getTeamMeetingLink,
 };
