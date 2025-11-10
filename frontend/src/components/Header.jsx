@@ -5,6 +5,8 @@ import { useSelector } from "react-redux";
 import ProfileModal from "./ProfileModal";
 import ErrorBoundary from "./ErrorBoundary";
 import { URL } from "../config";
+import axios from "axios";
+import socket from "./calls/hooks/socket";
 
 export default function Header({
   activeUser,
@@ -23,47 +25,66 @@ export default function Header({
   const username = activeUser?.username || "Guest";
   const { selectedTeam } = useSelector((state) => state.team);
 
-  const isChatVisible = (activeNav === "Chat" && selectedUser) || (activeNav === "Communities" && selectedTeam);
+  const isChatVisible = activeNav === "Chat" || activeNav === "Communities";
+    // ✅ Send meeting link as a message in team chat
+  const token = sessionStorage.getItem("chatToken");
 
-  const startGroupCall = async () => {
-    if (!selectedTeam) return;
-    
-    setIsCreatingMeeting(true);
-    try {
-      const meetingCode = `team-${selectedTeam.id}-${Date.now()}`;
-      const meetingUrl = `${window.location.origin}/prejoin/${meetingCode}`;
-      
-      // Send meeting link as a message
-      const token = sessionStorage.getItem("chatToken");
-      const messageData = {
-        text: `📞 Team Meeting\n\nCreated by: ${activeUser.username}\n\n🔗 Join using this link:\n${meetingUrl}`,
-        team_id: selectedTeam.id,
-        sender_id: activeUser.id,
-        type: 'meeting-invite',
-        metadata: {
-          type: 'meeting-invite',
-          url: meetingUrl,
-          creator: activeUser.username
-        }
-      };
+const startGroupCall = async () => {
+  if (!selectedTeam) return;
 
-      await fetch(`${URL}/api/teams/${selectedTeam.id}/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(messageData)
-      });
+  setIsCreatingMeeting(true);
 
-      // Navigate to the meeting
-      navigate(`/prejoin/${meetingCode}`);
-    } catch (error) {
-      console.error("Failed to create meeting:", error);
-    } finally {
-      setIsCreatingMeeting(false);
-    }
-  };
+  try {
+    console.log("⚡ startGroupCall triggered");
+    console.log("Active User:", activeUser);
+
+    // ✅ Get meeting link from backend
+    const response = await axios.get(
+      `${URL}/api/teams/${selectedTeam.id}/meeting-link`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    const { meetingUrl, meetingCode } = response.data;
+    console.log("✅ Meeting URL received:", meetingUrl);
+    console.log("🧩 Meeting Code:", meetingCode);
+
+    // ✅ Send message to team chat
+    const messageData = {
+      text: `📞 Team Meeting\n\nCreated by: ${activeUser.username}\n\n🔗 Join using this link:\n${meetingUrl}`,
+      team_id: selectedTeam.id,
+      sender_id: activeUser.id,
+      type: "meeting-invite",
+      metadata: {
+        type: "meeting-invite",
+        url: meetingUrl,
+        creator: activeUser.username,
+      },
+    };
+
+    await fetch(`${URL}/api/teams/${selectedTeam.id}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(messageData),
+    });
+
+    // ✅ Open the prejoin page in a new tab/window
+    console.log("🪟 Opening prejoin window...");
+    window.open(`${window.location.origin}/prejoin/${meetingCode}`, "_blank");
+  } catch (error) {
+    console.error("❌ Failed to create meeting:", error);
+  } finally {
+    setIsCreatingMeeting(false);
+  }
+};
+
+
+
+
 
   const [profileImage, setProfileImage] = useState(
     () => localStorage.getItem(`profileImage_${activeUser?.id}`) || null
@@ -150,7 +171,7 @@ export default function Header({
           {/* ✅ Show call buttons only for Chat or Communities */}
           {isChatVisible && (
             <>
-              { activeNav === "Communities" ? (
+              {selectedTeam && activeNav === "Communities" ? (
                 // Group Call Button for Teams
                 <button
                   className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"

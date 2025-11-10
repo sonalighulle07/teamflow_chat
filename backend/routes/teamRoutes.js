@@ -77,11 +77,11 @@ router.put("/:teamId/messages/:messageId/reactions",
 // Team Meeting Routes
 // -----------------------
 
-// Team-level meeting link
-router.get("/teams/:teamId/meeting-link", getTeamMeetingLink);
+// ✅ Secure: Team-level meeting link
+router.get("/:teamId/meeting-link", authenticateToken, getTeamMeetingLink);
 
-// End meeting
-router.post("/meetings/end/:teamId", async (req, res) => {
+// ✅ Secure: End meeting
+router.post("/meetings/end/:teamId", authenticateToken    , async (req, res) => {
   const { teamId } = req.params;
   const userId = req.user?.id || null;
   try {
@@ -93,8 +93,8 @@ router.post("/meetings/end/:teamId", async (req, res) => {
   }
 });
 
-// ✅ Get active meeting for a team
-router.get("/team/:teamId/active", async (req, res) => {
+// ✅ Secure: Get active meeting for a team
+router.get("/team/:teamId/active", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   try {
     const active = await meetServ.getActiveMeeting(teamId);

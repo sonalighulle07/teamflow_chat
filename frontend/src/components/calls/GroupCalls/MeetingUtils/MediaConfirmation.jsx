@@ -12,6 +12,8 @@ const MediaConfirmation = ({ userId, currentUser }) => {
   const navigate = useNavigate();
   const { code } = useParams();
   const initialized = useRef(false);
+  const activeUser=sessionStorage.getItem("chatUser") ? JSON.parse(sessionStorage.getItem("chatUser")) : null;
+
   
   // --- Cleanup session on broadcast leave ---
   useEffect(() => {
@@ -108,25 +110,40 @@ const MediaConfirmation = ({ userId, currentUser }) => {
     }
   };
 
-  // --- Join meeting ---
-  const handleJoin = () => {
-    if (joining) return;
-    setJoining(true);
+const handleJoin = () => {
+  if (joining) return;
+  setJoining(true);
 
-    const sessionKey = `joined_${code}_${userId}`;
+  const teamMatch = code.match(/^team-(\d+)-/);
+  const teamId = teamMatch ? parseInt(teamMatch[1]) : null;
 
-    const cleanup = () => {
-      setJoining(false);
-      socket.off("error", onError);
-      socket.off("existingUsers", onSuccess);
-    };
+  if (!teamId) {
+    console.error("❌ Invalid meeting code:", code);
+    setJoining(false);
+    return;
+  }
 
-    const onError = ({ message }) => {
-      alert(message);
-      cleanup();
-    };
+  console.log("🧩 Extracted teamId:", teamId);
 
-    const onSuccess = () => {
+  socket.emit("startMeeting", {
+    teamId,
+    startedBy: activeUser.id,
+    meetingCode: code,
+  });
+
+  console.log("📡 startMeeting event emitted:", {
+    teamId,
+    startedBy: activeUser.id,
+    meetingCode: code,
+  });
+
+  const sessionKey = `joined_${code}_${userId}`;
+
+  // 🔹 Wait for server to confirm join
+  socket.emit("joinRoom", { userId, roomCode: code }, (response) => {
+    console.log("✅ joinRoom ACK:", response);
+
+    if (response?.success) {
       sessionStorage.setItem(sessionKey, "true");
       sessionStorage.setItem("userId", userId);
       sessionStorage.setItem("roomCode", code);
@@ -134,14 +151,18 @@ const MediaConfirmation = ({ userId, currentUser }) => {
       sessionStorage.setItem("cameraOn", cameraOn.toString());
 
       if (stream) stream.getTracks().forEach((t) => t.stop());
-      window.open(`/meet/${code}`, "_blank", "width=1200,height=800");
-      cleanup();
-    };
 
-    socket.once("error", onError);
-    socket.once("existingUsers", onSuccess);
-    socket.emit("joinRoom", { userId, roomCode: code });
-  };
+      // ✅ Navigate *after* join confirmed
+      setTimeout(() => navigate(`/meet/${code}`), 300);
+    } else {
+      console.error("Join failed:", response?.message);
+      alert(response?.message || "Unable to join meeting");
+      setJoining(false);
+    }
+  });
+};
+
+
 
   // --- Cancel meeting ---
   const handleCancel = () => {
