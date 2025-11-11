@@ -88,6 +88,8 @@ export function useMeeting(userId, roomCode, teamId = null) {
   async function joinMeeting({ micEnabled = true, camEnabled = true } = {}) {
     if (hasJoinedRef.current) return;
 
+    console.log("Join meeting called with micEnabled:", micEnabled, "camEnabled:", camEnabled);
+
     const sessionKey = `joined_${roomCode}_${userId}`;
     if (sessionStorage.getItem(sessionKey)) {
       hasJoinedRef.current = true;

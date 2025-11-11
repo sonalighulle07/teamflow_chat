@@ -11,29 +11,42 @@ export default function PeerTile({
   const [videoActive, setVideoActive] = useState(true);
   const [speaking, setSpeaking] = useState(false);
 
+  // 🎥 Handle video stream binding + track state
   useEffect(() => {
+    if (!videoRef.current) return;
+
     if (!stream) {
       setVideoActive(false);
-      if (videoRef.current) videoRef.current.srcObject = null;
+      videoRef.current.srcObject = null;
       return;
     }
 
+    // Attach stream immediately
+    if (videoRef.current.srcObject !== stream) {
+      videoRef.current.srcObject = stream;
+    }
+
     const checkVideo = () => {
-      const active = stream.getVideoTracks().some(t => t.enabled && t.readyState === "live");
+      const active =
+        stream.getVideoTracks().some(
+          (t) => t.enabled && t.readyState === "live"
+        ) || false;
       setVideoActive(active);
-      if (videoRef.current) videoRef.current.srcObject = stream;
     };
 
+    // Initial check
     checkVideo();
 
-    stream.getVideoTracks().forEach(track => {
+    // Listen for any track state changes
+    const tracks = stream.getVideoTracks();
+    tracks.forEach((track) => {
       track.onmute = checkVideo;
       track.onunmute = checkVideo;
       track.onended = checkVideo;
     });
 
     return () => {
-      stream.getVideoTracks().forEach(track => {
+      tracks.forEach((track) => {
         track.onmute = null;
         track.onunmute = null;
         track.onended = null;
@@ -41,6 +54,7 @@ export default function PeerTile({
     };
   }, [stream]);
 
+  // 🎤 Detect if user is speaking (audio activity)
   useEffect(() => {
     if (!stream || !stream.getAudioTracks().length) return;
 
@@ -62,16 +76,26 @@ export default function PeerTile({
 
     return () => {
       cancelAnimationFrame(raf);
-      source.disconnect();
-      analyser.disconnect();
-      ctx.close();
+      try {
+        source.disconnect();
+        analyser.disconnect();
+        ctx.close();
+      } catch (err) {
+        // ignore disconnect errors
+      }
     };
   }, [stream]);
 
   return (
     <div
       className={`relative rounded-lg overflow-hidden w-full aspect-video border transition-all
-        ${isPinned ? "border-blue-600 shadow-lg" : speaking ? "border-green-500 shadow-md" : "border-gray-700"}
+        ${
+          isPinned
+            ? "border-blue-600 shadow-lg"
+            : speaking
+            ? "border-green-500 shadow-md"
+            : "border-gray-700"
+        }
         bg-gray-900 hover:border-blue-400 cursor-pointer`}
       onDoubleClick={onDoubleClick}
     >
@@ -83,6 +107,7 @@ export default function PeerTile({
         className="w-full h-full object-cover"
       />
 
+      {/* If camera is off */}
       {!videoActive && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black text-white">
           <div className="text-lg font-semibold">{label}</div>
@@ -90,12 +115,14 @@ export default function PeerTile({
         </div>
       )}
 
+      {/* Show name when camera active */}
       {videoActive && (
         <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
           {label}
         </div>
       )}
 
+      {/* Debug info for stream tracks */}
       {stream && (
         <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-[10px] px-2 py-1 rounded z-10">
           {stream.getTracks().map((t, i) => (
@@ -108,4 +135,3 @@ export default function PeerTile({
     </div>
   );
 }
-

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash } from "react-icons/fa";
 import socket from "../../hooks/socket";
+import { setPreviewStream } from "../../../../utils/streamStore";
 
 const MediaConfirmation = ({ userId, currentUser }) => {
   const videoRef = useRef(null);
@@ -11,11 +12,10 @@ const MediaConfirmation = ({ userId, currentUser }) => {
   const [joining, setJoining] = useState(false);
   const navigate = useNavigate();
   const { code } = useParams();
-  const initialized = useRef(false);
-  const activeUser=sessionStorage.getItem("chatUser") ? JSON.parse(sessionStorage.getItem("chatUser")) : null;
+  const activeUser =
+    sessionStorage.getItem("chatUser") ? JSON.parse(sessionStorage.getItem("chatUser")) : null;
 
-  
-  // --- Cleanup session on broadcast leave ---
+  // --- Clean up broadcast session ---
   useEffect(() => {
     const channel = new BroadcastChannel("meeting-session");
     channel.onmessage = (e) => {
@@ -26,104 +26,78 @@ const MediaConfirmation = ({ userId, currentUser }) => {
     return () => channel.close();
   }, [code, userId]);
 
-  // --- Initialize media preview (safe on reload) ---
+  // --- Initialize preview ---
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-
-    let activeStream;
     const initPreview = async () => {
       try {
         const constraints = {};
         if (micOn) constraints.audio = true;
-        if (cameraOn) constraints.video = true;
+        if (cameraOn) constraints.video = { width: 640, height: 480 };
 
-        if (constraints.audio || constraints.video) {
-          activeStream = await navigator.mediaDevices.getUserMedia(constraints);
-          setStream(activeStream);
-        } else {
+        if (!constraints.audio && !constraints.video) {
           setStream(null);
+          if (videoRef.current) videoRef.current.srcObject = null;
+          return;
         }
+
+        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        setStream(newStream);
       } catch (err) {
-        console.warn("Media init warning:", err);
+        console.error("Error accessing media devices:", err);
       }
     };
 
     initPreview();
-
-    // stop all media tracks on unload / unmount
-    const cleanup = () => {
-      if (activeStream) {
-        activeStream.getTracks().forEach((t) => t.stop());
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraOn, micOn]);
 
-    window.addEventListener("beforeunload", cleanup);
-    return () => {
-      cleanup();
-      window.removeEventListener("beforeunload", cleanup);
-    };
-  }, [micOn, cameraOn]);
-
-  // --- Bind stream to video element ---
+  // --- Force video binding and playback ---
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-    }
+    const playVideo = async () => {
+      if (videoRef.current && stream) {
+        videoRef.current.srcObject = stream;
+        try {
+          videoRef.current.load(); // ✅ Forces refresh of stream
+          await videoRef.current.play();
+        } catch (err) {
+          console.warn("Video play error:", err);
+        }
+      }
+    };
+    playVideo();
   }, [stream]);
 
-  // --- Toggle microphone ---
+  // --- Toggle mic ---
   const toggleMic = async () => {
-    const enabled = !micOn;
-    setMicOn(enabled);
-    sessionStorage.setItem("micOn", enabled.toString());
-
-    if (!enabled && stream) {
-      stream.getAudioTracks().forEach((t) => t.stop());
-    } else if (enabled) {
-      try {
-        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const newStream = new MediaStream([...stream?.getVideoTracks(), ...micStream.getAudioTracks()]);
-        setStream(newStream);
-      } catch (err) {
-        console.error("Mic toggle failed:", err);
-      }
-    }
+    const next = !micOn;
+    setMicOn(next);
+    sessionStorage.setItem("micOn", next.toString());
   };
 
-  // --- Toggle camera ---
+  // --- Toggle cam ---
   const toggleCam = async () => {
-    const enabled = !cameraOn;
-    setCameraOn(enabled);
-    sessionStorage.setItem("cameraOn", enabled.toString());
-
-    if (!enabled && stream) {
-      stream.getVideoTracks().forEach((t) => t.stop());
-    } else if (enabled) {
-      try {
-        const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const newStream = new MediaStream([...stream?.getAudioTracks(), ...camStream.getVideoTracks()]);
-        setStream(newStream);
-      } catch (err) {
-        console.error("Camera toggle failed:", err);
-      }
-    }
+    const next = !cameraOn;
+    setCameraOn(next);
+    sessionStorage.setItem("cameraOn", next.toString());
   };
 
+  // --- Join meeting ---
 const handleJoin = () => {
   if (joining) return;
   setJoining(true);
 
   const teamMatch = code.match(/^team-(\d+)-/);
   const teamId = teamMatch ? parseInt(teamMatch[1]) : null;
-
   if (!teamId) {
     console.error("❌ Invalid meeting code:", code);
     setJoining(false);
     return;
   }
-
-  console.log("🧩 Extracted teamId:", teamId);
 
   socket.emit("startMeeting", {
     teamId,
@@ -131,18 +105,9 @@ const handleJoin = () => {
     meetingCode: code,
   });
 
-  console.log("📡 startMeeting event emitted:", {
-    teamId,
-    startedBy: activeUser.id,
-    meetingCode: code,
-  });
-
   const sessionKey = `joined_${code}_${userId}`;
-
-  // 🔹 Wait for server to confirm join
   socket.emit("joinRoom", { userId, roomCode: code }, (response) => {
     console.log("✅ joinRoom ACK:", response);
-
     if (response?.success) {
       sessionStorage.setItem(sessionKey, "true");
       sessionStorage.setItem("userId", userId);
@@ -150,10 +115,12 @@ const handleJoin = () => {
       sessionStorage.setItem("micOn", micOn.toString());
       sessionStorage.setItem("cameraOn", cameraOn.toString());
 
-      if (stream) stream.getTracks().forEach((t) => t.stop());
+      
 
-      // ✅ Navigate *after* join confirmed
-      setTimeout(() => navigate(`/meet/${code}`), 300);
+// before navigating:
+setPreviewStream(stream);
+navigate(`/meet/${code}`, { state: { teamId } });
+
     } else {
       console.error("Join failed:", response?.message);
       alert(response?.message || "Unable to join meeting");
@@ -163,8 +130,6 @@ const handleJoin = () => {
 };
 
 
-
-  // --- Cancel meeting ---
   const handleCancel = () => {
     if (stream) stream.getTracks().forEach((t) => t.stop());
     sessionStorage.removeItem(`joined_${code}_${userId}`);
@@ -180,7 +145,11 @@ const handleJoin = () => {
     <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white relative">
       <div className="absolute top-6 flex items-center gap-4 bg-gray-800/80 px-4 py-2 rounded-2xl shadow-lg border border-gray-700">
         {avatarSrc ? (
-          <img src={avatarSrc} alt={username} className="h-12 w-12 rounded-full object-cover border-2 border-purple-600" />
+          <img
+            src={avatarSrc}
+            alt={username}
+            className="h-12 w-12 rounded-full object-cover border-2 border-purple-600"
+          />
         ) : (
           <div className="h-12 w-12 rounded-full bg-purple-600 flex items-center justify-center text-lg font-bold">
             {username[0]?.toUpperCase()}
@@ -204,10 +173,16 @@ const handleJoin = () => {
       />
 
       <div className="flex gap-6 mb-4">
-        <button onClick={toggleMic} className={`p-3 rounded-full ${micOn ? "bg-green-600" : "bg-red-600"} hover:opacity-80`}>
+        <button
+          onClick={toggleMic}
+          className={`p-3 rounded-full ${micOn ? "bg-green-600" : "bg-red-600"} hover:opacity-80`}
+        >
           {micOn ? <FaMicrophone /> : <FaMicrophoneSlash />}
         </button>
-        <button onClick={toggleCam} className={`p-3 rounded-full ${cameraOn ? "bg-green-600" : "bg-red-600"} hover:opacity-80`}>
+        <button
+          onClick={toggleCam}
+          className={`p-3 rounded-full ${cameraOn ? "bg-green-600" : "bg-red-600"} hover:opacity-80`}
+        >
           {cameraOn ? <FaVideo /> : <FaVideoSlash />}
         </button>
       </div>
