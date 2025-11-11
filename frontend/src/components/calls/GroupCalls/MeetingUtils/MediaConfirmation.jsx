@@ -2,13 +2,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash } from "react-icons/fa";
 import socket from "../../hooks/socket";
-import { setPreviewStream } from "../../../../utils/streamStore";
+// import { setPreviewStream } from "../../../../utils/streamStore";
 
 const MediaConfirmation = ({ userId, currentUser }) => {
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
-  const [cameraOn, setCameraOn] = useState(sessionStorage.getItem("cameraOn") === "true");
-  const [micOn, setMicOn] = useState(sessionStorage.getItem("micOn") === "true");
+  const [cameraOn, setCameraOn] = useState(true);
+  const [micOn, setMicOn] = useState(false);
   const [joining, setJoining] = useState(false);
   const navigate = useNavigate();
   const { code } = useParams();
@@ -112,13 +112,13 @@ const handleJoin = () => {
       sessionStorage.setItem(sessionKey, "true");
       sessionStorage.setItem("userId", userId);
       sessionStorage.setItem("roomCode", code);
-      sessionStorage.setItem("micOn", micOn.toString());
-      sessionStorage.setItem("cameraOn", cameraOn.toString());
+      sessionStorage.setItem("micOn", micOn);
+      sessionStorage.setItem("cameraOn", cameraOn);
 
       
 
 // before navigating:
-setPreviewStream(stream);
+// setPreviewStream(stream);
 navigate(`/meet/${code}`, { state: { teamId } });
 
     } else {

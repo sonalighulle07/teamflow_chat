@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import socket from "./socket";
 import { useSelector } from "react-redux";
+import { setPreviewStream } from "../../../utils/streamStore";
 
 export function useMeeting(userId, roomCode, teamId = null) {
   const [localStream, setLocalStream] = useState(null);
@@ -115,9 +116,11 @@ export function useMeeting(userId, roomCode, teamId = null) {
 
     // create a fresh MediaStream instance (clone tracks)
     const initialStream = new MediaStream(stream.getTracks());
+    setPreviewStream(initialStream); // save for MediaConfirmation
+    
     updateLocalStream(initialStream);
-    setIsMuted(!micEnabled);
-    setIsVideoEnabled(!!camEnabled);
+    setIsMuted(micEnabled);
+    setIsVideoEnabled(camEnabled);
 
     // If peers already exist (created earlier), attach tracks to them
     peerMap.current.forEach((peer) => {

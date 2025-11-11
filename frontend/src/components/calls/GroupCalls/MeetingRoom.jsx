@@ -17,6 +17,7 @@ export default function MeetingRoom() {
 
   // Pick up preview stream (from MediaConfirmation)
   const initialStream = getPreviewStream();
+  
   useEffect(() => () => clearPreviewStream(), []);
 
   const teamId = location?.state?.teamId || null;
@@ -39,35 +40,23 @@ export default function MeetingRoom() {
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
+
+
   // Merge all video streams (local + remote)
   const allStreams = [
     ...(localStream ? [["local", localStream, isScreenSharing]] : []),
     ...Array.from(peers.entries()).map(([id, stream]) => [id, stream, false]),
   ];
 
-  const handlePin = (id) => setPinnedId((prev) => (prev === id ? null : id));
-
-  // Auto-pin the one who shares screen
+    // ---- Join meeting flow ----
   useEffect(() => {
-    const sharer = allStreams.find(([id, , isSharing]) => id !== "local" && isSharing);
-    if (sharer && pinnedId !== sharer[0]) setPinnedId(sharer[0]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(allStreams.map(([id, , isSharing]) => [id, isSharing]))]);
-
-  // ---- Join meeting flow ----
-  useEffect(() => {
-    let joined = false;
+    console.log("MeetingRoom useEffect - joining meeting");
 
     const init = async () => {
-
       console.log("useMeeting variables in Meeting Room : "+isMuted, isVideoEnabled);
 
-
-      if (joined) return;
-      joined = true;
-
-      const micOn = sessionStorage.getItem("micOn") === "true";
-      const camOn = sessionStorage.getItem("cameraOn") === "true";
+      const micOn = sessionStorage.getItem("micOn");
+      const camOn = sessionStorage.getItem("cameraOn");
 
       console.log("Joining meeting with mic:", micOn, "cam:", camOn);
 
@@ -91,6 +80,19 @@ export default function MeetingRoom() {
     return () => leaveMeeting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ---- Pinning logic ----
+  const handlePin = useCallback((id) => {
+    setPinnedId((prev) => (prev === id ? null : id));
+  }, []);
+
+  // Auto-pin the one who shares screen
+  useEffect(() => {
+    const sharer = allStreams.find(([id, , isSharing]) => id !== "local" && isSharing);
+    if (sharer && pinnedId !== sharer[0]) setPinnedId(sharer[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(allStreams.map(([id, , isSharing]) => [id, isSharing]))]);
+
 
   // ---- Cleanup on unload ----
   useEffect(() => {
