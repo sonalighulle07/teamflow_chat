@@ -11,11 +11,20 @@ module.exports = (io, socket) => {
     console.log(`User registered: ${userId}`);
   });
 
-  // ✅ NEW: Join team room (very important for real-time updates)
-  socket.on('joinTeam', ({ teamId }) => {
+  // ✅ Join team room & send decrypted chat history
+  socket.on('joinTeam', async ({ teamId }) => {
     if (!teamId) return;
+
     socket.join(`team_${teamId}`);
     console.log(`User ${socket.userId} joined team_${teamId}`);
+
+    // Send decrypted chat history
+    try {
+      const messages = await TeamMessage.fetchTeamChat(teamId);
+      socket.emit('teamChatHistory', messages);
+    } catch (err) {
+      console.error('Fetch team chat history error:', err);
+    }
   });
 
   // ✅ Private message
@@ -24,12 +33,13 @@ module.exports = (io, socket) => {
       const { senderId, receiverId, text, fileUrl, type, fileName } = msg;
       if (!senderId || !receiverId) return;
 
-      const encryptedText = text ? encryptText(text) : null;
+      // Save in DB (Chat model handles encryption)
       const result = await Chat.insertMessage(
         senderId,
         receiverId,
-        encryptedText,
+        text,
         fileUrl || null,
+        null,
         type || 'text',
         fileName || null
       );
@@ -55,31 +65,24 @@ module.exports = (io, socket) => {
   // ✅ Team message
   socket.on('teamMessage', async (msg) => {
     try {
-      const { senderId, teamId, text, fileUrl, type, fileName } = msg;
+      const { senderId, teamId, text, fileUrl, type, fileName, metadata } = msg;
       if (!senderId || !teamId) return;
 
-      const encryptedText = text ? encryptText(text) : null;
+      // Insert plain text, model will encrypt internally
       const result = await TeamMessage.insert(
         senderId,
         teamId,
-        encryptedText,
+        text || "",
         fileUrl || null,
         type || 'text',
-        fileName || null
+        fileName || null,
+        metadata || null
       );
 
-      const savedMsg = {
-        id: result.insertId,
-        sender_id: senderId,
-        team_id: teamId,
-        text: text || null,
-        file_url: fileUrl || null,
-        type: type || 'text',
-        file_name: fileName || null,
-        created_at: new Date(),
-      };
+      // Fetch the saved message decrypted
+      const savedMsg = await TeamMessage.getById(result.insertId);
 
-      // ✅ Emit to all users in that team
+      // Emit decrypted message
       io.to(`team_${teamId}`).emit('teamMessage', savedMsg);
     } catch (err) {
       console.error('Team message error:', err);
@@ -100,7 +103,6 @@ module.exports = (io, socket) => {
         io.to(`user_${message.receiver_id}`).emit('messageDeleted', { messageId });
       } else if (message.team_id) {
         await TeamMessage.delete(messageId);
-        // ✅ Include teamId for proper filtering on frontend
         io.to(`team_${message.team_id}`).emit('messageDeleted', {
           messageId,
           teamId: message.team_id,
@@ -119,20 +121,21 @@ module.exports = (io, socket) => {
       if (!message) return;
 
       if (message.receiver_id) {
-        await Chat.updateMessage(id, text);
+        await Chat.updateMessage(id, text); // Chat handles encryption
         const updated = await Chat.getMessageById(id);
+        updated.text = decryptText(updated.text);
 
         io.to(`user_${message.sender_id}`).emit('messageEdited', updated);
         io.to(`user_${message.receiver_id}`).emit('messageEdited', updated);
       } else if (message.team_id) {
-        await TeamMessage.updateText(id, text);
+        await TeamMessage.updateText(id, text); // TeamMessage handles encryption
         const updated = await TeamMessage.getById(id);
+        updated.text = decryptText(updated.text);
+        updated.metadata = updated.metadata
+          ? JSON.parse(decryptText(updated.metadata))
+          : null;
 
-        // ✅ Include team_id for proper real-time update
-        io.to(`team_${message.team_id}`).emit('messageEdited', {
-          ...updated,
-          team_id: message.team_id,
-        });
+        io.to(`team_${message.team_id}`).emit('messageEdited', updated);
       }
     } catch (err) {
       console.error('Edit message error:', err);
@@ -147,19 +150,32 @@ module.exports = (io, socket) => {
         (await TeamMessage.getById(messageId));
       if (!message) return;
 
-      let reactions = message.reactions ? JSON.parse(message.reactions) : {};
+      let reactions = {};
+      if (message.reactions) {
+        try {
+          reactions =
+            typeof message.reactions === 'string'
+              ? JSON.parse(decryptText(message.reactions))
+              : message.reactions || {};
+        } catch (err) {
+          console.warn(`Failed to parse reactions for message ${messageId}`, err);
+          reactions = {};
+        }
+      }
+
+      // Toggle reaction
       if (!reactions[emoji]) reactions[emoji] = {};
       if (reactions[emoji][userId]) delete reactions[emoji][userId];
       else reactions[emoji][userId] = 1;
 
-      const updatedReactions = JSON.stringify(reactions);
+      const encryptedReactions = encryptText(JSON.stringify(reactions));
 
       if (message.receiver_id) {
-        await Chat.updateReactions(messageId, updatedReactions);
+        await Chat.updateReactions(messageId, encryptedReactions);
         io.to(`user_${message.sender_id}`).emit('reaction', { messageId, reactions });
         io.to(`user_${message.receiver_id}`).emit('reaction', { messageId, reactions });
       } else if (message.team_id) {
-        await TeamMessage.updateReactions(messageId, updatedReactions);
+        await TeamMessage.updateReactions(messageId, encryptedReactions);
         io.to(`team_${message.team_id}`).emit('reaction', { messageId, reactions });
       }
     } catch (err) {
@@ -169,21 +185,13 @@ module.exports = (io, socket) => {
 
   // ✅ Typing indicators
   socket.on('typingStart', ({ teamId, receiverId }) => {
-    if (teamId)
-      socket.to(`team_${teamId}`).emit('userTyping', { userId: socket.userId, teamId });
-    else if (receiverId)
-      socket.to(`user_${receiverId}`).emit('userTyping', { userId: socket.userId });
+    if (teamId) socket.to(`team_${teamId}`).emit('userTyping', { userId: socket.userId });
+    else if (receiverId) socket.to(`user_${receiverId}`).emit('userTyping', { userId: socket.userId });
   });
 
   socket.on('typingStop', ({ teamId, receiverId }) => {
-    if (teamId)
-      socket
-        .to(`team_${teamId}`)
-        .emit('userStoppedTyping', { userId: socket.userId, teamId });
-    else if (receiverId)
-      socket
-        .to(`user_${receiverId}`)
-        .emit('userStoppedTyping', { userId: socket.userId });
+    if (teamId) socket.to(`team_${teamId}`).emit('userStoppedTyping', { userId: socket.userId });
+    else if (receiverId) socket.to(`user_${receiverId}`).emit('userStoppedTyping', { userId: socket.userId });
   });
 
   // ✅ Read receipts
@@ -196,10 +204,8 @@ module.exports = (io, socket) => {
 
       const payload = { messageId, readerId: socket.userId, readAt: new Date() };
 
-      if (message.receiver_id)
-        io.to(`user_${message.sender_id}`).emit('messageReadAck', payload);
-      else if (message.team_id)
-        io.to(`team_${message.team_id}`).emit('messageReadAck', payload);
+      if (message.receiver_id) io.to(`user_${message.sender_id}`).emit('messageReadAck', payload);
+      else if (message.team_id) io.to(`team_${message.team_id}`).emit('messageReadAck', payload);
     } catch (err) {
       console.error('Read receipt error:', err);
     }

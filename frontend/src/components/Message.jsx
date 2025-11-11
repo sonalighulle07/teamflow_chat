@@ -4,7 +4,7 @@ import EmojiPicker from "emoji-picker-react";
 import { URL } from "../config";
 
 const renderMeetingInvite = (text, metadata) => {
-  const lines = text.split('\n');
+  const lines = text.split("\n");
   return (
     <div className="meeting-invite bg-blue-50 p-3 rounded-lg border border-blue-200">
       <div className="font-semibold text-blue-800">{lines[0]}</div>
@@ -186,12 +186,26 @@ export default function Message({
     setIsEditing(false);
   };
 
-  const handleDownload = (url, fileName) => {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName || "file";
-    link.click();
+  const handleDownload = async (url, fileName) => {
+    try {
+      const response = await fetch(url, { mode: "cors" });
+      if (!response.ok) throw new Error("Network response was not ok");
+      const blob = await response.blob();
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName || "download";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Download failed:", error);
+      alert("Failed to download file.");
+    }
   };
+
   const handleCopyUrl = (url) => {
     navigator.clipboard.writeText(url);
     alert("URL copied!");
@@ -404,7 +418,7 @@ export default function Message({
                 Forwarded
               </span>
             )}
- {/* ✅ FIXED: use a wrapper div instead of <p> */}
+            {/* ✅ FIXED: use a wrapper div instead of <p> */}
             {message.metadata?.type === "meeting-invite" ? (
               <div className="mt-1">
                 {renderMeetingInvite(message.text, message.metadata)}
@@ -413,7 +427,9 @@ export default function Message({
               <p className="break-words">
                 {highlightText(message.text || "")}
                 {message.edited === 1 && (
-                  <span className="text-[12px] text-gray-800 ml-1">(Edited)</span>
+                  <span className="text-[12px] text-gray-800 ml-1">
+                    (Edited)
+                  </span>
                 )}
               </p>
             )}
@@ -425,7 +441,7 @@ export default function Message({
   const bubbleClasses = isOwn
     ? "bg-purple-600 text-white self-end rounded-tr-none"
     : "bg-gray-200 text-gray-900 self-start rounded-tl-none";
-   const getEmojiCount = (emoji) => {
+  const getEmojiCount = (emoji) => {
     const data = reactedEmojis[emoji];
     if (!data) return 0;
     return typeof data.count === "number"
@@ -517,7 +533,7 @@ export default function Message({
                           setIsEditing(true);
                           setMenuOpen(false);
                         }}
-                       >
+                      >
                         ✏️ <span>Edit</span>
                       </button>
                     )}

@@ -1,18 +1,30 @@
 const db = require("../config/db");
 const { encrypt, decrypt } = require("../Utils/crypto");
 
+// ------------------------------
+// 🔹 Get all messages (decrypted)
+// ------------------------------
 const getAllMessages = async () => {
-  const [rows] = await db.query(
-    "SELECT * FROM chats ORDER BY created_at ASC"
-  );
+  const [rows] = await db.query("SELECT * FROM chats ORDER BY created_at ASC");
 
-  // Decrypt text before returning
-  return rows.map(msg => ({
-    ...msg,
-    text: msg.text ? decrypt(msg.text) : ""
-  }));
+  return rows.map((msg) => {
+    let text = "";
+    let file_name = null;
+    let reactions = {};
+    try {
+      text = msg.text ? decrypt(msg.text) : "";
+      file_name = msg.file_name ? decrypt(msg.file_name) : null;
+      reactions = msg.reactions ? JSON.parse(decrypt(msg.reactions)) : {};
+    } catch (err) {
+      console.error("Failed to decrypt message ID", msg.id, err);
+    }
+    return { ...msg, text, file_name, reactions };
+  });
 };
 
+// ----------------------------------------------
+// 🔹 Get messages between two users (decrypted)
+// ----------------------------------------------
 const getMessagesBetweenUsers = async (user1, user2) => {
   const [rows] = await db.query(
     `SELECT * FROM chats
@@ -22,16 +34,29 @@ const getMessagesBetweenUsers = async (user1, user2) => {
     [user1, user2, user2, user1]
   );
 
-  return rows.map(msg => ({
-    ...msg,
-    text: msg.text ? decrypt(msg.text) : ""
-  }));
+  return rows.map((msg) => {
+    let text = "";
+    let file_name = null;
+    let reactions = {};
+    try {
+      text = msg.text ? decrypt(msg.text) : "";
+      file_name = msg.file_name ? decrypt(msg.file_name) : null;
+      reactions = msg.reactions ? JSON.parse(decrypt(msg.reactions)) : {};
+    } catch (err) {
+      console.warn("Failed to decrypt message ID", msg.id, err);
+    }
+
+    return { ...msg, text, file_name, reactions };
+  });
 };
 
+// -----------------------------
+// 🔹 Insert message (encrypted)
+// -----------------------------
 const insertMessage = async (
   senderId,
   receiverId,
-  text,
+  text = "",
   fileUrl = null,
   fileType = null,
   type = "text",
@@ -39,85 +64,111 @@ const insertMessage = async (
 ) => {
   try {
     const encryptedText = text ? encrypt(text) : "";
+    const encryptedFileName = fileName ? encrypt(fileName) : null;
+    const encryptedReactions = encrypt(JSON.stringify({}));
 
     const query = `
       INSERT INTO chats 
       (sender_id, receiver_id, text, file_url, file_name, file_type, type, deleted, edited, reactions, created_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, NULL, NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, NOW())
     `;
+
     const [result] = await db.query(query, [
       senderId,
       receiverId,
-      encryptedText, // store encrypted text
+      encryptedText,
       fileUrl,
-      fileName,
+      encryptedFileName,
       fileType,
       type,
+      encryptedReactions,
     ]);
 
+    // Fetch the inserted message
     const [rows] = await db.query("SELECT * FROM chats WHERE id = ?", [
       result.insertId,
     ]);
-
     const message = rows[0];
-    message.text = text || ""; // return decrypted for consistency
-    return message;
+
+    return {
+      ...message,
+      text,
+      file_name: fileName,
+      reactions: {},
+    };
   } catch (err) {
     console.error("DB Insert Error:", err.sqlMessage || err);
     throw err;
   }
 };
 
-// get a single message by id
+// ---------------------------------
+// 🔹 Get single message (decrypted)
+// ---------------------------------
 const getMessageById = async (messageId) => {
   const [rows] = await db.query("SELECT * FROM chats WHERE id = ?", [messageId]);
   if (!rows.length) return null;
 
-  const message = rows[0];
-  message.text = message.text ? decrypt(message.text) : "";
-  return message;
-};
+  const msg = rows[0];
 
-// update reactions
-const updateMessageReactions = async (messageId, emoji) => {
-  const [rows] = await db.query("SELECT * FROM chats WHERE id = ?", [messageId]);
-  if (!rows.length) return null;
-
-  let message = rows[0];
-  let reactions;
+  let text = "";
+  let file_name = null;
+  let reactions = {};
   try {
-    reactions = message.reactions ? JSON.parse(message.reactions) : {};
+    text = msg.text ? decrypt(msg.text) : "";
+    file_name = msg.file_name ? decrypt(msg.file_name) : null;
+    reactions = msg.reactions ? JSON.parse(decrypt(msg.reactions)) : {};
   } catch (err) {
-    console.error("Error parsing reactions:", err);
-    reactions = {};
+    console.error("Failed to decrypt message ID", msg.id, err);
   }
 
-  // Increment emoji count
-  reactions[emoji] = reactions[emoji] ? reactions[emoji] + 1 : 1;
-
-  // Update in DB
-  await db.query("UPDATE chats SET reactions = ? WHERE id = ?", [JSON.stringify(reactions), messageId]);
-
-  // Decrypt text before returning
-  message.text = message.text ? decrypt(message.text) : "";
-
-  return { message, reactions };
+  return { ...msg, text, file_name, reactions };
 };
 
-// delete message
+// ---------------------------------------------
+// 🔹 Update reactions (store encrypted JSON)
+// ---------------------------------------------
+const updateMessageReactions = async (messageId, emoji) => {
+  const message = await getMessageById(messageId);
+  if (!message) return null;
+
+  const reactions = { ...message.reactions };
+  reactions[emoji] = reactions[emoji] ? reactions[emoji] + 1 : 1;
+
+  await db.query("UPDATE chats SET reactions = ? WHERE id = ?", [
+    encrypt(JSON.stringify(reactions)),
+    messageId,
+  ]);
+
+  return { ...message, reactions };
+};
+
+// -----------------------------------
+// 🔹 Delete message (hard delete)
+// -----------------------------------
 const deleteMessage = async (messageId) => {
   await db.query("DELETE FROM chats WHERE id = ?", [messageId]);
 };
 
-// update/edit message text (encrypt before saving)
+// -----------------------------------------
+// 🔹 Update/edit text (re-encrypt on save)
+// -----------------------------------------
 const updateMessage = async (messageId, text) => {
   const encryptedText = encrypt(text);
-  await db.query("UPDATE chats SET text = ?, edited = 1 WHERE id = ?", [encryptedText, messageId]);
+  await db.query("UPDATE chats SET text = ?, edited = 1 WHERE id = ?", [
+    encryptedText,
+    messageId,
+  ]);
 };
 
-// update reactions JSON directly
+// ---------------------------------------------------
+// 🔹 Directly update reactions JSON (encrypted form)
+// ---------------------------------------------------
 const updateReactions = async (messageId, reactions) => {
-  await db.query("UPDATE chats SET reactions = ? WHERE id = ?", [reactions, messageId]);
+  await db.query("UPDATE chats SET reactions = ? WHERE id = ?", [
+    encrypt(JSON.stringify(reactions)),
+    messageId,
+  ]);
 };
 
 module.exports = {
@@ -126,7 +177,7 @@ module.exports = {
   insertMessage,
   getMessageById,
   updateMessageReactions,
-  deleteMessage,      
-  updateMessage,      
-  updateReactions,    
+  deleteMessage,
+  updateMessage,
+  updateReactions,
 };

@@ -19,41 +19,41 @@ export default function Header({
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const searchInputRef = useRef(null);
-  const { selectedUser,activeNav } = useSelector((state) => state.user);
+  const { selectedUser, activeNav } = useSelector((state) => state.user);
   const username = activeUser?.username || "Guest";
   const { selectedTeam } = useSelector((state) => state.team);
 
-  const isChatVisible = (activeNav === "Chat" && selectedUser) || (activeNav === "Communities" && selectedTeam);
+  const isChatVisible = activeNav === "Chat" || activeNav === "Communities";
 
   const startGroupCall = async () => {
     if (!selectedTeam) return;
-    
+
     setIsCreatingMeeting(true);
     try {
       const meetingCode = `team-${selectedTeam.id}-${Date.now()}`;
       const meetingUrl = `${window.location.origin}/prejoin/${meetingCode}`;
-      
+
       // Send meeting link as a message
       const token = sessionStorage.getItem("chatToken");
       const messageData = {
         text: `📞 Team Meeting\n\nCreated by: ${activeUser.username}\n\n🔗 Join using this link:\n${meetingUrl}`,
         team_id: selectedTeam.id,
         sender_id: activeUser.id,
-        type: 'meeting-invite',
+        type: "meeting-invite",
         metadata: {
-          type: 'meeting-invite',
+          type: "meeting-invite",
           url: meetingUrl,
-          creator: activeUser.username
-        }
+          creator: activeUser.username,
+        },
       };
 
       await fetch(`${URL}/api/teams/${selectedTeam.id}/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(messageData)
+        body: JSON.stringify(messageData),
       });
 
       // Navigate to the meeting
@@ -98,11 +98,12 @@ export default function Header({
   };
 
   // Determine display name and profile image
-  const displayName = selectedTeam && activeNav === "Communities"
-    ? selectedTeam.name
-    : selectedUser && activeNav === "Chat"
-    ? selectedUser.username
-    : "Select a chat";
+  const displayName =
+    selectedTeam && activeNav === "Communities"
+      ? selectedTeam.name
+      : selectedUser && activeNav === "Chat"
+      ? selectedUser.username
+      : "Select a chat";
 
   const displayProfileImage =
     selectedUser && !selectedTeam && selectedUser.profile_image
@@ -150,7 +151,7 @@ export default function Header({
           {/* ✅ Show call buttons only for Chat or Communities */}
           {isChatVisible && (
             <>
-              { activeNav === "Communities" ? (
+              {selectedTeam && activeNav === "Communities" ? (
                 // Group Call Button for Teams
                 <button
                   className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"

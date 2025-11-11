@@ -6,7 +6,7 @@ import { useSelector } from "react-redux";
 export default function CreateTeam({ currentUser, showModal, setShowModal }) {
   const { userList } = useSelector((state) => state.user);
   const [searchQuery, setSearchQuery] = useState("");
-  const [teamName, setTeamName] = useState("");
+  const [teamName, setTeamName] = useState(""); // ✅ added this line
   const [selectedUsers, setSelectedUsers] = useState([]);
   const token = sessionStorage.getItem("chatToken");
 

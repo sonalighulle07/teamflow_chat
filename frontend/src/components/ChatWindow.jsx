@@ -150,25 +150,6 @@ export default function ChatWindow({
     socketRef.current.emit("deleteMessage", { messageId });
   };
 
-  // ✅ Fix toast for message delete
-  useEffect(() => {
-    if (!socketRef.current) return;
-
-    const socket = socketRef.current;
-
-    socket.on("messageDeleted", ({ messageId }) => {
-      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-
-      // Show success toast immediately for the user who deleted
-      setDeleteAlert("Message deleted successfully");
-      setTimeout(() => setDeleteAlert(""), 3000);
-    });
-
-    return () => {
-      socket.off("messageDeleted");
-    };
-  }, [currentUserId, setMessages]);
-
   // Edit message
   const handleEdit = async (updatedMsg) => {
     try {
@@ -188,26 +169,9 @@ export default function ChatWindow({
       console.error("Edit failed:", err);
     }
   };
-  // ✅ Toast for message edit
-  useEffect(() => {
-    if (!socketRef.current) return;
-    const socket = socketRef.current;
+ 
 
-    socket.on("messageEdited", (updatedMsg) => {
-      setMessages((prev) =>
-        prev.map((msg) => (msg.id === updatedMsg.id ? updatedMsg : msg))
-      );
-
-      // ✅ Show alert only for the sender
-      if (updatedMsg.sender_id === currentUserId) {
-        setDeleteAlert("Message edited successfully");
-        setTimeout(() => setDeleteAlert(""), 3000);
-      }
-    });
-
-    return () => socket.off("messageEdited");
-  }, [currentUserId, setMessages]);
-  // Forward message
+   
   const handleForward = async (messageId, toUserIds) => {
     if (!messageId || !toUserIds?.length) return;
     try {

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+
 import { io } from "socket.io-client";
 import Picker from "emoji-picker-react";
 import { PaperClipIcon } from "@heroicons/react/24/outline";
@@ -9,6 +10,7 @@ import axios from "axios";
 import { useDispatch } from "react-redux";
 import { fetchTeamMembers } from "../Store/Features/Teams/teamThunk";
 import { useSelector } from "react-redux";
+import CryptoJS from "crypto-js";
 import Header from "./Header";
 export default function TeamChat({ currentUser }) {
   const [messages, setMessages] = useState([]);
@@ -29,6 +31,30 @@ export default function TeamChat({ currentUser }) {
     const options = { year: "numeric", month: "short", day: "numeric" };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
+
+  const KEY = "12345678901234567890123456789012"; // same key as Node.js
+
+  function safeDecrypt(text) {
+    if (!text || !text.includes(":")) return text || "";
+
+    try {
+      const [ivHex, encrypted] = text.split(":");
+      const iv = CryptoJS.enc.Hex.parse(ivHex);
+      const decrypted = CryptoJS.AES.decrypt(
+        encrypted,
+        CryptoJS.enc.Utf8.parse(KEY),
+        {
+          iv: iv,
+          mode: CryptoJS.mode.CBC,
+          padding: CryptoJS.pad.Pkcs7,
+        }
+      );
+      return decrypted.toString(CryptoJS.enc.Utf8);
+    } catch (err) {
+      console.error("Decryption error:", err, text);
+      return text;
+    }
+  }
 
   const dispatch = useDispatch();
   const selectedTeamMembers = useSelector(
@@ -396,7 +422,10 @@ export default function TeamChat({ currentUser }) {
                       <Message
                         message={{
                           ...msg,
-                          text: highlightText(msg.text, searchQuery), // <-- highlight applied
+                          text: highlightText(
+                            safeDecrypt(msg.text), // <-- decrypt here
+                            searchQuery
+                          ),
                           username:
                             msg.sender_id !== currentUser.id
                               ? selectedTeamMembers?.find(
@@ -423,7 +452,6 @@ export default function TeamChat({ currentUser }) {
                                 body: JSON.stringify({ emoji }),
                               }
                             );
-                            // update local reactions (optimistic)
                             setMessages((prev) =>
                               prev.map((m) =>
                                 m.id === messageId

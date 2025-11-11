@@ -1,28 +1,25 @@
 const db = require("../config/db");
+const { encrypt, decrypt } = require("../Utils/crypto");
 
+// ---------------------------
+// Team
+// ---------------------------
 const Team = {
-  // Get all teams
   getAll: async () => {
     const [rows] = await db.query("SELECT * FROM teams");
     return rows;
   },
-
-  // Get single team by ID
   getById: async (id) => {
     const [rows] = await db.query("SELECT * FROM teams WHERE id = ?", [id]);
-    return rows;
+    return rows[0];
   },
-
-  // Create a new team
   create: async (name, created_by) => {
     const [result] = await db.query(
       "INSERT INTO teams (name, created_by) VALUES (?, ?)",
       [name, created_by]
     );
-    return result; // contains insertId
+    return result;
   },
-
-  // Update a team
   update: async (id, name) => {
     const [result] = await db.query(
       "UPDATE teams SET name = ? WHERE id = ?",
@@ -30,14 +27,10 @@ const Team = {
     );
     return result;
   },
-
-  // Delete a team
   delete: async (id) => {
     const [result] = await db.query("DELETE FROM teams WHERE id = ?", [id]);
     return result;
   },
-
-  // Get teams that a user is part of
   getByUser: async (user_id) => {
     const [rows] = await db.query(
       `SELECT t.id, t.name, t.created_by
@@ -50,8 +43,10 @@ const Team = {
   },
 };
 
+// ---------------------------
+// Team Members
+// ---------------------------
 const TeamMember = {
-  // Add a member to a team
   add: async (team_id, user_id, role = "member") => {
     const [result] = await db.query(
       "INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, ?)",
@@ -59,50 +54,30 @@ const TeamMember = {
     );
     return result;
   },
-  // Get members of a specific team
-getMembers: async (team_id) => {
-  const [rows] = await db.query(
-    `SELECT 
-  t.id AS team_id,
-  t.name AS team_name,
-  u.id AS user_id,
-  u.username,
-  u.profile_image,
-  tm.role
-FROM team_members tm
-JOIN teams t ON tm.team_id = t.id
-JOIN users u ON tm.user_id = u.id
-WHERE t.id = ?;
-
-`,
-    [team_id]
-  );
-  return rows;
-},
-
-};
-
-const TeamChat = {
-  // Get team chat messages
-  getMessages: async (team_id) => {
+  getMembers: async (team_id) => {
     const [rows] = await db.query(
-      "SELECT * FROM team_chats WHERE team_id = ? ORDER BY created_at ASC",
+      `SELECT 
+         t.id AS team_id,
+         t.name AS team_name,
+         u.id AS user_id,
+         u.username,
+         u.profile_image,
+         tm.role
+       FROM team_members tm
+       JOIN teams t ON tm.team_id = t.id
+       JOIN users u ON tm.user_id = u.id
+       WHERE t.id = ?`,
       [team_id]
     );
     return rows;
   },
-
-  // Add a team chat message
-  addMessage: async (team_id, sender_id, message, file_url = null, file_type = "text") => {
-    const [result] = await db.query(
-      "INSERT INTO team_chats (team_id, sender_id, message, file_url, file_type) VALUES (?, ?, ?, ?, ?)",
-      [team_id, sender_id, message, file_url, file_type]
-    );
-    return result;
-  },
 };
+
+// ---------------------------
+// Team Messages (Encrypted)
+// ---------------------------
 const TeamMessage = {
-  // Insert team message (text, file, or custom type like meeting-invite)
+  // Insert team message
   insert: async (
     senderId,
     teamId,
@@ -115,38 +90,79 @@ const TeamMessage = {
     const query = `
       INSERT INTO team_messages 
       (sender_id, team_id, text, file_url, file_name, type, metadata, deleted, edited, reactions, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, NULL, NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, NOW())
     `;
+
+    const encryptedText = text ? encrypt(text) : "";
+    const encryptedFileUrl = fileUrl ? encrypt(fileUrl) : null;
+    const encryptedFileName = fileName ? encrypt(fileName) : null;
+    const encryptedType = type ? encrypt(type) : null;
+    const encryptedMetadata = metadata ? encrypt(JSON.stringify(metadata)) : null;
+    const encryptedReactions = encrypt(JSON.stringify({})); // empty reactions
 
     const [result] = await db.query(query, [
       senderId,
       teamId,
-      text,
-      fileUrl,
-      fileName,
-      type,
-      metadata ? JSON.stringify(metadata) : null,
+      encryptedText,
+      encryptedFileUrl,
+      encryptedFileName,
+      encryptedType,
+      encryptedMetadata,
+      encryptedReactions,
     ]);
 
     return { insertId: result.insertId };
   },
 
-  // Get single message
+  // Get single message (decrypted)
   getById: async (messageId) => {
-    const [rows] = await db.query("SELECT * FROM team_messages WHERE id = ?", [messageId]);
-    return rows[0];
+    const [rows] = await db.query(
+      "SELECT * FROM team_messages WHERE id = ?",
+      [messageId]
+    );
+    if (!rows.length) return null;
+
+    const msg = rows[0];
+    return {
+      ...msg,
+      text: msg.text ? decrypt(msg.text) : "",
+      file_url: msg.file_url ? decrypt(msg.file_url) : null,
+      file_name: msg.file_name ? decrypt(msg.file_name) : null,
+      type: msg.type ? decrypt(msg.type) : "text",
+      metadata: msg.metadata ? JSON.parse(decrypt(msg.metadata)) : null,
+      reactions: msg.reactions ? JSON.parse(decrypt(msg.reactions)) : {},
+    };
   },
 
-  // ✅ Edit message text
+  // Get all messages for a team (decrypted)
+  getMessages: async (teamId) => {
+    const [rows] = await db.query(
+      "SELECT * FROM team_messages WHERE team_id = ? ORDER BY created_at ASC",
+      [teamId]
+    );
+
+    return rows.map((msg) => ({
+      ...msg,
+      text: msg.text ? decrypt(msg.text) : "",
+      file_url: msg.file_url ? decrypt(msg.file_url) : null,
+      file_name: msg.file_name ? decrypt(msg.file_name) : null,
+      type: msg.type ? decrypt(msg.type) : "text",
+      metadata: msg.metadata ? JSON.parse(decrypt(msg.metadata)) : null,
+      reactions: msg.reactions ? JSON.parse(decrypt(msg.reactions)) : {},
+    }));
+  },
+
+  // Update message text
   updateText: async (messageId, text) => {
+    const encryptedText = encrypt(text);
     const [result] = await db.query(
       "UPDATE team_messages SET text = ?, edited = 1 WHERE id = ?",
-      [text, messageId]
+      [encryptedText, messageId]
     );
     return result;
   },
 
-  // ✅ Soft Delete Message (Recommended)
+  // Soft delete
   softDelete: async (messageId) => {
     const [result] = await db.query(
       "UPDATE team_messages SET deleted = 1 WHERE id = ?",
@@ -155,17 +171,21 @@ const TeamMessage = {
     return result;
   },
 
-  // ✅ Hard Delete (if you want to remove from DB)
+  // Hard delete
   deletePermanent: async (messageId) => {
-    const [result] = await db.query("DELETE FROM team_messages WHERE id = ?", [messageId]);
+    const [result] = await db.query(
+      "DELETE FROM team_messages WHERE id = ?",
+      [messageId]
+    );
     return result;
   },
 
-  // ✅ Update reactions (like 👍❤️😢)
+  // Update reactions
   updateReactions: async (messageId, reactions) => {
+    const encryptedReactions = encrypt(JSON.stringify(reactions));
     const [result] = await db.query(
       "UPDATE team_messages SET reactions = ? WHERE id = ?",
-      [reactions, messageId]
+      [encryptedReactions, messageId]
     );
     return result;
   },
@@ -174,6 +194,5 @@ const TeamMessage = {
 module.exports = {
   Team,
   TeamMember,
-  TeamChat,
   TeamMessage,
 };
