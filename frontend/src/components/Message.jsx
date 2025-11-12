@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { FaSmile, FaEllipsisV } from "react-icons/fa";
 import EmojiPicker from "emoji-picker-react";
 import { URL } from "../config";
+import CryptoJS from "crypto-js";
 
 const renderMeetingInvite = (text, metadata) => {
   const lines = text.split("\n");
@@ -35,37 +36,70 @@ export default function Message({
 }) {
   const currentUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
 
-  // ---- normalize reactions ----
-  const normalizeReactions = (raw) => {
-    if (!raw) return {};
-    let parsed = raw;
-    if (typeof parsed === "string") {
-      try {
-        parsed = JSON.parse(parsed);
-      } catch {
-        return {};
+ // ---- AES Decrypt (same key as backend) ----
+const KEY = "12345678901234567890123456789012"; // 32-byte key
+
+function safeDecrypt(text) {
+  if (!text || typeof text !== "string" || !text.includes(":")) return text || "";
+
+  try {
+    const [ivHex, encryptedHex] = text.split(":");
+    const iv = CryptoJS.enc.Hex.parse(ivHex.trim());
+    const encryptedWA = CryptoJS.enc.Hex.parse(encryptedHex.trim());
+
+    const decrypted = CryptoJS.AES.decrypt(
+      { ciphertext: encryptedWA },
+      CryptoJS.enc.Utf8.parse(KEY),
+      {
+        iv,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7,
       }
+    );
+
+    const result = decrypted.toString(CryptoJS.enc.Utf8);
+    return result || text;
+  } catch (err) {
+    console.error("Decryption error:", err.message, text);
+    return text;
+  }
+}
+
+
+  // ---- Normalize reactions into consistent shape ----
+const normalizeReactions = (raw) => {
+  if (!raw) return {};
+
+  let parsed = raw;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return {};
     }
-    const out = {};
-    Object.entries(parsed).forEach(([emoji, val]) => {
-      if (val == null) out[emoji] = { count: 0, users: {} };
-      else if (typeof val === "number") out[emoji] = { count: val, users: {} };
-      else if (typeof val === "object") {
-        if ("count" in val) {
-          const users =
-            val.users && typeof val.users === "object" ? val.users : {};
-          out[emoji] = {
-            count: Number(val.count || Object.keys(users).length || 0),
-            users,
-          };
-        } else {
-          const users = val;
-          out[emoji] = { count: Object.keys(users).length, users };
-        }
-      } else out[emoji] = { count: 0, users: {} };
-    });
-    return out;
-  };
+  }
+
+  const out = {};
+  Object.entries(parsed).forEach(([emoji, val]) => {
+    if (val == null) out[emoji] = { count: 0, users: {} };
+    else if (typeof val === "number") out[emoji] = { count: val, users: {} };
+    else if (typeof val === "object") {
+      if ("count" in val) {
+        const users =
+          val.users && typeof val.users === "object" ? val.users : {};
+        out[emoji] = {
+          count: Number(val.count || Object.keys(users).length || 0),
+          users,
+        };
+      } else {
+        const users = val;
+        out[emoji] = { count: Object.keys(users).length, users };
+      }
+    } else out[emoji] = { count: 0, users: {} };
+  });
+
+  return out;
+};
 
   // ---- state ----
   const [hovered, setHovered] = useState(false);
@@ -83,24 +117,57 @@ export default function Message({
   const audioRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
 
-  const [reactedEmojis, setReactedEmojis] = useState(() =>
-    normalizeReactions(message.reactions)
-  );
+// ---- Initialize reactions state ----
+const [reactedEmojis, setReactedEmojis] = useState(() => {
+  try {
+    let decrypted = safeDecrypt(message.reactions);
+    try {
+      decrypted = JSON.parse(decrypted);
+    } catch {}
+    return normalizeReactions(decrypted);
+  } catch (err) {
+    console.error("Failed to decrypt initial reactions:", err);
+    return normalizeReactions(message.reactions);
+  }
+});
 
-  useEffect(() => {
+
+  // ---- Update when message changes ----
+useEffect(() => {
+  if (!message.reactions) return;
+  try {
+    let decrypted = safeDecrypt(message.reactions);
+    try {
+      decrypted = JSON.parse(decrypted);
+    } catch {}
+    setReactedEmojis(normalizeReactions(decrypted));
+  } catch (err) {
+    console.error("Reaction decryption error:", err);
     setReactedEmojis(normalizeReactions(message.reactions));
-  }, [message.reactions, message.id]);
+  }
+}, [message.id, message.reactions]);
 
-  // socket reaction sync
-  useEffect(() => {
-    if (!socket) return;
-    const handleReactionEvent = ({ messageId, reactions }) => {
-      if (messageId !== message.id) return;
+// ---- Sync with socket events ----
+useEffect(() => {
+  if (!socket) return;
+
+  const handleReactionEvent = ({ messageId, reactions }) => {
+    if (messageId !== message.id) return;
+    try {
+      let decrypted = safeDecrypt(reactions);
+      try {
+        decrypted = JSON.parse(decrypted);
+      } catch {}
+      setReactedEmojis(normalizeReactions(decrypted));
+    } catch (err) {
+      console.error("Socket reaction decrypt error:", err);
       setReactedEmojis(normalizeReactions(reactions));
-    };
-    socket.on?.("reaction", handleReactionEvent);
-    return () => socket.off?.("reaction", handleReactionEvent);
-  }, [socket, message.id]);
+    }
+  };
+
+  socket.on?.("reaction", handleReactionEvent);
+  return () => socket.off?.("reaction", handleReactionEvent);
+}, [socket, message.id]);
 
   // ---- hover handlers ----
   const handleMouseEnter = () => {
@@ -146,6 +213,7 @@ export default function Message({
     setIsMuted(newMuted);
   };
   const userId = currentUser?.id;
+
   const toggleReaction = (emoji) => {
     setReactedEmojis((prev) => {
       const prevData = prev[emoji] || { count: 0, users: {} };
@@ -188,6 +256,7 @@ export default function Message({
 
   const handleDownload = async (url, fileName) => {
     try {
+      console.log("Starting download from URL:", url);
       const response = await fetch(url, { mode: "cors" });
       if (!response.ok) throw new Error("Network response was not ok");
       const blob = await response.blob();
@@ -298,145 +367,151 @@ export default function Message({
     );
   };
 
-  const renderContent = () => {
-    const fileUrl = getFileUrl(message.file_url);
-    const fileName = message.file_name || message.file_url?.split("/").pop();
+const renderContent = () => {
+  
+  // ✅ now safely call decryption functions
+  const decryptedFileUrl = safeDecrypt(message.file_url);
+  const fileUrl = getFileUrl(decryptedFileUrl);
+  const fileName = safeDecrypt(message.file_name);
+  const decryptedText = safeDecrypt(message.text);
 
-    switch (message.type) {
-      case "image":
-        if (!fileUrl) return null;
-        return (
-          <div className="relative inline-block">
-            <img
-              src={fileUrl}
-              alt="Sent"
-              className="max-w-xs rounded-lg shadow-md cursor-pointer hover:scale-105 transition-transform"
-              onDoubleClick={handleDoubleClick}
-            />
-            <MediaMenu fileUrl={fileUrl} fileName={fileName} />
-            {isFullscreen && (
-              <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-                <img
-                  src={fileUrl}
-                  alt="Fullscreen"
-                  className="max-h-full max-w-full rounded-lg shadow-lg transition-transform"
-                  style={{ transform: `scale(${zoom})` }}
-                />
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 bg-black bg-opacity-50 px-4 py-2 rounded-full">
-                  <button
-                    className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
-                    onClick={handleZoomOut}
-                  >
-                    −
-                  </button>
-                  <button
-                    className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
-                    onClick={handleZoomIn}
-                  >
-                    +
-                  </button>
-                  <button
-                    className="text-white text-xl font-bold px-3 py-1 hover:text-red-500"
-                    onClick={handleCloseFullscreen}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-
-      case "video":
-        if (!fileUrl) return null;
-        return (
-          <div className="relative inline-block">
-            <video
-              src={fileUrl}
-              className="max-w-xs rounded-lg shadow-md cursor-pointer"
-              controls
-              muted
-            />
-            <MediaMenu fileUrl={fileUrl} fileName={fileName} />
-          </div>
-        );
-
-      case "audio":
-        if (!fileUrl) return null;
-        return (
-          <div className="relative inline-block">
-            <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-xl shadow-sm max-w-md w-full">
-              <span className="text-2xl">🎵</span>
-              <audio
-                ref={audioRef}
+  // ✅ your existing rendering logic
+  switch (message.type) {
+    case "image":
+      if (!fileUrl) return null;
+      return (
+        <div className="relative inline-block">
+          <img
+            src={fileUrl}
+            alt="Sent"
+            className="max-w-xs rounded-lg shadow-md cursor-pointer hover:scale-105 transition-transform"
+            onDoubleClick={handleDoubleClick}
+          />
+          <MediaMenu fileUrl={fileUrl} fileName={fileName} />
+          {isFullscreen && (
+            <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+              <img
                 src={fileUrl}
-                className="w-full"
-                onEnded={() => setIsPlaying(false)}
+                alt="Fullscreen"
+                className="max-h-full max-w-full rounded-lg shadow-lg transition-transform"
+                style={{ transform: `scale(${zoom})` }}
               />
-              <button
-                onClick={togglePlay}
-                className="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700"
-              >
-                {isPlaying ? "Pause" : "Play"}
-              </button>
-              <button
-                onClick={toggleMute}
-                className="px-2 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
-              >
-                {isMuted ? "Unmute" : "Mute"}
-              </button>
-            </div>
-            <MediaMenu fileUrl={fileUrl} fileName={fileName} />
-          </div>
-        );
-
-      case "file":
-      case "application":
-        if (!fileUrl) return null;
-        const fileExt = fileName?.split(".").pop()?.toLowerCase();
-        const getFileIcon = () => {
-          if (fileExt === "pdf") return "📕";
-          if (["doc", "docx"].includes(fileExt)) return "📘";
-          if (["xls", "xlsx"].includes(fileExt)) return "📊";
-          return "📄";
-        };
-        return (
-          <div className="relative inline-block">
-            <div className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs">
-              <span className="text-2xl">{getFileIcon()}</span>
-              <span className="truncate">{fileName}</span>
-            </div>
-            <MediaMenu fileUrl={fileUrl} fileName={fileName} />
-          </div>
-        );
-
-      default:
-        return (
-          <div>
-            {message.forwarded_from && (
-              <span className="text-[11px] italic text-gray-800">
-                Forwarded
-              </span>
-            )}
-            {/* ✅ FIXED: use a wrapper div instead of <p> */}
-            {message.metadata?.type === "meeting-invite" ? (
-              <div className="mt-1">
-                {renderMeetingInvite(message.text, message.metadata)}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 bg-black bg-opacity-50 px-4 py-2 rounded-full">
+                <button
+                  className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
+                  onClick={handleZoomOut}
+                >
+                  −
+                </button>
+                <button
+                  className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
+                  onClick={handleZoomIn}
+                >
+                  +
+                </button>
+                <button
+                  className="text-white text-xl font-bold px-3 py-1 hover:text-red-500"
+                  onClick={handleCloseFullscreen}
+                >
+                  ✕
+                </button>
               </div>
-            ) : (
-              <p className="break-words">
-                {highlightText(message.text || "")}
-                {message.edited === 1 && (
-                  <span className="text-[12px] text-gray-800 ml-1">
-                    (Edited)
-                  </span>
-                )}
-              </p>
-            )}
+            </div>
+          )}
+        </div>
+      );
+
+    case "video":
+      if (!fileUrl) return null;
+      return (
+        <div className="relative inline-block">
+          <video
+            src={fileUrl}
+            className="max-w-xs rounded-lg shadow-md cursor-pointer"
+            controls
+            muted
+          />
+          <MediaMenu fileUrl={fileUrl} fileName={fileName} />
+        </div>
+      );
+
+    case "audio":
+      if (!fileUrl) return null;
+      return (
+        <div className="relative inline-block">
+          <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-xl shadow-sm max-w-md w-full">
+            <span className="text-2xl">🎵</span>
+            <audio
+              ref={audioRef}
+              src={fileUrl}
+              className="w-full"
+              onEnded={() => setIsPlaying(false)}
+            />
+            <button
+              onClick={togglePlay}
+              className="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700"
+            >
+              {isPlaying ? "Pause" : "Play"}
+            </button>
+            <button
+              onClick={toggleMute}
+              className="px-2 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
+            >
+              {isMuted ? "Unmute" : "Mute"}
+            </button>
           </div>
-        );
-    }
-  };
+          <MediaMenu fileUrl={fileUrl} fileName={fileName} />
+        </div>
+      );
+
+    case "file":
+    case "application":
+      if (!fileUrl) return null;
+      const fileExt = fileName?.split(".").pop()?.toLowerCase();
+      const getFileIcon = () => {
+        if (fileExt === "pdf") return "📕";
+        if (["doc", "docx"].includes(fileExt)) return "📘";
+        if (["xls", "xlsx"].includes(fileExt)) return "📊";
+        return "📄";
+      };
+      return (
+        <div className="relative inline-block">
+          <div className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs">
+            <span className="text-2xl">{getFileIcon()}</span>
+            <span className="truncate">{fileName}</span>
+          </div>
+          <MediaMenu fileUrl={fileUrl} fileName={fileName} />
+        </div>
+      );
+
+    default:
+      return (
+        <div>
+          {message.forwarded_from && (
+            <span className="text-[11px] italic text-gray-800">
+              Forwarded
+            </span>
+          )}
+          {message.metadata?.type === "meeting-invite" ? (
+            <div className="mt-1">
+              {renderMeetingInvite(decryptedText, message.metadata)}
+            </div>
+          ) : (
+            <p className="break-words">
+              {highlightText(decryptedText || "")}
+              {message.edited === 1 && (
+                <span className="text-[12px] text-gray-800 ml-1">
+                  (Edited)
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+      );
+  }
+};
+
+
 
   const bubbleClasses = isOwn
     ? "bg-purple-600 text-white self-end rounded-tr-none"

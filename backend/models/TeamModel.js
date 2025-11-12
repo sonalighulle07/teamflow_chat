@@ -73,11 +73,8 @@ const TeamMember = {
   },
 };
 
-// ---------------------------
-// Team Messages (Encrypted)
-// ---------------------------
 const TeamMessage = {
-  // Insert team message
+  // Insert team message (all fields encrypted)
   insert: async (
     senderId,
     teamId,
@@ -85,7 +82,8 @@ const TeamMessage = {
     fileUrl = null,
     type = "text",
     fileName = null,
-    metadata = null
+    metadata = null,
+    reactions = {}
   ) => {
     const query = `
       INSERT INTO team_messages 
@@ -93,28 +91,27 @@ const TeamMessage = {
       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, NOW())
     `;
 
+    // Encrypt only sensitive fields
     const encryptedText = text ? encrypt(text) : "";
     const encryptedFileUrl = fileUrl ? encrypt(fileUrl) : null;
     const encryptedFileName = fileName ? encrypt(fileName) : null;
-    const encryptedType = type ? encrypt(type) : null;
     const encryptedMetadata = metadata ? encrypt(JSON.stringify(metadata)) : null;
-    const encryptedReactions = encrypt(JSON.stringify({})); // empty reactions
 
     const [result] = await db.query(query, [
-      senderId,
-      teamId,
-      encryptedText,
-      encryptedFileUrl,
-      encryptedFileName,
-      encryptedType,
-      encryptedMetadata,
-      encryptedReactions,
+      senderId,                 // plaintext
+      teamId,                   // plaintext
+      encryptedText,            // encrypted
+      encryptedFileUrl,         // encrypted
+      encryptedFileName,        // encrypted
+      type,                     // plaintext
+      encryptedMetadata,        // encrypted
+      JSON.stringify(reactions) // plaintext JSON
     ]);
 
     return { insertId: result.insertId };
   },
 
-  // Get single message (decrypted)
+  
   getById: async (messageId) => {
     const [rows] = await db.query(
       "SELECT * FROM team_messages WHERE id = ?",
@@ -182,6 +179,7 @@ const TeamMessage = {
 
   // Update reactions
   updateReactions: async (messageId, reactions) => {
+    console.log("Updating reactions for messageId:", messageId, "with reactions:", reactions);
     const encryptedReactions = encrypt(JSON.stringify(reactions));
     const [result] = await db.query(
       "UPDATE team_messages SET reactions = ? WHERE id = ?",
