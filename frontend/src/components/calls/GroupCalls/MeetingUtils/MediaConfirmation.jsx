@@ -14,6 +14,11 @@ const MediaConfirmation = ({ userId, currentUser }) => {
   const { code } = useParams();
   const activeUser =
     sessionStorage.getItem("chatUser") ? JSON.parse(sessionStorage.getItem("chatUser")) : null;
+  
+  const username = currentUser?.username || "Guest";
+  const fullname = currentUser?.fullname || "";
+  const avatarSrc = currentUser?.profile_image || null;
+  const userIdDisplay = currentUser?.id || "";
 
   // --- Clean up broadcast session ---
   useEffect(() => {
@@ -111,6 +116,7 @@ const handleJoin = () => {
     if (response?.success) {
       sessionStorage.setItem(sessionKey, "true");
       sessionStorage.setItem("userId", userId);
+      sessionStorage.setItem("username", username);
       sessionStorage.setItem("roomCode", code);
       sessionStorage.setItem("micOn", micOn);
       sessionStorage.setItem("cameraOn", cameraOn);
@@ -136,10 +142,6 @@ navigate(`/meet/${code}`, { state: { teamId } });
     navigate("/");
   };
 
-  const username = currentUser?.username || "Guest";
-  const fullname = currentUser?.fullname || "";
-  const avatarSrc = currentUser?.profile_image || null;
-  const userIdDisplay = currentUser?.id || "";
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white relative">

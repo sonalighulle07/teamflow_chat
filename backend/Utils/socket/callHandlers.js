@@ -89,6 +89,14 @@ socket.on("joinRoom", ({ userId, username, roomCode }, callback) => {
 });
 
 
+  socket.on("checkJoined", ({ meetingCode, userId }, callback) => {
+  const joined =
+    activeRooms.has(meetingCode) && activeRooms.get(meetingCode).has(String(userId));
+
+  if (callback) callback({ joined });
+});
+
+
   socket.on("offer", ({ to, offer }) => {
     const targetSocketId = meetingSockets.get(String(to));
     if (targetSocketId) {

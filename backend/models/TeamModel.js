@@ -114,8 +114,8 @@ const TeamMessage = {
   ) => {
     const query = `
       INSERT INTO team_messages 
-      (sender_id, team_id, text, file_url, file_name, type, metadata, deleted, edited, reactions, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, NULL, NOW())
+      (sender_id, team_id, text, file_url, file_name, type, deleted, edited, reactions, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 0, 0, NULL, NOW())
     `;
 
     const [result] = await db.query(query, [

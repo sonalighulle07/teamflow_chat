@@ -7,10 +7,11 @@ export default function PeerTile({
   isPinned = false,
   onDoubleClick,
 }) {
+  
   const videoRef = useRef(null);
   const [videoActive, setVideoActive] = useState(true);
   const [speaking, setSpeaking] = useState(false);
-
+  
   // 🎥 Handle video stream binding + track state
   useEffect(() => {
     if (!videoRef.current) return;

@@ -1,7 +1,6 @@
 // useMeeting.js
 import { useState, useRef, useEffect } from "react";
 import socket from "./socket";
-import { useSelector } from "react-redux";
 import { setPreviewStream } from "../../../utils/streamStore";
 
 export function useMeeting(userId, roomCode, teamId = null) {
@@ -10,6 +9,8 @@ export function useMeeting(userId, roomCode, teamId = null) {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+
+  const userRefs = useRef(new Map());      // ✅ NEW — holds userId → username mapping
 
   const peerMap = useRef(new Map());
   const hasJoinedRef = useRef(false);
@@ -85,141 +86,136 @@ export function useMeeting(userId, roomCode, teamId = null) {
     return peer;
   }
 
-  // ---- Join meeting (get media, register socket, handle peers) ----
-  async function joinMeeting({ micEnabled = true, camEnabled = true } = {}) {
-    if (hasJoinedRef.current) return;
+// useMeeting.js (final working joinMeeting)
 
-    console.log("Join meeting called with micEnabled:", micEnabled, "camEnabled:", camEnabled);
+async function joinMeeting({ micEnabled = true, camEnabled = true } = {}) {
+  if (hasJoinedRef.current) return;
 
-    const sessionKey = `joined_${roomCode}_${userId}`;
-    if (sessionStorage.getItem(sessionKey)) {
-      hasJoinedRef.current = true;
-      return;
-    }
+  console.log("Join meeting called with micEnabled:", micEnabled, "camEnabled:", camEnabled);
+
+  const sessionKey = `joined_${roomCode}_${userId}`;
+  if (sessionStorage.getItem(sessionKey)) {
     hasJoinedRef.current = true;
-    sessionStorage.setItem(sessionKey, "true");
-
-    // ensure socket connected and register
-    if (!socket.connected) socket.connect();
-    socket.emit("register", { userId });
-
-    // get user media (apply requested initial states)
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      stream.getAudioTracks().forEach((t) => (t.enabled = !!micEnabled));
-      stream.getVideoTracks().forEach((t) => (t.enabled = !!camEnabled));
-    } catch (err) {
-      console.error("Failed to get user media:", err);
-      stream = new MediaStream();
-    }
-
-    // create a fresh MediaStream instance (clone tracks)
-    const initialStream = new MediaStream(stream.getTracks());
-    setPreviewStream(initialStream); // save for MediaConfirmation
-    
-    updateLocalStream(initialStream);
-    setIsMuted(micEnabled);
-    setIsVideoEnabled(camEnabled);
-
-    // If peers already exist (created earlier), attach tracks to them
-    peerMap.current.forEach((peer) => {
-      try {
-        initialStream.getTracks().forEach((track) => peer.addTrack(track, initialStream));
-      } catch (err) {
-        // ignore; some peers might already have senders
-        console.warn("attach tracks to existing peer failed:", err);
-      }
-    });
-
-    // ---- socket handlers: (use off/on to avoid duplicates) ----
-    socket.off("existingUsers").on("existingUsers", ({ users }) => {
-      // users = array of remote IDs present in room
-      users.forEach((remoteId) => {
-        if (!peerMap.current.has(remoteId)) {
-          // we are initiator for existing users (we create offer)
-          createPeer(remoteId, true);
-        }
-      });
-    });
-
-    socket
-      .off("userJoined")
-      .on("userJoined", ({ userId: remoteId, username: remoteUsername }) => {
-        // A new user joined — create peer and initiate offer to them
-        if (!peerMap.current.has(remoteId)) {
-          createPeer(remoteId, true);
-        }
-        window.dispatchEvent(
-          new CustomEvent("meeting-toast", {
-            detail: { message: `${remoteUsername} joined the meeting` },
-          })
-        );
-      });
-
-    socket.off("offer").on("offer", async ({ from, offer }) => {
-      // remote sent offer => ensure peer exists as non-initiator, set remote, create answer
-      let peer = peerMap.current.get(from);
-      if (!peer) peer = createPeer(from, false);
-      try {
-        await peer.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peer.createAnswer();
-        await peer.setLocalDescription(answer);
-        socket.emit("answer", { to: from, answer: peer.localDescription });
-      } catch (err) {
-        console.error("Error handling offer:", err);
-      }
-    });
-
-    socket.off("answer").on("answer", async ({ from, answer }) => {
-      const peer = peerMap.current.get(from);
-      if (peer) {
-        try {
-          await peer.setRemoteDescription(new RTCSessionDescription(answer));
-        } catch (err) {
-          console.error("Error setting remote description from answer:", err);
-        }
-      }
-    });
-
-    socket
-      .off("iceCandidate")
-      .on("iceCandidate", async ({ from, candidate }) => {
-        const peer = peerMap.current.get(from);
-        if (peer && candidate) {
-          try {
-            await peer.addIceCandidate(new RTCIceCandidate(candidate));
-          } catch (err) {
-            console.warn("addIceCandidate failed:", err);
-          }
-        }
-      });
-
-    socket
-      .off("userLeft")
-      .on("userLeft", ({ userId: remoteId, username: remoteUsername }) => {
-        const peer = peerMap.current.get(remoteId);
-        if (peer) peer.close();
-        peerMap.current.delete(remoteId);
-        setPeers((prev) => {
-          const updated = new Map(prev);
-          updated.delete(remoteId);
-          return updated;
-        });
-        window.dispatchEvent(
-          new CustomEvent("meeting-toast", {
-            detail: { message: `${remoteUsername} left the meeting` },
-          })
-        );
-      });
-
-    // finally emit joinRoom (no ack here; if you use ack change accordingly)
-    let userStr = sessionStorage.getItem("chatUser");
-    let user = userStr ? JSON.parse(userStr) : null;
-    let username = user?.username || "Unknown User";
-
-    socket.emit("joinRoom", { userId, username, roomCode });
+    return;
   }
+  hasJoinedRef.current = true;
+  sessionStorage.setItem(sessionKey, "true");
+
+  // ensure socket connected and register
+  if (!socket.connected) socket.connect();
+  socket.emit("register", { userId });
+
+  // get user media (apply requested initial states)
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    stream.getAudioTracks().forEach((t) => (t.enabled = !!micEnabled));
+    stream.getVideoTracks().forEach((t) => (t.enabled = !!camEnabled));
+  } catch (err) {
+    console.error("Failed to get user media:", err);
+    stream = new MediaStream();
+  }
+
+  // create a fresh MediaStream instance (clone tracks)
+  const initialStream = new MediaStream(stream.getTracks());
+  setPreviewStream(initialStream);
+  updateLocalStream(initialStream);
+  setIsMuted(micEnabled);
+  setIsVideoEnabled(camEnabled);
+
+  // attach tracks to already existing peers if any
+  peerMap.current.forEach((peer) => {
+    try {
+      initialStream.getTracks().forEach((track) => peer.addTrack(track, initialStream));
+    } catch (err) {
+      console.warn("attach tracks to existing peer failed:", err);
+    }
+  });
+
+  // === username map (store remote usernames) ===
+  userRefs.current = userRefs.current || new Map();
+
+  // ---- SOCKET HANDLERS ----
+  socket.off("existingUsers").on("existingUsers", ({ users }) => {
+    users.forEach(({ userId: remoteId, username: remoteUsername }) => {
+      userRefs.current.set(remoteId, remoteUsername);
+      if (!peerMap.current.has(remoteId)) createPeer(remoteId, true);
+    });
+  });
+
+  socket.off("userJoined").on("userJoined", ({ userId: remoteId, username: remoteUsername }) => {
+    userRefs.current.set(remoteId, remoteUsername);
+    if (!peerMap.current.has(remoteId)) createPeer(remoteId, true);
+
+    window.dispatchEvent(
+      new CustomEvent("meeting-toast", {
+        detail: { message: `${remoteUsername} joined the meeting` },
+      })
+    );
+  });
+
+  socket.off("offer").on("offer", async ({ from, offer }) => {
+    let peer = peerMap.current.get(from);
+    if (!peer) peer = createPeer(from, false);
+    try {
+      await peer.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      socket.emit("answer", { to: from, answer: peer.localDescription });
+    } catch (err) {
+      console.error("Error handling offer:", err);
+    }
+  });
+
+  socket.off("answer").on("answer", async ({ from, answer }) => {
+    const peer = peerMap.current.get(from);
+    if (peer) {
+      try {
+        await peer.setRemoteDescription(new RTCSessionDescription(answer));
+      } catch (err) {
+        console.error("Error setting remote description from answer:", err);
+      }
+    }
+  });
+
+  socket.off("iceCandidate").on("iceCandidate", async ({ from, candidate }) => {
+    const peer = peerMap.current.get(from);
+    if (peer && candidate) {
+      try {
+        await peer.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.warn("addIceCandidate failed:", err);
+      }
+    }
+  });
+
+  socket.off("userLeft").on("userLeft", ({ userId: remoteId, username: remoteUsername }) => {
+    userRefs.current.delete(remoteId);
+    const peer = peerMap.current.get(remoteId);
+    if (peer) peer.close();
+    peerMap.current.delete(remoteId);
+
+    setPeers((prev) => {
+      const updated = new Map(prev);
+      updated.delete(remoteId);
+      return updated;
+    });
+
+    window.dispatchEvent(
+      new CustomEvent("meeting-toast", {
+        detail: { message: `${remoteUsername} left the meeting` },
+      })
+    );
+  });
+
+  // finally emit joinRoom (now includes username)
+  const userStr = sessionStorage.getItem("chatUser");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const username = user?.username || "Unknown User";
+
+  socket.emit("joinRoom", { userId, username, roomCode });
+}
+
 
   function leaveMeeting() {
     if (!hasJoinedRef.current) return;
@@ -410,5 +406,6 @@ export function useMeeting(userId, roomCode, teamId = null) {
     isMuted,
     isVideoEnabled,
     isScreenSharing,
+    userRefs, // ✅ expose the userRefs mapping for external use 
   };
 }

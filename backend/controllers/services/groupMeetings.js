@@ -1,26 +1,17 @@
 const db = require("../../config/db");
 const { v4: uuidv4 } = require("uuid");
 
-/**
- * ✅ Get active meeting for a team
- * GET /api/meetings/team/:teamId/active
- */
-exports.getActiveMeeting = async (req, res) => {
-  const { teamId } = req.params;
+// controllers/services/groupMeetings.js
+exports.getActiveMeeting = async (teamId) => {
   try {
     const [rows] = await db.query(
       "SELECT * FROM group_meetings WHERE team_id = ? AND is_active = TRUE LIMIT 1",
       [teamId]
     );
-
-    if (rows.length === 0) {
-      return res.json({ active: false, meeting: null });
-    }
-
-    return res.json({ active: true, meeting: rows[0] });
+    return rows.length > 0 ? rows[0] : null;
   } catch (err) {
     console.error("Error fetching active meeting:", err);
-    res.status(500).json({ error: "Failed to fetch active meeting" });
+    throw err;
   }
 };
 
@@ -113,10 +104,6 @@ exports.endMeeting = async (teamId, userId) => {
   }
 };
 
-
-
-
-
 /**
  * ✅ Get all meetings
  */
@@ -124,7 +111,6 @@ exports.getAllMeetings = async () => {
   const [rows] = await db.query("SELECT * FROM group_meetings ORDER BY created_at DESC");
   return rows;
 };
-
 
 
 /**
