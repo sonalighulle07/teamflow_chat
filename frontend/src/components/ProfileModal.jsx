@@ -97,6 +97,7 @@ export default function ProfileModal({
   const handleDeleteAccount = async () => {
     if (!window.confirm("This will delete your account permanently. Continue?"))
       return;
+
     setLoading(true);
     try {
       const res = await fetch(`${URL}/api/users/delete-account`, {
@@ -104,12 +105,34 @@ export default function ProfileModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id }),
       });
+
       const data = await res.json();
+
       if (data.success) {
+        // ⭐ 1. Clear ALL storage completely
+        sessionStorage.clear();
+        localStorage.clear();
+
+        // ⭐ 2. Clear Redux user & auth state
+        if (window.store) {
+          window.store.dispatch({ type: "user/setCurrentUser", payload: null });
+          window.store.dispatch({
+            type: "auth/setAuthenticated",
+            payload: false,
+          });
+        }
+
+        // ⭐ 3. Reset preview image
         setPreview(null);
         setProfileImage?.(null);
-        navigate("/register");
-      } else alert(data.message || "Failed to delete account");
+
+        // ⭐ 4. FORCE logout navigation (fresh reload)
+        window.location.href = "/register";
+
+        return;
+      } else {
+        alert(data.message || "Failed to delete account");
+      }
     } catch (err) {
       console.error(err);
       alert("Error deleting account");
@@ -201,7 +224,10 @@ export default function ProfileModal({
           </button>
 
           <button
-            onClick={() => setShowRegister(true)}
+            onClick={() => {
+              onClose();
+              navigate("/register");
+            }}
             disabled={loading}
             className="flex items-center justify-center gap-2 py-2 px-3 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition"
           >
