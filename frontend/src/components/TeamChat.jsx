@@ -10,8 +10,11 @@ import axios from "axios";
 import { useDispatch } from "react-redux";
 import { fetchTeamMembers } from "../Store/Features/Teams/teamThunk";
 import { useSelector } from "react-redux";
+
 import CryptoJS from "crypto-js";
 // import TeamInvites from "./TeamInvites";
+
+import Header from "./Header";
 
 export default function TeamChat({ currentUser }) {
   const [messages, setMessages] = useState([]);
@@ -32,30 +35,6 @@ export default function TeamChat({ currentUser }) {
     const options = { year: "numeric", month: "short", day: "numeric" };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
-
-  const KEY = "12345678901234567890123456789012"; // same key as Node.js
-
-  function safeDecrypt(text) {
-    if (!text || !text.includes(":")) return text || "";
-
-    try {
-      const [ivHex, encrypted] = text.split(":");
-      const iv = CryptoJS.enc.Hex.parse(ivHex);
-      const decrypted = CryptoJS.AES.decrypt(
-        encrypted,
-        CryptoJS.enc.Utf8.parse(KEY),
-        {
-          iv: iv,
-          mode: CryptoJS.mode.CBC,
-          padding: CryptoJS.pad.Pkcs7,
-        }
-      );
-      return decrypted.toString(CryptoJS.enc.Utf8);
-    } catch (err) {
-      console.error("Decryption error:", err, text);
-      return text;
-    }
-  }
 
   const dispatch = useDispatch();
   const selectedTeamMembers = useSelector(
@@ -87,7 +66,6 @@ export default function TeamChat({ currentUser }) {
     });
 
     // message deleted (server should emit messageDeleted with { messageId, senderId, teamId })
-
     socket.on(
       "messageDeleted",
       ({ messageId, senderId, teamId }) => {
@@ -153,7 +131,9 @@ export default function TeamChat({ currentUser }) {
   // --- Scroll to bottom ---
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    console.log(messages);
   }, [messages]);
+
   useEffect(() => {
     if (!searchQuery) return;
 
@@ -424,10 +404,7 @@ export default function TeamChat({ currentUser }) {
                       <Message
                         message={{
                           ...msg,
-                          text: highlightText(
-                            safeDecrypt(msg.text), // <-- decrypt here
-                            searchQuery
-                          ),
+                          text: highlightText(msg.text, searchQuery), // <-- highlight applied
                           username:
                             msg.sender_id !== currentUser.id
                               ? selectedTeamMembers?.find(
@@ -443,15 +420,16 @@ export default function TeamChat({ currentUser }) {
                         onDelete={handleDelete}
                         onReact={async (messageId, emoji) => {
                           try {
+                            console.log("Updating reaction:", messageId, emoji);
                             await fetch(
-                              `${URL}/api/teams/messages/${messageId}/react`,
+                              `${URL}/api/teams/${selectedTeam.id}/messages/${messageId}/reactions`,
                               {
-                                method: "POST",
+                                method: "PUT",
                                 headers: {
                                   "Content-Type": "application/json",
                                   Authorization: `Bearer ${token}`,
                                 },
-                                body: JSON.stringify({ emoji }),
+                                body: JSON.stringify({ reactions: { emoji } }),
                               }
                             );
                             setMessages((prev) =>
