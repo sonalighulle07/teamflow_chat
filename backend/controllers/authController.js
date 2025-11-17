@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/db'); // ✅ Import your DB connection
 const User = require('../models/User');
 
+
 // ===== Register =====
 exports.register = async (req, res) => {
   try {
@@ -34,7 +35,7 @@ exports.register = async (req, res) => {
     // ✅ Response
     res.status(201).json({
       success: true,
-      message: "User registered successfully!",
+      message: " registered successfully!",
       user: { id: userId, full_name, email, username, organization_id },
       token,
     });
