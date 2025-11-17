@@ -17,6 +17,8 @@ module.exports = function callHandlers(io, socket) {
   });
 
   socket.on("callUser", async ({ from, fromUsername, to, offer, callType }) => {
+    console.log(`📞 Call from ${from} to ${to} (${callType})`);
+    console.log("Call from fromusername:",fromUsername);
     io.to(`user_${to}`).emit("incomingCall", { from, fromUsername, offer, callType });
     try {
       const subscription = await User.getPushSubscription(to);
@@ -41,6 +43,7 @@ module.exports = function callHandlers(io, socket) {
   });
 
   socket.on("endCall", ({ from, fromUsername, to }) => {
+    
     if (to) io.to(`user_${to}`).emit("endCall", { from, fromUsername });
     if (from) io.to(`user_${from}`).emit("endCall", { from, fromUsername });
   });

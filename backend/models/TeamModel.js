@@ -73,7 +73,6 @@ FROM team_members tm
 JOIN teams t ON tm.team_id = t.id
 JOIN users u ON tm.user_id = u.id
 WHERE t.id = ?;
-
 `,
     [team_id]
   );

@@ -18,9 +18,9 @@ export default function MeetingRoom() {
 
   // ---- Grab pre-join media preview if available ----
   const initialStream = getPreviewStream();
-  useEffect(() => {
-    return () => clearPreviewStream();
-  }, []);
+  // useEffect(() => {
+  //   return () => clearPreviewStream();
+  // }, []);
 
   // ---- Meeting hook (WebRTC + signaling) ----
   const {
