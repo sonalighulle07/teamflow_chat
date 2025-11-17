@@ -83,13 +83,7 @@ function AppRoutes({
       {/* Register */}
       <Route
         path="/register"
-        element={
-          isAuthenticated ? (
-            <Navigate to="/" replace />
-          ) : (
-            <Register onRegister={handleAuthSuccess} />
-          )
-        }
+        element={<Register onRegister={handleAuthSuccess} />}
       />
 
       {/* Prejoin media page */}
@@ -138,7 +132,6 @@ function AppRoutes({
                 {/* Sidebar */}
                 <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
                   <Sidebar
-                 
                     setShowModal={setShowModal}
                     activeNav={activeNav}
                     onCommunitiesClick={onCommunitiesClick}

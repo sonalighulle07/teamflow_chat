@@ -193,7 +193,14 @@ export default function Register({ onRegister }) {
       if (res.ok && data.success) {
         dispatch(setCurrentUser(data.user));
         sessionStorage.setItem("chatToken", data.token);
-        setTimeout(() => onRegister(), 1000);
+
+        // run parent callback
+        onRegister?.();
+
+        // redirect to chat window after 1 sec
+        setTimeout(() => {
+          navigate("/");
+        }, 1000);
       }
     } catch {
       showToastMessage("Server error, try again later.", "bg-red-500");
@@ -201,9 +208,9 @@ export default function Register({ onRegister }) {
   };
 
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-gradient-to-tl from-white to-purple-600 animate-fadeIn p-2">
-      <div className="w-full max-w-md rounded-2xl bg-white/20 p-6 sm:p-8 shadow-xl backdrop-blur-md animate-slideUp relative">
-        <h2 className="mb-6 text-center text-2xl font-bold text-white tracking-wide">
+    <div className="flex h-screen w-full items-center justify-center bg-gradient-to-tl from-white to-purple-600 animate-fadeIn p-1">
+      <div className="w-full max-w-md rounded-2xl bg-white/20 p-4 sm:p-8 shadow-xl backdrop-blur-md animate-slideUp relative">
+        <h2 className="mb-4 text-center text-2xl font-bold text-white tracking-wide">
           Register
         </h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -405,7 +412,7 @@ export default function Register({ onRegister }) {
               id="organization"
               value={selectedOrg}
               onChange={(e) => setSelectedOrg(e.target.value)}
-              className={`w-full rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200`}
+              className={`w-full rounded-lg bg-white/85 px-3 py-2 text-gray-400 text-sm outline-none focus:border-purple-400 transition duration-200`}
             >
               <option value="">Select organization</option>
               {orgList.map((org) => (
@@ -433,7 +440,7 @@ export default function Register({ onRegister }) {
               passwordError ||
               confirmPasswordError
             }
-            className="w-full rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white shadow-lg mt-4 hover:scale-105 hover:bg-purple-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white shadow-lg mt-2 hover:scale-105 hover:bg-purple-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Register
           </button>
