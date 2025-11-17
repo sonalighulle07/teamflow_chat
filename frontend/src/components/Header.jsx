@@ -21,7 +21,6 @@ export default function Header({
   const [showSearch, setShowSearch] = useState(false);
   const [activeMeeting, setActiveMeeting] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [toast, setToast] = useState(""); // message for toast
 
   const [hasJoinedMeeting, setHasJoinedMeeting] = useState(false);
 
@@ -41,6 +40,7 @@ export default function Header({
   const [showMembers, setShowMembers] = useState(false);
   const { selectedTeamMembers } = useSelector((state) => state.team);
   const dropdownRef = useRef(null);
+
   const searchRef = useRef(null);
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -64,6 +64,7 @@ export default function Header({
 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showSearch, searchQuery]);
+
 
   // Hide dropdown if clicked outside
   useEffect(() => {
@@ -276,6 +277,8 @@ export default function Header({
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
+
+
           {isChatVisible && renderMeetingButton()}
           {/* 👥 Group Members Button */}
           {isChatVisible && selectedTeam && (

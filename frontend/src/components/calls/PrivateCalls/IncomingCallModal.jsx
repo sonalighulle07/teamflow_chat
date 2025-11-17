@@ -12,6 +12,8 @@ export default function IncomingCallModal({
   useEffect(() => {
     if (!visible) return;
 
+    console.log("from username:",fromUser);
+
     if (!audioRef.current) {
       audioRef.current = new Audio("/sounds/ringtone.mp3");
       audioRef.current.loop = true;

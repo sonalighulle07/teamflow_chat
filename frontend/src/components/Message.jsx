@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { FaSmile, FaEllipsisV } from "react-icons/fa";
 import EmojiPicker from "emoji-picker-react";

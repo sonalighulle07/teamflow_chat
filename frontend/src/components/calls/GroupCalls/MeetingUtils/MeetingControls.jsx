@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash } from "react-icons/fa";
 
 export default function MeetingControls({
@@ -10,7 +10,8 @@ export default function MeetingControls({
   isMuted,
   isVideoEnabled,
   isScreenSharing,
-}) {
+})
+{
   return (
     <div className="flex justify-center gap-4 p-4 bg-gray-800">
       {/* Mic Button */}

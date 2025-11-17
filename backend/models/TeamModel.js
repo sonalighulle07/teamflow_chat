@@ -72,7 +72,33 @@ const TeamMember = {
     );
     return result;
   },
-  getMembers: async (team_id) => {
+
+  // Get members of a specific team
+getMembers: async (team_id) => {
+  const [rows] = await db.query(
+    `SELECT 
+  t.id AS team_id,
+  t.name AS team_name,
+  u.id AS user_id,
+  u.username,
+  u.profile_image,
+  tm.role
+FROM team_members tm
+JOIN teams t ON tm.team_id = t.id
+JOIN users u ON tm.user_id = u.id
+WHERE t.id = ?;
+`,
+    [team_id]
+  );
+  return rows;
+},
+
+};
+
+const TeamChat = {
+  // Get team chat messages
+  getMessages: async (team_id) => {
+
     const [rows] = await db.query(
       `SELECT 
          t.id AS team_id,
@@ -105,8 +131,8 @@ const TeamMessage = {
   ) => {
     const query = `
       INSERT INTO team_messages 
-      (sender_id, team_id, text, file_url, file_name, type, metadata, deleted, edited, reactions, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, NOW())
+      (sender_id, team_id, text, file_url, file_name, type, deleted, edited, reactions, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 0, 0, NULL, NOW())
     `;
 
     // Encrypt only sensitive fields
