@@ -4,110 +4,158 @@ import {
   FaVideo,
   FaUsers,
   FaCalendar,
-  FaBell,
   FaSearch,
+  FaTasks,
 } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
-import { setSelectedUser } from "../Store/Features/Users/userSlice";
+import {
+  setSelectedUser,
+  setActiveNav,
+} from "../Store/Features/Users/userSlice";
 import { fetchUsers } from "../Store/Features/Users/userThunks";
+import {
+  fetchTeams,
+  fetchTeamMembers,
+} from "../Store/Features/Teams/teamThunk";
+import { setSelectedTeam } from "../Store/Features/Teams/teamSlice";
 import axios from "axios";
 import UserList from "./UserList";
-
 import { URL } from "../config";
-import { setActiveNav } from "../Store/Features/Users/userSlice";
-import { fetchTeams } from "../Store/Features/Teams/teamThunk";
 
-export default function Sidebar({ setSelectedTeam, setShowModal }) {
+export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   const dispatch = useDispatch();
 
   const { currentUser, userList, selectedUser, loading, error, activeNav } =
     useSelector((state) => state.user);
-
   const { teamList, selectedTeam } = useSelector((state) => state.team);
 
-  const { activities = [] } = useSelector((state) => state.activity || {});
-
-  const [searchQuery, setSearchQuery] = useState("");
   const token = sessionStorage.getItem("chatToken");
 
-  // const [selectedTeam, setSelectedTeam] = useState(null);
-  const [selectedTeamMembers, setSelectedTeamMembers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [lastMessages, setLastMessages] = useState({});
+  const [lastTeamMessages, setLastTeamMessages] = useState({});
 
-  // Fetch teams when "Communities" is active
+  // -----------------------
+  // Fetch users/teams periodically
+  // -----------------------
   useEffect(() => {
-    if (!currentUser?.id) return;
+    if (!currentUser?.organization_id) return;
 
     if (activeNav === "Chat") {
-      dispatch(fetchUsers(currentUser.id)); // first fetch
-
-      const interval = setInterval(() => {
-        dispatch(fetchUsers(currentUser.id)); // refresh
-      }, 5000);
-
+      dispatch(fetchUsers());
+      const interval = setInterval(() => dispatch(fetchUsers()), 5000);
       return () => clearInterval(interval);
     }
 
     if (activeNav === "Communities") {
-      dispatch(fetchTeams()); // initial fetch
-
-      const interval = setInterval(() => {
-        dispatch(fetchTeams()); // refresh
-      }, 5000);
-
+      dispatch(fetchTeams());
+      const interval = setInterval(() => dispatch(fetchTeams()), 5000);
       return () => clearInterval(interval);
     }
-  }, [activeNav, currentUser?.id, dispatch]);
+  }, [activeNav, currentUser, dispatch]);
 
-  const handleSelectUser = (item) => {
-    dispatch(setSelectedUser(item));
+  // -----------------------
+  // Fetch last messages for users
+  // -----------------------
+  const fetchLastMessages = async (userId) => {
+    try {
+      const res = await axios.get(`${URL}/api/chats/last-messages/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const lastMessagesObj = {};
+      res.data.forEach((msg) => {
+        lastMessagesObj[msg.user_id] = new Date(msg.last_message_at);
+      });
+      setLastMessages(lastMessagesObj);
+    } catch (err) {
+      console.error("Failed to fetch last messages", err);
+    }
+  };
+
+  // -----------------------
+  // Fetch last messages for teams
+  // -----------------------
+  const fetchLastTeamMessages = async (userId) => {
+    try {
+      const res = await axios.get(`${URL}/api/teams/user/${userId}/sorted`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const lastMessagesObj = {};
+      res.data.forEach((team) => {
+        lastMessagesObj[team.id] = new Date(
+          team.last_message_time || team.created_at
+        );
+      });
+      setLastTeamMessages(lastMessagesObj);
+    } catch (err) {
+      console.error("Failed to fetch last team messages", err);
+    }
+  };
+
+  // -----------------------
+  // Load saved last messages from localStorage
+  // -----------------------
+  useEffect(() => {
+    const saved = localStorage.getItem("lastMessages");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      Object.keys(parsed).forEach((k) => (parsed[k] = new Date(parsed[k])));
+      setLastMessages(parsed);
+    }
+  }, []);
+
+  // -----------------------
+  // Fetch last messages on user change
+  // -----------------------
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchLastMessages(currentUser.id);
+      fetchLastTeamMessages(currentUser.id);
+    }
+  }, [currentUser?.id]);
+
+  // -----------------------
+  // Real-time updates for user messages
+  // -----------------------
+  useEffect(() => {
+    if (!socket || !currentUser) return;
+    socket.on("privateMessage", (msg) => {
+      const otherUserId =
+        msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id;
+      setLastMessages((prev) => {
+        const updated = { ...prev, [otherUserId]: new Date(msg.created_at) };
+        localStorage.setItem(
+          "lastMessages",
+          JSON.stringify(
+            Object.fromEntries(
+              Object.entries(updated).map(([k, v]) => [k, v.toISOString()])
+            )
+          )
+        );
+        return updated;
+      });
+    });
+    return () => socket.off("privateMessage");
+  }, [socket, currentUser]);
+
+  // -----------------------
+  // Handle selection
+  // -----------------------
+  const handleSelectUser = (user) => {
+    dispatch(setSelectedUser(user));
+    dispatch(setSelectedTeam(null));
     setSearchQuery("");
   };
 
-  //  Add team click handler
-  const handleSelectTeam = async (team) => {
-    setSelectedTeam(team); // set clicked team
-
-    if (!token) return;
-
-    try {
-      const res = await axios.get(`${URL}/api/teams/${team.id}/members`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setSelectedTeamMembers(Array.isArray(res.data) ? res.data : [res.data]);
-    } catch (err) {
-      console.error("Failed to fetch team members:", err);
-      setSelectedTeamMembers([]);
-    }
+  const handleSelectTeam = (team) => {
+    if (!team) return;
+    dispatch(setSelectedTeam(team));
+    dispatch(fetchTeamMembers());
   };
 
-  const orderedUsers = useMemo(() => {
-    if (!userList) return [];
-
-    const activeUserIds = activities.map((a) => a.user_id);
-
-    const activeUsers = userList
-      .filter((u) => activeUserIds.includes(u.id))
-      .sort((a, b) => {
-        const aTime = activities.find(
-          (act) => act.user_id === a.id
-        )?.created_at;
-        const bTime = activities.find(
-          (act) => act.user_id === b.id
-        )?.created_at;
-        return new Date(bTime) - new Date(aTime);
-      });
-
-    const otherUsers = userList.filter((u) => !activeUserIds.includes(u.id));
-
-    const filteredOtherUsers = selectedUser
-      ? otherUsers.filter((u) => u.id !== selectedUser.id)
-      : otherUsers;
-
-    return selectedUser
-      ? [selectedUser, ...activeUsers, ...filteredOtherUsers]
-      : [...activeUsers, ...filteredOtherUsers];
-  }, [userList, activities, selectedUser]);
-
+  // -----------------------
+  // Filtered and sorted lists
+  // -----------------------
   const filteredUsers = useMemo(() => {
     if (!searchQuery) return userList;
     return userList.filter((u) =>
@@ -116,23 +164,37 @@ export default function Sidebar({ setSelectedTeam, setShowModal }) {
   }, [userList, searchQuery]);
 
   const filteredTeams = useMemo(() => {
-    if (!searchQuery) return teamList;
-    return teamList.filter((t) =>
-      t.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [teamList, searchQuery]);
+    let list = [...teamList]; // ✅ make a copy
+    if (searchQuery) {
+      list = list.filter((t) =>
+        t.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
 
+    list.sort((a, b) => {
+      const aTime = lastTeamMessages[a.id] || new Date(a.created_at);
+      const bTime = lastTeamMessages[b.id] || new Date(b.created_at);
+      return bTime - aTime; // newest first
+    });
+
+    return list;
+  }, [teamList, searchQuery, lastTeamMessages]);
+
+  // -----------------------
+  // Sidebar nav items
+  // -----------------------
   const navItems = [
     { icon: <FaCommentDots />, label: "Chat" },
     { icon: <FaVideo />, label: "Meet" },
     { icon: <FaUsers />, label: "Communities" },
     { icon: <FaCalendar />, label: "Calendar" },
+    { icon: <FaTasks />, label: "Tasks" },
   ];
 
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* Sidebar navigation */}
-      <div className="flex flex-col justify-between w-20 min-w-[5rem] bg-slate-200 shadow-md px-4 py-6 flex-shrink-0 ">
+      <div className="flex flex-col justify-between w-20 min-w-[5rem] bg-slate-200 shadow-md px-4 py-6 flex-shrink-0">
         <div className="flex flex-col items-center gap-6">
           {navItems.map(({ icon, label }) => {
             const isActive = activeNav === label;
@@ -140,7 +202,11 @@ export default function Sidebar({ setSelectedTeam, setShowModal }) {
               <div
                 key={label}
                 className="group relative flex flex-col items-center cursor-pointer"
-                onClick={() => dispatch(setActiveNav(label))}
+                onClick={() => {
+                  dispatch(setActiveNav(label));
+                  if (label === "Communities" && onCommunitiesClick)
+                    onCommunitiesClick();
+                }}
               >
                 <div
                   className={`text-xl transition-colors ${
@@ -160,13 +226,6 @@ export default function Sidebar({ setSelectedTeam, setShowModal }) {
                 >
                   {label}
                 </span>
-                <div
-                  className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1 rounded-lg bg-white text-gray-600 text-xs 
-                font-medium whitespace-nowrap opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all 
-                duration-300 pointer-events-none z-50"
-                >
-                  {label}
-                </div>
               </div>
             );
           })}
@@ -174,7 +233,9 @@ export default function Sidebar({ setSelectedTeam, setShowModal }) {
       </div>
 
       {/* Panel */}
-      {(activeNav === "Chat" || activeNav === "Communities") && (
+      {(activeNav === "Chat" ||
+        activeNav === "Communities" ||
+        activeNav === "Tasks") && (
         <div className="flex-1 bg-gray-100 border-l border-gray-300 flex flex-col overflow-hidden">
           {/* Search Input */}
           <div className="p-2">
@@ -200,16 +261,17 @@ export default function Sidebar({ setSelectedTeam, setShowModal }) {
             )}
           </div>
 
-          {/* List */}
+          {/* User/Team List */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
-           
             {error && <p className="p-4 text-sm text-red-500">{error}</p>}
             {!loading && !error && (
               <UserList
-                users={activeNav === "Chat" ? userList : []} // FULL user list
-                teams={activeNav === "Communities" ? teamList : []} // FULL team list
+                users={activeNav === "Chat" ? filteredUsers : []}
+                teams={activeNav === "Communities" ? filteredTeams : []}
                 selectedUser={selectedUser}
-                searchQuery={searchQuery} // Pass search query
+                selectedTeam={selectedTeam}
+                searchQuery={searchQuery}
+                lastMessages={{ ...lastMessages, ...lastTeamMessages }}
                 onSelectUser={handleSelectUser}
                 onSelectTeam={handleSelectTeam}
               />

@@ -1,8 +1,6 @@
 const db = require("../../config/db");
 const { v4: uuidv4 } = require("uuid");
 
-
-
 /**
  * ✅ Get active meeting for a team
  * GET /api/meetings/team/:teamId/active

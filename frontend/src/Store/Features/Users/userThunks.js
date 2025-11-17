@@ -37,30 +37,36 @@ export const loginUser = createAsyncThunk(
 );
 
 // ---------------------- FETCH USERS ----------------------
+// ---------------------- FETCH USERS ----------------------
 export const fetchUsers = createAsyncThunk(
   "user/fetchUsers",
-  async (currentUserId, { rejectWithValue }) => {
-    console.log("Fetching users from server...");
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const res = await fetch(`${URL}/api/users`, {
-        credentials: "include", // include cookies if needed
+      const state = getState();
+      const currentUser = state.user.currentUser;
+
+      if (!currentUser) throw new Error("No current user found.");
+
+      const orgId = currentUser.organization_id;
+      const currentUserId = currentUser.id;
+
+      console.log("Fetching users for org:", orgId);
+
+      // ✅ Always include organization_id filter
+      const res = await fetch(`${URL}/api/users?organization_id=${orgId}`, {
+        credentials: "include",
       });
 
-      if (!res.ok) {
-        throw new Error("Failed to fetch users");
-      }
+      if (!res.ok) throw new Error("Failed to fetch users");
 
       const data = await res.json();
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid response format");
-      }
+      if (!Array.isArray(data)) throw new Error("Invalid response format");
 
-      // Filter out current user
-      return currentUserId
-        ? data.filter((u) => u.id !== currentUserId)
-        : data;
+      // ✅ Remove current user from the list
+      return data.filter((u) => u.id !== currentUserId);
     } catch (err) {
       return rejectWithValue(err.message || "Server error while fetching users.");
     }
   }
 );
+

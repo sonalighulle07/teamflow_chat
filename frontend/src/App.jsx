@@ -28,6 +28,8 @@ import { urlBase64ToUint8Array } from "./utils/pushUtils";
 import TeamChat from "./components/TeamChat";
 import { setActiveNav } from "./Store/Features/Users/userSlice";
 import CreateTeam from "./components/CreateTeams";
+import TaskManagement from "./components/TaskManagement";
+import TeamInvites from "./components/TeamInvites";
 
 function AppRoutes({
   isAuthenticated,
@@ -41,8 +43,8 @@ function AppRoutes({
   const [userMessages, setUserMessages] = useState([]);
   const [teamMessages, setTeamMessages] = useState([]);
   const { activeNav } = useSelector((state) => state.user);
-
-  const { selectedTeam } = useSelector((state) => state.team);
+  const [showTeamInvites, setShowTeamInvites] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState(null); // ✅ local state for selected team
   const [showModal, setShowModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
@@ -58,6 +60,10 @@ function AppRoutes({
   const handleForwardComplete = () => {
     setMessageToForward(null);
     setForwardModalOpen(false);
+  };
+
+  const onCommunitiesClick = () => {
+    setShowTeamInvites((prev) => !prev);
   };
 
   return (
@@ -111,7 +117,7 @@ function AppRoutes({
         path="/"
         element={
           !isAuthenticated ? (
-            <Navigate to="/login" replace/>
+            <Navigate to="/login" replace />
           ) : !currentUser ? (
             <div className="flex-1 flex items-center justify-center text-xl text-gray-600">
               Loading your account...
@@ -131,7 +137,12 @@ function AppRoutes({
               <div className="flex flex-1 overflow-hidden w-full">
                 {/* Sidebar */}
                 <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
-                  <Sidebar setShowModal={setShowModal} activeNav={activeNav} />
+                  <Sidebar
+                 
+                    setShowModal={setShowModal}
+                    activeNav={activeNav}
+                    onCommunitiesClick={onCommunitiesClick}
+                  />
                 </div>
 
                 {/* Main content */}
@@ -146,16 +157,24 @@ function AppRoutes({
                       currentUserId={userId}
                       searchQuery={searchQuery}
                       usersList={userList}
+                      socket={socket}
                       onForward={handleOpenForwardModal}
                     />
                   )}
 
                   {activeNav === "Communities" && (
-                    <TeamChat
-                      team={selectedTeam}
-                      currentUser={currentUser}
-                      searchQuery={searchQuery} // <-- add this
-                    />
+                    <div className="relative flex-1">
+                      <TeamInvites
+                        socket={socket}
+                        show={showTeamInvites}
+                        setShow={setShowTeamInvites}
+                      />
+                      <TeamChat
+                        team={selectedTeam}
+                        currentUser={currentUser}
+                        searchQuery={searchQuery}
+                      />
+                    </div>
                   )}
 
                   {activeNav === "Meet" && (
@@ -173,11 +192,18 @@ function AppRoutes({
                     </div>
                   )}
 
+                  {activeNav === "Tasks" && (
+                    <div className="flex-1 overflow-auto ">
+                      <TaskManagement />
+                    </div>
+                  )}
+
                   {showModal && (
                     <CreateTeam
                       currentUser={currentUser}
                       showModal={showModal}
                       setShowModal={setShowModal}
+                      socket={socket}
                     />
                   )}
                 </div>
@@ -198,7 +224,7 @@ function AppRoutes({
               {call.callState.incoming && (
                 <IncomingCallModal
                   visible
-                  fromUser={call.callState.callerUsername} // <-- updated
+                  fromUser={call.callState.callerUsername}
                   callType={call.callState.type}
                   onAccept={call.acceptCall}
                   onReject={call.rejectCall}
@@ -266,6 +292,7 @@ function App() {
     }
   }, [isAuthenticated, currentUser, dispatch]);
 
+  // Push subscription
   useEffect(() => {
     async function subscribeUser() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -299,7 +326,8 @@ function App() {
     if (isAuthenticated && userId) {
       subscribeUser();
     }
-  }, [isAuthenticated, userId]); // ✅ Only runs once after login
+  }, [isAuthenticated, userId]);
+
   return (
     <Router>
       <AppRoutes

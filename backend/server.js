@@ -4,13 +4,14 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
-
+  
 // Routes
 const meetingRoutes = require("./routes/meetingRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
-
+const taskRoutes = require("./routes/taskRoutes");
+const organizationRoutes = require("./routes/organizationRoutes");
 const teamRoutes = require("./routes/teamRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
@@ -18,7 +19,9 @@ const notificationRoutes = require("./routes/notificationRoutes");
 // Socket handlers
 const callHandlers = require("./Utils/socket/callHandlers");
 const messageHandlers = require("./Utils/socket/messageHandlers");
+const teamSocket = require("./Utils/socket/teamSocket");
 const eventHandlers = require("./Utils/socket/eventHandlers");
+const sidebarSocket = require("./Utils/socket/sidebarSocket");
 
 const app = express();
 const server = http.createServer(app);
@@ -55,6 +58,11 @@ app.use("/api/meetings", meetingRoutes);
 app.use("/api/teams", teamRoutes);
 app.use("/api/events", eventRoutes);
 
+app.use("/api/tasks", taskRoutes);
+app.use("/api/organizations", organizationRoutes);
+
+
+
 // Socket.io
 io.on("connection", (socket) => {
   console.log("Socket connected:", socket.id);
@@ -62,6 +70,8 @@ io.on("connection", (socket) => {
   messageHandlers(io, socket);
   callHandlers(io, socket);
   eventHandlers(io, socket);
+   teamSocket(io, socket);
+   sidebarSocket(io,socket);
 });
 
 // Start server

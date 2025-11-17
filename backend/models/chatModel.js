@@ -132,15 +132,19 @@ const updateMessageReactions = async (messageId, emoji) => {
   const message = await getMessageById(messageId);
   if (!message) return null;
 
+  // Update reaction counts
   const reactions = { ...message.reactions };
   reactions[emoji] = reactions[emoji] ? reactions[emoji] + 1 : 1;
 
+  // Save encrypted reactions
   await db.query("UPDATE chats SET reactions = ? WHERE id = ?", [
     encrypt(JSON.stringify(reactions)),
     messageId,
   ]);
 
-  return { ...message, reactions };
+  // ✅ Re-fetch and decrypt the updated message
+  const updatedMessage = await getMessageById(messageId);
+  return updatedMessage;
 };
 
 // -----------------------------------

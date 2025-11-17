@@ -3,7 +3,9 @@ const router = express.Router();
 const chatController = require("../controllers/chatController");
 const upload = require("../middlewares/uploadMiddleware");
 const { authenticateToken } = require("../middlewares/authMiddleware"); // <-- import it
+const { getLastMessagesByUser } = require("../controllers/chatController");
 
+router.get("/last-messages/:userId", getLastMessagesByUser);
 // GET all messages
 router.get("/", authenticateToken, chatController.getMessages);
 
@@ -24,5 +26,6 @@ router.put("/:messageId", authenticateToken, chatController.editMessage);
 
 // POST forward
 router.post("/:messageId/forward", authenticateToken, chatController.forwardMessage);
+
 
 module.exports = router;

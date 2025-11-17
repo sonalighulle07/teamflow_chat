@@ -99,12 +99,11 @@ export default function Header({
 
   // Determine display name and profile image
   const displayName =
-    selectedTeam && activeNav === "Communities"
-      ? selectedTeam.name
-      : selectedUser && activeNav === "Chat"
-      ? selectedUser.username
-      : "Select a chat";
-
+  selectedTeam && activeNav === "Communities"
+    ? selectedTeam.name
+    : selectedUser && activeNav === "Chat"
+    ? selectedUser.username
+    : "Select a chat";
   const displayProfileImage =
     selectedUser && !selectedTeam && selectedUser.profile_image
       ? `${URL}${selectedUser.profile_image}`

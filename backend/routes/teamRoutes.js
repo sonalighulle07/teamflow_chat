@@ -1,13 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const meetServ = require("../controllers/services/groupMeetings");
-
-// Middlewares
-const { authenticateToken } = require("../middlewares/authMiddleware")
+const TeamInvite = require("../models/TeamInvite");
+const { authenticateToken } = require("../middlewares/authMiddleware");
 const checkTeamMember = require("../middlewares/teamAuthMiddleware");
 const uploadMiddleware = require("../middlewares/uploadMiddleware");
 
-// Controllers
 const {
   getAllTeams,
   getUserTeams,
@@ -19,73 +17,30 @@ const {
   getTeamMembers,
   getTeamMessages,
   sendTeamMessage,
-  editTeamMessage,              
-  deleteTeamMessage,           // ✅ correct
-  updateTeamMessageReactions,   // ✅ correct
-  getTeamMeetingLink
+  editTeamMessage,
+  deleteTeamMessage,
+  updateTeamMessageReactions,
+  getTeamMeetingLink,
+  getPendingInvites,
+  respondToInvite,
+  sendTeamInvites,
+  getTeamsSortedByActivity,
 } = require("../controllers/teamController");
 
 // -----------------------
-// Team Routes
+// Team Invites (place first!)
 // -----------------------
-
-router.get("/all", authenticateToken, getAllTeams);
-router.get("/", authenticateToken, getUserTeams);
-router.get("/:teamId", authenticateToken, checkTeamMember, getTeamById);
-router.post("/", authenticateToken, createTeam);
-router.put("/:teamId", authenticateToken, checkTeamMember, updateTeam);
-router.delete("/:teamId", authenticateToken, checkTeamMember, deleteTeam);
-router.post("/:teamId/members", authenticateToken, checkTeamMember, addTeamMember);
-router.get("/:teamId/members", authenticateToken, checkTeamMember, getTeamMembers);
-
-// -----------------------
-// Team Chat Routes
-// -----------------------
-
-router.get("/:teamId/messages", authenticateToken, checkTeamMember, getTeamMessages);
-router.post("/:teamId/messages",
-  authenticateToken,
-  checkTeamMember,
-  uploadMiddleware.single("file"),
-  sendTeamMessage
-);
-
-// ✅ UPDATE (EDIT) TEAM MESSAGE
-router.put(
-  "/:teamId/messages/:messageId",
-  authenticateToken,
-  checkTeamMember,
-  editTeamMessage   // ✅ Correct function name
-);
-
-
-// Delete team message
-router.delete("/:teamId/messages/:messageId",
-  authenticateToken,
-  checkTeamMember,
-  deleteTeamMessage
-);
-
-// Update reaction
-router.put("/:teamId/messages/:messageId/reactions",
-  authenticateToken,
-  checkTeamMember,
-  updateTeamMessageReactions
-);
+router.post("/send-invites", authenticateToken, sendTeamInvites);
+router.get("/invites", authenticateToken, getPendingInvites);
+router.post("/invites/respond", authenticateToken, respondToInvite);
 
 // -----------------------
 // Team Meeting Routes
 // -----------------------
-
-// Team-level meeting link
-router.get("/teams/:teamId/meeting-link", getTeamMeetingLink);
-
-// End meeting
-router.post("/meetings/end/:teamId", async (req, res) => {
-  const { teamId } = req.params;
-  const userId = req.user?.id || null;
+router.get("/teams/:teamId/meeting-link", authenticateToken, getTeamMeetingLink);
+router.post("/meetings/end/:teamId", authenticateToken, async (req, res) => {
   try {
-    const result = await meetServ.endMeeting(teamId, userId);
+    const result = await meetServ.endMeeting(req.params.teamId, req.user?.id);
     res.json(result);
   } catch (err) {
     console.error(err);
@@ -93,19 +48,38 @@ router.post("/meetings/end/:teamId", async (req, res) => {
   }
 });
 
-// ✅ Get active meeting for a team
-router.get("/team/:teamId/active", async (req, res) => {
-  const { teamId } = req.params;
-  try {
-    const active = await meetServ.getActiveMeeting(teamId);
-    res.json({ active: !!active, meeting: active });
-  } catch (err) {
-    console.error("Error getting active meeting:", err);
-    res.status(500).json({ error: "Failed to get active meeting" });
-  }
-});
+// -----------------------
+// Team CRUD Routes
+// -----------------------
+
+router.get("/user/:userId/sorted", authenticateToken, getTeamsSortedByActivity);
+router.get("/all", authenticateToken, getAllTeams);
+router.get("/", authenticateToken, getUserTeams);
+router.post("/", authenticateToken, createTeam);
+router.put("/:teamId", authenticateToken, checkTeamMember, updateTeam);
+router.delete("/:teamId", authenticateToken, checkTeamMember, deleteTeam);
+router.get("/:teamId", authenticateToken, checkTeamMember, getTeamById);
 
 
+// -----------------------
+// Member Management
+// -----------------------
+router.post("/:teamId/members", authenticateToken, checkTeamMember, addTeamMember);
+router.get("/:teamId/members", authenticateToken, checkTeamMember, getTeamMembers);
 
+// -----------------------
+// Team Chat
+// -----------------------
+router.get("/:teamId/messages", authenticateToken, checkTeamMember, getTeamMessages);
+router.post(
+  "/:teamId/messages",
+  authenticateToken,
+  checkTeamMember,
+  uploadMiddleware.single("file"),
+  sendTeamMessage
+);
+router.put("/:teamId/messages/:messageId", authenticateToken, checkTeamMember, editTeamMessage);
+router.delete("/:teamId/messages/:messageId", authenticateToken, checkTeamMember, deleteTeamMessage);
+router.put("/:teamId/messages/:messageId/reactions", authenticateToken, checkTeamMember, updateTeamMessageReactions);
 
 module.exports = router;

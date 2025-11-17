@@ -250,3 +250,33 @@ exports.forwardMessage = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+// GET /api/chats/last-messages/:userId
+exports.getLastMessagesByUser = async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    const [rows] = await db.query(
+      `
+      SELECT
+        u.id AS user_id,
+        u.username,
+        u.profile_image,
+        u.is_online,
+        MAX(c.timestamp) AS last_message_at
+      FROM users u
+      LEFT JOIN chats c
+        ON (c.sender_id = ? AND c.receiver_id = u.id)
+        OR (c.sender_id = u.id AND c.receiver_id = ?)
+      WHERE u.id != ?
+      GROUP BY u.id, u.username, u.profile_image, u.is_online
+      ORDER BY last_message_at DESC
+      `,
+      [userId, userId, userId]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Error fetching last messages:", err);
+    res.status(500).send("DB Error");
+  }
+};

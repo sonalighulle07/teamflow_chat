@@ -11,7 +11,8 @@ import { useDispatch } from "react-redux";
 import { fetchTeamMembers } from "../Store/Features/Teams/teamThunk";
 import { useSelector } from "react-redux";
 import CryptoJS from "crypto-js";
-import Header from "./Header";
+// import TeamInvites from "./TeamInvites";
+
 export default function TeamChat({ currentUser }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -384,6 +385,7 @@ export default function TeamChat({ currentUser }) {
           {forwardAlert}
         </div>
       )}
+      {/* <TeamInvites socket={socketRef.current} /> */}
 
       {/* Messages */}
       <div className="flex-1 p-4 bg-gray-50 overflow-y-auto border border-gray-300 rounded-lg shadow-md">

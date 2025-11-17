@@ -77,13 +77,12 @@ export default function ChatWindow({
       }
     });
 
-    // reactions
-    socket.on("reaction", ({ messageId, reactions }) => {
+    socket.on("reaction", ({ message }) => {
+      if (!message || !message.id) return;
       setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, reactions } : m))
+        prev.map((m) => (m.id === message.id ? message : m))
       );
     });
-
     // message deleted (remove + toast)
     socket.on("messageDeleted", ({ messageId }) => {
       console.log("🟢 messageDeleted received on client", messageId);
@@ -125,6 +124,7 @@ export default function ChatWindow({
   // Handle reactions
   const handleReact = async (messageId, emoji) => {
     try {
+      // Call backend to store reaction
       await fetch(`${URL}/api/chats/${messageId}/react`, {
         method: "POST",
         headers: {
@@ -133,11 +133,12 @@ export default function ChatWindow({
         },
         body: JSON.stringify({ emoji }),
       });
-      // Emit to server
+
+      // Emit to server for real-time update
       socketRef.current.emit("reaction", {
         messageId,
-        userId: currentUserId,
         emoji,
+        userId: currentUserId,
       });
     } catch (err) {
       console.error("Reaction error:", err);
@@ -169,9 +170,7 @@ export default function ChatWindow({
       console.error("Edit failed:", err);
     }
   };
- 
 
-   
   const handleForward = async (messageId, toUserIds) => {
     if (!messageId || !toUserIds?.length) return;
     try {

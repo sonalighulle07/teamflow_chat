@@ -1,6 +1,7 @@
 const Chat = require('../../models/chatModel');
 const { TeamMessage } = require('../../models/TeamModel');
-const { encryptText, decryptText } = require('../../Utils/crypto');
+const { encrypt: encryptText, decrypt: decryptText } = require('../../Utils/crypto');
+
 
 module.exports = (io, socket) => {
   // ✅ Register user
@@ -27,7 +28,7 @@ module.exports = (io, socket) => {
     }
   });
 
-  // ✅ Private message
+  //  Private message
   socket.on('privateMessage', async (msg) => {
     try {
       const { senderId, receiverId, text, fileUrl, type, fileName } = msg;
@@ -143,45 +144,49 @@ module.exports = (io, socket) => {
   });
 
   // ✅ Reaction
-  socket.on('reaction', async ({ messageId, userId, emoji }) => {
-    try {
-      const message =
-        (await Chat.getMessageById(messageId)) ||
-        (await TeamMessage.getById(messageId));
-      if (!message) return;
+ socket.on('reaction', async ({ messageId, userId, emoji }) => {
+  try {
+    const message =
+      (await Chat.getMessageById(messageId)) ||
+      (await TeamMessage.getById(messageId));
 
-      let reactions = {};
-      if (message.reactions) {
-        try {
-          reactions =
-            typeof message.reactions === 'string'
-              ? JSON.parse(decryptText(message.reactions))
-              : message.reactions || {};
-        } catch (err) {
-          console.warn(`Failed to parse reactions for message ${messageId}`, err);
-          reactions = {};
-        }
-      }
+    if (!message) return;
 
-      // Toggle reaction
-      if (!reactions[emoji]) reactions[emoji] = {};
-      if (reactions[emoji][userId]) delete reactions[emoji][userId];
-      else reactions[emoji][userId] = 1;
+    let reactions = message.reactions || {};
 
-      const encryptedReactions = encryptText(JSON.stringify(reactions));
+    // Toggle reaction
+    if (!reactions[emoji]) reactions[emoji] = {};
+    if (reactions[emoji][userId]) delete reactions[emoji][userId];
+    else reactions[emoji][userId] = 1;
 
-      if (message.receiver_id) {
-        await Chat.updateReactions(messageId, encryptedReactions);
-        io.to(`user_${message.sender_id}`).emit('reaction', { messageId, reactions });
-        io.to(`user_${message.receiver_id}`).emit('reaction', { messageId, reactions });
-      } else if (message.team_id) {
-        await TeamMessage.updateReactions(messageId, encryptedReactions);
-        io.to(`team_${message.team_id}`).emit('reaction', { messageId, reactions });
-      }
-    } catch (err) {
-      console.error('Reaction error:', err);
+    // Remove emoji key if no users left
+    if (Object.keys(reactions[emoji]).length === 0) delete reactions[emoji];
+
+    // Save in DB (encrypt internally)
+    if (message.receiver_id) {
+      await Chat.updateReactions(messageId, reactions);
+    } else if (message.team_id) {
+      await TeamMessage.updateReactions(messageId, reactions);
     }
-  });
+
+    // Fetch updated message
+    const updatedMessage = message.receiver_id
+      ? await Chat.getMessageById(messageId)
+      : await TeamMessage.getById(messageId);
+
+    // Emit full updated message
+    if (message.receiver_id) {
+      io.to(`user_${message.sender_id}`).emit('reaction', { message: updatedMessage });
+      io.to(`user_${message.receiver_id}`).emit('reaction', { message: updatedMessage });
+    } else if (message.team_id) {
+      io.to(`team_${message.team_id}`).emit('reaction', { message: updatedMessage });
+    }
+  } catch (err) {
+    console.error('Reaction error:', err);
+  }
+});
+
+
 
   // ✅ Typing indicators
   socket.on('typingStart', ({ teamId, receiverId }) => {

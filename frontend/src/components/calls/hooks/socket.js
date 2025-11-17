@@ -22,7 +22,16 @@ const socket = io(SIGNALING_SERVER, {
   transports: ["websocket"],
   autoConnect: false,
 });
+export const connectSocket = (userId) => {
+  if (!socket.connected) {
+    socket.auth = { userId };
+    socket.connect();
+  }
+  return socket;
+};
 
+// Get socket instance
+export const getSocket = () => socket;
 export default socket;
 
 

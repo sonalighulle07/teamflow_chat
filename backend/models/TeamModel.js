@@ -5,21 +5,31 @@ const { encrypt, decrypt } = require("../Utils/crypto");
 // Team
 // ---------------------------
 const Team = {
+  // Get all teams
   getAll: async () => {
     const [rows] = await db.query("SELECT * FROM teams");
     return rows;
   },
+
+  // Get a single team by ID
   getById: async (id) => {
     const [rows] = await db.query("SELECT * FROM teams WHERE id = ?", [id]);
-    return rows[0];
+    return rows.length ? rows[0] : null;
   },
+
+  // Create a new team and return its ID
   create: async (name, created_by) => {
     const [result] = await db.query(
       "INSERT INTO teams (name, created_by) VALUES (?, ?)",
       [name, created_by]
     );
-    return result;
+    if (!result.insertId) {
+      throw new Error("Team creation failed: insertId missing");
+    }
+    return result.insertId; // Always return the new team ID
   },
+
+  // Update team name
   update: async (id, name) => {
     const [result] = await db.query(
       "UPDATE teams SET name = ? WHERE id = ?",
@@ -27,10 +37,17 @@ const Team = {
     );
     return result;
   },
+
+  // Delete a team
   delete: async (id) => {
-    const [result] = await db.query("DELETE FROM teams WHERE id = ?", [id]);
+    const [result] = await db.query(
+      "DELETE FROM teams WHERE id = ?",
+      [id]
+    );
     return result;
   },
+
+  // Get all teams a user belongs to
   getByUser: async (user_id) => {
     const [rows] = await db.query(
       `SELECT t.id, t.name, t.created_by
@@ -42,6 +59,7 @@ const Team = {
     return rows;
   },
 };
+
 
 // ---------------------------
 // Team Members

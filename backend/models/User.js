@@ -1,15 +1,20 @@
 const pool = require("../config/db");
 const fs = require("fs").promises;
+const bcrypt = require("bcrypt");
 
 class User {
   // ===== Create User =====
-  static async create({ full_name, email, contact, username, password }) {
+  static async create({ full_name, email, contact, username, password, organization_id }) {
     try {
+      // ✅ Hash password before inserting
+      const hashedPassword = await bcrypt.hash(password, 10);
+
       const [result] = await pool.query(
-        `INSERT INTO users (full_name, email, contact, username, password)
-         VALUES (?, ?, ?, ?, ?)`,
-        [full_name, email, contact, username, password]
+        `INSERT INTO users (full_name, email, contact, username, password, organization_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [full_name, email, contact, username, hashedPassword, organization_id]
       );
+
       return result.insertId;
     } catch (error) {
       console.error("Error creating user:", error);
@@ -49,7 +54,7 @@ class User {
   static async findById(id) {
     try {
       const [rows] = await pool.query(
-        `SELECT id, full_name, email, contact, username, profile_image, is_online
+        `SELECT id, full_name, email, contact, username, profile_image, is_online, organization_id
          FROM users WHERE id = ? LIMIT 1`,
         [id]
       );
@@ -60,16 +65,17 @@ class User {
     }
   }
 
-  // ===== Get all users =====
-  static async getAll() {
+  // ===== Get all users by organization =====
+  static async getAllByOrganization(orgId) {
     try {
       const [rows] = await pool.query(
         `SELECT id, full_name, username, profile_image, is_online
-         FROM users ORDER BY username ASC`
+         FROM users WHERE organization_id = ? ORDER BY username ASC`,
+        [orgId]
       );
       return rows;
     } catch (error) {
-      console.error("Error fetching all users:", error);
+      console.error("Error fetching users by org:", error);
       throw error;
     }
   }
@@ -162,63 +168,62 @@ class User {
     }
   }
 
- static async deleteById(userId) {
-  if (!userId) throw new Error("User ID is required for deletion");
+  // ===== Permanently Delete User =====
+  static async deleteById(userId) {
+    if (!userId) throw new Error("User ID is required for deletion");
 
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-    console.log("Deleting user with ID:", userId);
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      console.log("Deleting user with ID:", userId);
 
-    const [userRows] = await conn.query(
-      "SELECT * FROM users WHERE id = ?",
-      [userId]
-    );
-    const user = userRows[0];
-    if (!user) {
-      console.warn("User not found:", userId);
-      await conn.release();
-      return false;
-    }
-
-    // Delete avatar
-    if (user.profile_image) {
-      const filePath = `./public${user.profile_image}`;
-      try {
-        await fs.unlink(filePath);
-        console.log("Avatar deleted:", filePath);
-      } catch (err) {
-        console.warn("Avatar deletion failed (may not exist):", err.message);
+      const [userRows] = await conn.query("SELECT * FROM users WHERE id = ?", [
+        userId,
+      ]);
+      const user = userRows[0];
+      if (!user) {
+        console.warn("User not found:", userId);
+        await conn.release();
+        return false;
       }
-    }
 
-    // Delete chats
-    await conn.query(
-      "DELETE FROM chats WHERE sender_id = ? OR receiver_id = ?",
-      [userId, userId]
-    );
+      // Delete avatar file if exists
+      if (user.profile_image) {
+        const filePath = `./public${user.profile_image}`;
+        try {
+          await fs.unlink(filePath);
+          console.log("Avatar deleted:", filePath);
+        } catch (err) {
+          console.warn("Avatar deletion failed:", err.message);
+        }
+      }
 
-    // Delete user
-    const [result] = await conn.query("DELETE FROM users WHERE id = ?", [
-      userId,
-    ]);
-    if (result.affectedRows === 0) {
+      // Delete chats
+      await conn.query(
+        "DELETE FROM chats WHERE sender_id = ? OR receiver_id = ?",
+        [userId, userId]
+      );
+
+      // Delete user
+      const [result] = await conn.query("DELETE FROM users WHERE id = ?", [
+        userId,
+      ]);
+      if (result.affectedRows === 0) {
+        await conn.rollback();
+        return false;
+      }
+
+      await conn.commit();
+      console.log("User deleted successfully:", userId);
+      return true;
+    } catch (err) {
       await conn.rollback();
+      console.error("Error deleting user:", err.message);
       return false;
+    } finally {
+      await conn.release();
     }
-
-    await conn.commit();
-    console.log("User deleted successfully:", userId);
-    return true;
-  } catch (err) {
-    await conn.rollback();
-    console.error("Error deleting user:", err.message);
-    return false;
-  } finally {
-    await conn.release();
   }
-}
-
 }
 
 module.exports = User;
