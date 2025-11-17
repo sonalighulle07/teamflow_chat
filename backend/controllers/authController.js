@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/db'); // ✅ Import your DB connection
 const User = require('../models/User');
 
+
 // ===== Register =====
 exports.register = async (req, res) => {
   try {

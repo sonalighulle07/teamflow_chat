@@ -5,6 +5,9 @@ import { useSelector } from "react-redux";
 import ProfileModal from "./ProfileModal";
 import ErrorBoundary from "./ErrorBoundary";
 import { URL } from "../config";
+import axios from "axios";
+import socket from "./calls/hooks/socket";
+import { FaUsers } from "react-icons/fa";
 
 export default function Header({
   activeUser,
@@ -16,7 +19,9 @@ export default function Header({
   const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
   const navigate = useNavigate();
   const [showSearch, setShowSearch] = useState(false);
+  const [activeMeeting, setActiveMeeting] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [hasJoinedMeeting, setHasJoinedMeeting] = useState(false);
 
   const searchInputRef = useRef(null);
   const { selectedUser, activeNav } = useSelector((state) => state.user);
@@ -25,51 +30,68 @@ export default function Header({
 
   const isChatVisible = activeNav === "Chat" || activeNav === "Communities";
 
-  const startGroupCall = async () => {
-    if (!selectedTeam) return;
+  const token = sessionStorage.getItem("chatToken");
 
-    setIsCreatingMeeting(true);
-    try {
-      const meetingCode = `team-${selectedTeam.id}-${Date.now()}`;
-      const meetingUrl = `${window.location.origin}/prejoin/${meetingCode}`;
-
-      // Send meeting link as a message
-      const token = sessionStorage.getItem("chatToken");
-      const messageData = {
-        text: `📞 Team Meeting\n\nCreated by: ${activeUser.username}\n\n🔗 Join using this link:\n${meetingUrl}`,
-        team_id: selectedTeam.id,
-        sender_id: activeUser.id,
-        type: "meeting-invite",
-        metadata: {
-          type: "meeting-invite",
-          url: meetingUrl,
-          creator: activeUser.username,
-        },
-      };
-
-      await fetch(`${URL}/api/teams/${selectedTeam.id}/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(messageData),
-      });
-
-      // Navigate to the meeting
-      navigate(`/prejoin/${meetingCode}`);
-    } catch (error) {
-      console.error("Failed to create meeting:", error);
-    } finally {
-      setIsCreatingMeeting(false);
-    }
-  };
 
   const [profileImage, setProfileImage] = useState(
     () => localStorage.getItem(`profileImage_${activeUser?.id}`) || null
   );
 
-  // Update profile image when activeUser changes
+  const [showMembers, setShowMembers] = useState(false);
+  const { selectedTeamMembers } = useSelector((state) => state.team);
+  const dropdownRef = useRef(null);
+
+  // Hide dropdown if clicked outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowMembers(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ----------------- Poll Active Meeting & Check Joined -----------------
+  useEffect(() => {
+    if (!selectedTeam || !token) return;
+
+    const fetchActiveMeeting = async () => {
+      try {
+        const res = await axios.get(
+          `${URL}/api/teams/team/${selectedTeam.id}/active`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (res.data.active) {
+          setActiveMeeting(res.data.meeting);
+
+          // Ask server if user has joined this meeting
+          socket.emit(
+            "checkJoined",
+            {
+              meetingCode: res.data.meeting.meeting_code,
+              userId: activeUser.id,
+            },
+            (response) => {
+              setHasJoinedMeeting(response.joined);
+            }
+          );
+        } else {
+          setActiveMeeting(null);
+          setHasJoinedMeeting(false);
+        }
+      } catch (err) {
+        console.error("Failed to check active meeting:", err);
+      }
+    };
+
+    fetchActiveMeeting();
+    const interval = setInterval(fetchActiveMeeting, 10000);
+    return () => clearInterval(interval);
+  }, [selectedTeam, token, activeUser.id]);
+
+  // ----------------- Profile Image -----------------
   useEffect(() => {
     if (activeUser?.profile_image) {
       const imgUrl = `${URL}${activeUser.profile_image}`;
@@ -78,16 +100,12 @@ export default function Header({
     }
   }, [activeUser]);
 
-  // Focus search input when opened
+  // ----------------- Search Focus -----------------
   useEffect(() => {
     if (showSearch && searchInputRef.current) searchInputRef.current.focus();
   }, [showSearch]);
 
-  const toggleSearch = () => {
-    if (showSearch) setSearchQuery("");
-    setShowSearch((prev) => !prev);
-  };
-
+  // ----------------- Logout -----------------
   const logout = () => {
     sessionStorage.clear();
     localStorage.removeItem("chatToken");
@@ -97,19 +115,108 @@ export default function Header({
     navigate("/");
   };
 
-  // Determine display name and profile image
+  // ----------------- Meeting Functions -----------------
+  const startGroupCall = async () => {
+    if (!selectedTeam) return;
+
+    setIsCreatingMeeting(true);
+    try {
+      const response = await axios.get(
+        `${URL}/api/teams/${selectedTeam.id}/meeting-link`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const { meetingUrl, meetingCode } = response.data;
+
+      window.open(`${window.location.origin}/prejoin/${meetingCode}`, "_blank");
+    } catch (err) {
+      console.error("❌ Failed to create meeting:", err);
+    } finally {
+      setIsCreatingMeeting(false);
+    }
+  };
+
+  const joinActiveMeeting = async () => {
+    if (!activeMeeting?.meeting_code || !selectedTeam) return;
+
+    try {
+      const response = await axios.get(
+        `${URL}/api/teams/team/${selectedTeam.id}/active`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const { active, meeting } = response.data;
+
+      if (active && meeting?.meeting_code === activeMeeting.meeting_code) {
+        window.open(
+          `${window.location.origin}/prejoin/${meeting.meeting_code}`,
+          "_blank"
+        );
+      } else {
+        alert("⚠️ This meeting is no longer active.");
+      }
+    } catch (err) {
+      console.error("❌ Failed to validate meeting status:", err);
+      alert("Unable to verify meeting status. Please try again.");
+    }
+  };
+
+  // ----------------- Render Meeting Button -----------------
+  const renderMeetingButton = () => {
+    if (!selectedTeam || activeNav !== "Communities") return null;
+
+    const buttonClass = hasJoinedMeeting
+      ? "bg-red-500 text-white hover:bg-red-600 animate-pulse"
+      : activeMeeting
+      ? "bg-green-500 text-white hover:bg-green-600 animate-pulse"
+      : "text-purple-600 bg-gray-100 hover:bg-purple-300";
+
+    const buttonText = isCreatingMeeting
+      ? "Creating..."
+      : hasJoinedMeeting
+      ? "Joined"
+      : activeMeeting
+      ? "Join Meeting"
+      : "Start Meeting";
+
+    return (
+      <button
+        className={`p-2 rounded-full transition-all duration-300 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait ${buttonClass}`}
+        title={
+          hasJoinedMeeting
+            ? "You have already joined"
+            : activeMeeting
+            ? "Join Meeting"
+            : "Start Meeting"
+        }
+        onClick={
+          hasJoinedMeeting
+            ? null
+            : activeMeeting
+            ? joinActiveMeeting
+            : startGroupCall
+        }
+        disabled={isCreatingMeeting || hasJoinedMeeting}
+      >
+        <FaVideo size={18} className="text-purple-600" />
+        <span className="text-sm font-medium">{buttonText}</span>
+      </button>
+    );
+  };
+
+  // ----------------- Render -----------------
   const displayName =
-  selectedTeam && activeNav === "Communities"
-    ? selectedTeam.name
-    : selectedUser && activeNav === "Chat"
-    ? selectedUser.username
-    : "Select a chat";
+    selectedTeam && activeNav === "Communities"
+      ? selectedTeam.name
+      : selectedUser && activeNav === "Chat"
+      ? selectedUser.username
+      : "Select a chat";
+
+
   const displayProfileImage =
     selectedUser && !selectedTeam && selectedUser.profile_image
       ? `${URL}${selectedUser.profile_image}`
       : null;
 
-  // Enable call buttons only if a user is selected and not a team
   const canCall = selectedUser && !selectedTeam;
 
   return (
@@ -124,7 +231,6 @@ export default function Header({
           />
           <h2 className="font-bold text-gray-600 text-[15px]">{activeNav}</h2>
 
-          {/* ✅ Show selected team/user only for Chat or Communities */}
           {isChatVisible && (selectedTeam || selectedUser) && (
             <div className="flex items-center gap-2 ml-[170px]">
               {displayProfileImage ? (
@@ -147,44 +253,91 @@ export default function Header({
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
-          {/* ✅ Show call buttons only for Chat or Communities */}
-          {isChatVisible && (
-            <>
-              {selectedTeam && activeNav === "Communities" ? (
-                // Group Call Button for Teams
-                <button
-                  className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"
-                  title="Start Group Call"
-                  onClick={startGroupCall}
-                  disabled={isCreatingMeeting}
-                >
-                  <FaVideo />
-                  <span className="text-sm">
-                    {isCreatingMeeting ? "Creating..." : "Start Meeting"}
-                  </span>
-                </button>
-              ) : (
-                // Individual Call Buttons
-                <>
-                  <button
-                    className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm transform rotate-45"
-                    title="Audio Call"
-                    disabled={!canCall}
-                    onClick={() => onStartCall("audio", selectedUser)}
-                  >
-                    <FaPhone style={{ transform: "rotate(45deg)" }} size={15} />
-                  </button>
 
+          {isChatVisible && renderMeetingButton()}
+          {/* 👥 Group Members Button */}
+          {isChatVisible && selectedTeam && (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowMembers((prev) => !prev)}
+                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm"
+                title="View Group Members"
+              >
+                <FaUsers size={18} />
+              </button>
+
+              {showMembers && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-2xl shadow-lg z-50 overflow-hidden">
+                  <div className="bg-purple-600 text-white px-3 py-2 text-sm font-semibold flex justify-between items-center">
+                    <span>{selectedTeam?.name} Members</span>
+                  </div>
+
+                  {/* Members List */}
+                  <ul className="max-h-60 overflow-y-auto divide-y divide-gray-100">
+                    {selectedTeamMembers?.length > 0 ? (
+                      selectedTeamMembers.map((member) => (
+                        <li
+                          key={member.id}
+                          className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 transition-colors duration-200"
+                        >
+                          {member.profile_image ? (
+                            <img
+                              src={`${URL}${member.profile_image}`}
+                              alt={member.username}
+                              className="w-7 h-7 rounded-full object-cover border border-gray-300"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-purple-400 text-white flex items-center justify-center text-xs font-semibold uppercase">
+                              {member.username?.[0] || "?"}
+                            </div>
+                          )}
+                          <span className="text-gray-700 text-sm font-medium truncate">
+                            {member.username}
+                          </span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-center text-gray-500 text-sm py-3">
+                        No members found
+                      </li>
+                    )}
+                  </ul>
+
+                  {/* ➕ Add Member Option */}
                   <button
-                    className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                    title="Video Call"
-                    disabled={!canCall}
-                    onClick={() => onStartCall("video", selectedUser)}
+                    onClick={() => {
+                      setShowMembers(false);
+                      handleAddMember(); // 👈 call your function (defined below)
+                    }}
+                    className="w-full px-3 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50 border-t border-gray-100 flex items-center justify-center gap-2 transition-all duration-200"
                   >
-                    <FaVideo />
+                    <span className="text-lg">➕</span> Add Member
                   </button>
-                </>
+                </div>
               )}
+            </div>
+          )}
+
+          {/* Individual call buttons */}
+          {isChatVisible && selectedUser && !selectedTeam && (
+            <>
+              <button
+                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm transform rotate-45"
+                title="Audio Call"
+                disabled={!canCall}
+                onClick={() => onStartCall("audio", selectedUser)}
+              >
+                <FaPhone style={{ transform: "rotate(45deg)" }} size={15} />
+              </button>
+
+              <button
+                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                title="Video Call"
+                disabled={!canCall}
+                onClick={() => onStartCall("video", selectedUser)}
+              >
+                <FaVideo />
+              </button>
             </>
           )}
 

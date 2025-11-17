@@ -4,25 +4,6 @@ import EmojiPicker from "emoji-picker-react";
 import { URL } from "../config";
 import CryptoJS from "crypto-js";
 
-const renderMeetingInvite = (text, metadata) => {
-  const lines = text.split("\n");
-  return (
-    <div className="meeting-invite bg-blue-50 p-3 rounded-lg border border-blue-200">
-      <div className="font-semibold text-blue-800">{lines[0]}</div>
-      <div className="text-gray-600 mt-2">{lines[2]}</div>
-      <div className="mt-3">
-        <a
-          href={metadata?.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors"
-        >
-          Join Meeting
-        </a>
-      </div>
-    </div>
-  );
-};
 
 export default function Message({
   message,
@@ -228,6 +209,7 @@ useEffect(() => {
     });
     if (typeof onReact === "function") onReact(message.id, emoji);
   };
+
   const handlePickerEmoji = (emojiObject) => {
     const e = emojiObject?.emoji;
     if (!e) return;
@@ -395,8 +377,7 @@ const renderContent = () => {
                 alt="Fullscreen"
                 className="max-h-full max-w-full rounded-lg shadow-lg transition-transform"
                 style={{ transform: `scale(${zoom})` }}
-              />
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 bg-black bg-opacity-50 px-4 py-2 rounded-full">
+              /> <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 bg-black bg-opacity-50 px-4 py-2 rounded-full">
                 <button
                   className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
                   onClick={handleZoomOut}
@@ -447,42 +428,45 @@ const renderContent = () => {
               className="w-full"
               onEnded={() => setIsPlaying(false)}
             />
-            <button
-              onClick={togglePlay}
-              className="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700"
-            >
-              {isPlaying ? "Pause" : "Play"}
-            </button>
-            <button
-              onClick={toggleMute}
-              className="px-2 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
-            >
-              {isMuted ? "Unmute" : "Mute"}
-            </button>
+
+              <button
+                onClick={togglePlay}
+                className="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700"
+              >
+                {isPlaying ? "Pause" : "Play"}
+              </button>
+              <button
+                onClick={toggleMute}
+                className="px-2 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
+              >
+                {isMuted ? "Unmute" : "Mute"}
+              </button>
+            </div>
+            <MediaMenu fileUrl={fileUrl} fileName={fileName} />
           </div>
-          <MediaMenu fileUrl={fileUrl} fileName={fileName} />
-        </div>
-      );
+        );
+
+      case "file":
+      case "application":
+        if (!fileUrl) return null;
+        const fileExt = fileName?.split(".").pop()?.toLowerCase();
+        const getFileIcon = () => {
+          if (fileExt === "pdf") return "📕";
+          if (["doc", "docx"].includes(fileExt)) return "📘";
+          if (["xls", "xlsx"].includes(fileExt)) return "📊";
+          return "📄";
+        };
+        return (
+          <div className="relative inline-block">
+            <div className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs">
+              <span className="text-2xl">{getFileIcon()}</span>
+              <span className="truncate">{fileName}</span>
+            </div>
+            <MediaMenu fileUrl={fileUrl} fileName={fileName} />
+          </div>
+        );
 
     case "file":
-    case "application":
-      if (!fileUrl) return null;
-      const fileExt = fileName?.split(".").pop()?.toLowerCase();
-      const getFileIcon = () => {
-        if (fileExt === "pdf") return "📕";
-        if (["doc", "docx"].includes(fileExt)) return "📘";
-        if (["xls", "xlsx"].includes(fileExt)) return "📊";
-        return "📄";
-      };
-      return (
-        <div className="relative inline-block">
-          <div className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs">
-            <span className="text-2xl">{getFileIcon()}</span>
-            <span className="truncate">{fileName}</span>
-          </div>
-          <MediaMenu fileUrl={fileUrl} fileName={fileName} />
-        </div>
-      );
 
     default:
       return (

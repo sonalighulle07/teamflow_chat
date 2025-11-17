@@ -76,7 +76,7 @@ exports.sendMessage = async (req, res) => {
       const subscription = await User.getPushSubscription(receiverId);
       if (subscription) {
         await sendPushNotification(subscription, {
-          title: "New Message",
+          title: "👤- Private Message ",
           body: text
             ? `💬 ${sender.username}: ${text}`
             : fileType

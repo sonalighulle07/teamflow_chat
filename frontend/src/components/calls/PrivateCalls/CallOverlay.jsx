@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import socket from "../hooks/socket";
 
 export default function CallOverlay({
   callType,
@@ -16,9 +17,15 @@ export default function CallOverlay({
   onMaximize,
   onClose,
   isMaximized,
+  inCall,
 }) {
   const localVideoRef = useRef(null);
   const remoteVideoRefs = useRef([]);
+
+  useEffect(() => {
+
+  }),[inCall];
+
 
   useEffect(() => {
     if (localVideoRef.current && localStream) {

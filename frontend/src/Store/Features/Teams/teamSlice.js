@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { fetchTeams, fetchTeamMembers } from "./teamThunk";
 
+
 const initialState = {
   teamList: [],
   selectedTeam: null,

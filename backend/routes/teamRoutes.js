@@ -37,8 +37,16 @@ router.post("/invites/respond", authenticateToken, respondToInvite);
 // -----------------------
 // Team Meeting Routes
 // -----------------------
-router.get("/teams/:teamId/meeting-link", authenticateToken, getTeamMeetingLink);
-router.post("/meetings/end/:teamId", authenticateToken, async (req, res) => {
+
+
+// ✅ Secure: Team-level meeting link
+router.get("/:teamId/meeting-link", authenticateToken, getTeamMeetingLink);
+
+// ✅ Secure: End meeting
+router.post("/meetings/end/:teamId", authenticateToken    , async (req, res) => {
+  const { teamId } = req.params;
+  const userId = req.user?.id || null;
+
   try {
     const result = await meetServ.endMeeting(req.params.teamId, req.user?.id);
     res.json(result);
@@ -47,6 +55,7 @@ router.post("/meetings/end/:teamId", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to end meeting" });
   }
 });
+
 
 // -----------------------
 // Team CRUD Routes
@@ -59,6 +68,19 @@ router.post("/", authenticateToken, createTeam);
 router.put("/:teamId", authenticateToken, checkTeamMember, updateTeam);
 router.delete("/:teamId", authenticateToken, checkTeamMember, deleteTeam);
 router.get("/:teamId", authenticateToken, checkTeamMember, getTeamById);
+
+// ✅ Secure: Get active meeting for a team
+router.get("/team/:teamId/active", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  try {
+    const active = await meetServ.getActiveMeeting(teamId);
+    res.json({ active: !!active, meeting: active });
+  } catch (err) {
+    console.error("Error getting active meeting:", err);
+    res.status(500).json({ error: "Failed to get active meeting" });
+  }
+});
+
 
 
 // -----------------------
