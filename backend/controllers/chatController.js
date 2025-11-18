@@ -4,6 +4,8 @@ const { sendPushNotification } = require("../Utils/pushService");
 const db = require("../config/db"); 
 const { encrypt, decrypt } = require("../Utils/crypto");
 
+
+
 // GET all messages
 exports.getMessages = async (req, res) => {
   try {   
@@ -97,6 +99,7 @@ exports.sendMessage = async (req, res) => {
 };
 
 // POST /api/chats/:messageId/react
+
 exports.reactMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
@@ -107,7 +110,7 @@ exports.reactMessage = async (req, res) => {
       return res.status(400).json({ error: "Emoji and userId are required" });
     }
 
-    // Fetch current reactions
+    // Fetch current reactions from DB (decrypt first)
     const [rows] = await db.execute(
       "SELECT reactions FROM chats WHERE id = ?",
       [messageId]
@@ -119,7 +122,7 @@ exports.reactMessage = async (req, res) => {
 
     let reactions = {};
     try {
-      reactions = rows[0].reactions ? JSON.parse(rows[0].reactions) : {};
+      reactions = rows[0].reactions ? JSON.parse(decrypt(rows[0].reactions)) : {};
     } catch {
       reactions = {};
     }
@@ -133,20 +136,21 @@ exports.reactMessage = async (req, res) => {
 
     // Toggle reaction: add or remove
     if (emojiData.users[userId]) {
-      delete emojiData.users[userId];
+      delete emojiData.users[userId]; // ✅ remove reaction if already exists
     } else {
-      emojiData.users[userId] = 1;
+      emojiData.users[userId] = 1; // ✅ add reaction
     }
 
     // Update total count
     emojiData.count = Object.values(emojiData.users).reduce((sum, c) => sum + c, 0);
 
-    // Save updated reactions
+    // Save updated reactions (encrypt before saving)
     await db.execute(
       "UPDATE chats SET reactions = ? WHERE id = ?",
-      [JSON.stringify(reactions), messageId]
+      [encrypt(JSON.stringify(reactions)), messageId]
     );
 
+    // Return updated reactions
     res.json({ reactions });
 
     // Broadcast via Socket.IO
@@ -158,6 +162,7 @@ exports.reactMessage = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
 
 // DELETE message
 exports.deleteMessage = async (req, res) => {
@@ -179,19 +184,41 @@ exports.deleteMessage = async (req, res) => {
 
 // PUT edit message
 exports.editMessage = async (req, res) => {
-  const { text } = req.body;
+  const { text, file_name } = req.body;
   const { messageId } = req.params;
-
   try {
-    // Encrypt text before updating
-    await chatModel.updateMessage(messageId, text);
+    const msg = await chatModel.getMessageById(messageId);
+    if (!msg) return res.status(404).json({ error: "Message not found" });
+
+    let updatedFields = {};
+
+    if (text !== undefined) updatedFields.text = encrypt(text);
+    if (file_name !== undefined) updatedFields.file_name = encrypt(file_name);
+
+    // If file uploaded
+    if (req.file) {
+      updatedFields.file_url = `/uploads/${req.file.filename}`;
+      updatedFields.file_type = req.file.mimetype;
+    }
+
+    const setQuery = Object.keys(updatedFields)
+      .map((k) => `${k} = ?`)
+      .join(", ");
+    const values = Object.values(updatedFields);
+
+    await db.query(`UPDATE chats SET ${setQuery}, edited = 1 WHERE id = ?`, [
+      ...values,
+      messageId,
+    ]);
 
     const updatedMessage = await chatModel.getMessageById(messageId);
-
     res.json(updatedMessage);
+
+    // Broadcast via socket
+    if (req.io) req.io.emit("messageUpdated", updatedMessage);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Edit failed" });
+    console.error("Edit message error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -280,3 +307,58 @@ exports.getLastMessagesByUser = async (req, res) => {
     res.status(500).send("DB Error");
   }
 };
+
+exports.updateChat = async (req, res) => {
+  try {
+    const { text } = req.body;
+    const messageId = req.params.id;
+
+    // Fetch existing message (for keeping old file if no new file uploaded)
+    const [rows] = await db.query("SELECT * FROM chats WHERE id = ?", [messageId]);
+    if (!rows.length) return res.status(404).json({ error: "Message not found" });
+
+    const oldMsg = rows[0];
+
+    let fileUrl = oldMsg.file_url;
+    let fileName = oldMsg.file_name;
+    let fileType = oldMsg.file_type;
+    let msgType = oldMsg.type;
+
+    // If new file uploaded → replace old file
+    if (req.file) {
+      fileUrl = "/uploads/" + req.file.filename;
+      fileName = req.file.originalname;
+      fileType = req.file.mimetype;
+
+      if (fileType.startsWith("image/")) msgType = "image";
+      else if (fileType.startsWith("video/")) msgType = "video";
+      else if (fileType.startsWith("audio/")) msgType = "audio";
+      else msgType = "file";
+    }
+
+    await db.query(
+      `UPDATE chats SET 
+          text = ?, 
+          edited = 1,
+          file_url = ?, 
+          file_name = ?, 
+          file_type = ?, 
+          type = ?
+       WHERE id = ?`,
+      [
+        text ? encrypt(text) : oldMsg.text, 
+        fileUrl,
+        fileName,
+        fileType,
+        msgType,
+        messageId
+      ]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error updating chat:", err);
+    res.status(500).json({ error: "Failed to update chat" });
+  }
+};
+

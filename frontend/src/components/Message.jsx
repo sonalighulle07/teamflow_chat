@@ -1,12 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FaSmile, FaEllipsisV } from "react-icons/fa";
 import EmojiPicker from "emoji-picker-react";
-import { URL } from "../config";
+// import { URL } from "../config";
 import CryptoJS from "crypto-js";
+import axios from "axios";
 
+import { URL as API_URL } from "../config";
+
+import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
 export default function Message({
   message,
   isOwn,
+  selectedUser,
   searchQuery,
   onReact,
   onDelete,
@@ -14,8 +19,6 @@ export default function Message({
   onForward,
   socket,
 }) {
-  const currentUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
-
   // ---- AES Decrypt (same key as backend) ----
   const KEY = "12345678901234567890123456789012"; // 32-byte key
 
@@ -82,6 +85,11 @@ export default function Message({
   };
 
   // ---- state ----
+  const currentUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [editedText, setEditedText] = useState("");
+  const [editFile, setEditFile] = useState(null);
+  const [editPreview, setEditPreview] = useState(null);
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -91,9 +99,7 @@ export default function Message({
   const [editText, setEditText] = useState(message.text || "");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
-
   const audioRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
 
@@ -130,6 +136,28 @@ export default function Message({
   useEffect(() => {
     if (!socket) return;
 
+    // Listen for updates to this specific message
+    const handleMessageEdited = (updatedMsg) => {
+      if (updatedMsg.id === message.id) {
+        setEditedText(safeDecrypt(updatedMsg.text));
+        setEditPreview(
+          updatedMsg.file_url
+            ? getFileUrl(safeDecrypt(updatedMsg.file_url))
+            : null
+        );
+      }
+    };
+
+    // Listen for general message updates (all messages in the chat)
+    const handleGlobalMessageEdited = (updatedMsg) => {
+      if (setMessages) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
+        );
+      }
+    };
+
+    // Listen for reactions
     const handleReactionEvent = ({ messageId, reactions }) => {
       if (messageId !== message.id) return;
       try {
@@ -144,8 +172,15 @@ export default function Message({
       }
     };
 
-    socket.on?.("reaction", handleReactionEvent);
-    return () => socket.off?.("reaction", handleReactionEvent);
+    socket.on("messageEdited", handleMessageEdited);
+    socket.on("messageEdited", handleGlobalMessageEdited);
+    socket.on("reaction", handleReactionEvent);
+
+    return () => {
+      socket.off("messageEdited", handleMessageEdited);
+      socket.off("messageEdited", handleGlobalMessageEdited);
+      socket.off("reaction", handleReactionEvent);
+    };
   }, [socket, message.id]);
 
   // ---- hover handlers ----
@@ -166,6 +201,17 @@ export default function Message({
       hoverTimeoutRef.current && clearTimeout(hoverTimeoutRef.current),
     []
   );
+  const [messagePosition, setMessagePosition] = useState(null);
+
+  const handleEditClick = (msg, e) => {
+    setEditingMessage(msg);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMessagePosition({
+      top: rect.top + window.scrollY,
+      left: rect.left + rect.width / 2,
+    });
+    setIsEditing(true);
+  };
 
   // ---- media helpers ----
   const getFileUrl = (url) => (url?.startsWith("http") ? url : `${URL}${url}`);
@@ -228,6 +274,59 @@ export default function Message({
       )
     );
   };
+  // Add this inside your Message component
+  const fetchMessages = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const res = await axios.get(
+        `${API_URL}/api/chats/${currentUser.id}/${selectedUser.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setMessages(res.data);
+    } catch (error) {
+      console.error("Failed to fetch messages:", error);
+    }
+  };
+
+  const handleSaveMedia = async () => {
+    try {
+      if (!editingMessage) {
+        console.error("No message selected for editing");
+        return;
+      }
+
+      const formData = new FormData();
+
+      // If new file selected, append it
+      if (editFile instanceof File) {
+        formData.append("file", editFile);
+      }
+
+      // Always append text, even empty string
+      formData.append("text", editedText || "");
+      formData.append("edited", true);
+
+      const res = await axios.put(
+        `${API_URL}/api/chats/chats/${editingMessage.id}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+
+      if (res.data.success) {
+        setIsEditing(false);
+        setEditFile(null);
+        setEditPreview(null);
+        fetchMessages();
+      }
+    } catch (err) {
+      console.error("Media update failed:", err);
+    }
+  };
+
   const handleSave = () => {
     if (editText.trim() === "") return;
     onEdit({ ...message, text: editText }); // send updated text to parent
@@ -262,20 +361,36 @@ export default function Message({
   const handleOpenUrl = (url) => window.open(url, "_blank");
 
   const MediaMenu = ({ fileUrl, fileName }) => {
+    const menuRef = useRef(null);
+
     if (!fileUrl) return null;
+
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMediaMenuOpen(false);
+      }
+    };
+
+    useEffect(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
     return (
-      <div className="absolute top-3 right-[5px]">
+      <div className="absolute top-3 right-[5px]" ref={menuRef}>
         <button
-          className="p-1 text-black rounded-full hover:bg-black/50  hover:text-white"
+          className="p-1 text-gray-500 mr-[12px]  bg-white rounded-full hover:bg-purple-100 hover:text-purple-800 transition-all duration-150"
           onClick={(e) => {
-            e.stopPropagation();
+            e.stopPropagation(); // prevent bubbling to parent
             setMediaMenuOpen((m) => !m);
           }}
         >
           <FaEllipsisV />
         </button>
+
         {mediaMenuOpen && (
-          <div className="flex flex-col space-y-1 p-1 mt-[20px] bg-white/70 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 w-52">
+          <div className="absolute flex flex-col space-y-1 p-2  bg-white/30 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 w-44 right-0 z-50">
             {/* Download */}
             <button
               onClick={() => handleDownload(fileUrl, fileName)}
@@ -363,9 +478,10 @@ export default function Message({
             <img
               src={fileUrl}
               alt="Sent"
-              className="max-w-xs rounded-lg shadow-md cursor-pointer hover:scale-105 transition-transform"
+              className="max-w-[250px] rounded-lg shadow-md cursor-pointer hover:scale-105 transition-transform"
               onDoubleClick={handleDoubleClick}
             />
+
             <MediaMenu fileUrl={fileUrl} fileName={fileName} />
             {isFullscreen && (
               <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
@@ -375,7 +491,7 @@ export default function Message({
                   className="max-h-full max-w-full rounded-lg shadow-lg transition-transform"
                   style={{ transform: `scale(${zoom})` }}
                 />{" "}
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 bg-black bg-opacity-50 px-4 py-2 rounded-full">
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 bg-black  bg-opacity-50 px-4 py-2 rounded-full">
                   <button
                     className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
                     onClick={handleZoomOut}
@@ -417,33 +533,52 @@ export default function Message({
       case "audio":
         if (!fileUrl) return null;
         return (
-          <div className="relative inline-block">
-            <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-xl shadow-sm max-w-md w-full">
-              <span className="text-2xl">🎵</span>
-              <audio
-                ref={audioRef}
-                src={fileUrl}
-                className="w-full"
-                onEnded={() => setIsPlaying(false)}
-              />
+          <div className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs">
+            {/* Audio icon */}
+            <span className="text-base text-gray-800">🎵</span>
 
+            {/* File name */}
+            <span className="flex-1 mx-3  max-w-xs text-black truncate">
+              {fileName || "Audio File"}
+            </span>
+
+            {/* Audio element */}
+            <audio
+              ref={audioRef}
+              src={fileUrl}
+              className="hidden"
+              onEnded={() => setIsPlaying(false)}
+              controls={false}
+            />
+
+            {/* Controls */}
+            <div className="flex items-center gap-1">
               <button
                 onClick={togglePlay}
-                className="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700"
+                className="p-1  text-purple-700  rounded-full hover:bg-purple-200 transition"
               >
-                {isPlaying ? "Pause" : "Play"}
+                {isPlaying ? (
+                  <FaPause className="w-3 h-3" />
+                ) : (
+                  <FaPlay className="w-3 h-3" />
+                )}
               </button>
               <button
                 onClick={toggleMute}
-                className="px-2 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
+                className="p-1 text-purple-700 rounded-full hover:bg-purple-200 transition"
               >
-                {isMuted ? "Unmute" : "Mute"}
+                {isMuted ? (
+                  <FaVolumeMute className="w-4 h-4" />
+                ) : (
+                  <FaVolumeUp className="w-4 h-4" />
+                )}
               </button>
             </div>
+
+            {/* Media menu */}
             <MediaMenu fileUrl={fileUrl} fileName={fileName} />
           </div>
         );
-
       case "file":
       case "application":
         if (!fileUrl) return null;
@@ -579,17 +714,26 @@ export default function Message({
               {menuOpen && (
                 <div className="absolute right-0 top-8 w-36 bg-white/95 backdrop-blur-md border border-gray-200 rounded-lg shadow-xl z-40 animate-fadeIn transition-all duration-200">
                   <div className="flex flex-col divide-y divide-gray-100 text-sm">
-                    {isOwn && message.type === "text" && (
-                      <button
-                        className="flex items-center gap-2 px-3 py-1.5 text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
-                        onClick={() => {
-                          setIsEditing(true);
-                          setMenuOpen(false);
-                        }}
-                      >
-                        ✏️ <span>Edit</span>
-                      </button>
-                    )}
+                    {isOwn &&
+                      ["text", "image", "video", "audio", "file"].includes(
+                        message.type
+                      ) && (
+                        <button
+                          onClick={() => {
+                            setEditingMessage(message);
+                            setEditedText(message.text || "");
+                            setEditPreview(
+                              message.file_url
+                                ? getFileUrl(safeDecrypt(message.file_url))
+                                : null
+                            );
+                            setIsEditing(true);
+                          }}
+                          className="flex items-center gap-2 px-3 py-1.5 text-purple-600 hover:bg-purple-50 transition-all duration-150"
+                        >
+                          ✏️ Edit
+                        </button>
+                      )}
                     {isOwn && (
                       <button
                         className="flex items-center gap-2 px-3 py-1.5 text-red-600 hover:bg-red-50 transition-all duration-150"
@@ -661,48 +805,139 @@ export default function Message({
         {!isOwn && message.username && (
           <span className="font-medium text-gray-600">{message.username}</span>
         )}
+
         <span>
           {new Date(message.created_at || message.timestamp).toLocaleTimeString(
             [],
             { hour: "2-digit", minute: "2-digit" }
           )}
         </span>
+
+        {/* Message Status Indicators */}
+        {isOwn && (
+          <span className="ml-1">
+            {message.status === "sent" && "✓"}
+            {message.status === "delivered" && "✓✓"}
+            {message.status === "read" && (
+              <span className="text-blue-500">✓✓</span>
+            )}
+          </span>
+        )}
       </div>
 
       {/* Editing UI */}
+      {/* Editing UI */}
       {isEditing && (
-        <div className="mt-2">
-          <input
-            type="text"
-            value={editText}
-            onChange={(e) => setEditText(e.target.value)}
-            className="border px-3 py-2 rounded w-full"
-          />
-          <div className="flex gap-2 mt-2">
+        <div
+          style={{
+            top: messagePosition?.top || "50%",
+            left: messagePosition?.left || "50%",
+          }}
+          className="absolute transform -translate-x-1/2 -translate-y-full w-70 bg-white/100 border border-gray-300 rounded-2xl shadow-xl p-2 z-50 animate-slide-up transition-all duration-200 ml-[250px] mt-7"
+        >
+          <h2 className="text-sm font-semibold mb-3 text-purple-700">
+            Edit {editingMessage?.type === "text" ? "Message" : "Media"}
+          </h2>
+
+          {/* Text input for text messages */}
+          {editingMessage?.type === "text" && (
+            <textarea
+              value={editedText}
+              onChange={(e) => setEditedText(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl p-2 text-sm  h-[40px] resize-none shadow-inner focus:outline-none focus:ring-2 focus:ring-purple-300"
+              rows={3}
+              placeholder="Edit your message..."
+            />
+          )}
+
+          {/* Media preview */}
+          {editingMessage?.type !== "text" && (
+            <div className="relative mb-3">
+              {/* Current media name */}
+              {editPreview && (
+                <div className="flex items-center justify-between bg-gray-100 rounded-xl p-2 mb-2 text-sm shadow-sm">
+                  <span className="truncate">
+                    {editPreview.split("/").pop()}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setEditPreview(null);
+                      setEditFile(null);
+                    }}
+                    className="text-white bg-red-500 rounded-full px-1 py-0.5 text-xs hover:bg-red-600 transition"
+                    title="Remove Media"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Media preview thumbnails */}
+              {editPreview && editPreview.match(/\.(jpg|jpeg|png|gif)$/i) && (
+                <img
+                  src={editPreview}
+                  className="w-40 rounded-lg mb-2 shadow-md border border-gray-200"
+                />
+              )}
+              {editPreview && editPreview.match(/\.(mp4|webm|mov)$/i) && (
+                <video
+                  src={editPreview}
+                  controls
+                  className="w-44 rounded-lg mb-2 shadow-md border border-gray-200"
+                />
+              )}
+              {editPreview && editPreview.match(/\.(mp3|wav|ogg)$/i) && (
+                <audio
+                  src={editPreview}
+                  controls
+                  className="w-full mt-1 mb-2"
+                />
+              )}
+
+              {/* Add/Replace media */}
+              <label className="flex items-center gap-2 cursor-pointer text-purple-600 text-sm hover:underline">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828V16a2 2 0 11-4 0v-8a2 2 0 114 0v.172z"
+                  />
+                </svg>
+                {editPreview ? "Replace Media" : "Add Media"}
+                <input
+                  type="file"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && file instanceof File) {
+                      setEditFile(file);
+                      setEditPreview(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          )}
+
+          {/* Buttons */}
+          <div className="flex justify-end gap-3 mt-3">
             <button
-              className="px-3 py-1 bg-purple-600 text-white rounded"
-              onClick={async () => {
-                handleSave();
-                try {
-                  const token = sessionStorage.getItem("chatToken");
-                  if (!token) return console.error("No token found");
-                  const res = await fetch(`${URL}/api/chats/${message.id}`, {
-                    method: "PUT",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ text: editText }),
-                  });
-                  if (res.ok) {
-                    const updated = await res.json();
-                    onEdit?.(updated);
-                    setIsEditing(false);
-                  } else console.error("Edit failed on server");
-                } catch (err) {
-                  console.error("Edit failed:", err);
-                }
-              }}
+              onClick={() => setIsEditing(false)}
+              className="px-3 py-1 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveMedia}
+              className="px-3 py-1 rounded-xl bg-purple-600 text-white hover:bg-purple-700 text-sm transition"
             >
               Save
             </button>

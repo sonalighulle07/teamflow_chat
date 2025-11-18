@@ -91,28 +91,33 @@ module.exports = (io, socket) => {
   });
 
   // ✅ Delete message
-  socket.on('deleteMessage', async ({ messageId }) => {
-    try {
-      const message =
-        (await Chat.getMessageById(messageId)) ||
-        (await TeamMessage.getById(messageId));
-      if (!message) return;
+ // Delete message
+socket.on('deleteMessage', async ({ messageId }) => {
+  try {
+    const message =
+      (await Chat.getMessageById(messageId)) ||
+      (await TeamMessage.getById(messageId));
+    if (!message) return;
 
-      if (message.receiver_id) {
-        await Chat.deleteMessage(messageId);
-        io.to(`user_${message.sender_id}`).emit('messageDeleted', { messageId });
-        io.to(`user_${message.receiver_id}`).emit('messageDeleted', { messageId });
-      } else if (message.team_id) {
-        await TeamMessage.delete(messageId);
-        io.to(`team_${message.team_id}`).emit('messageDeleted', {
-          messageId,
-          teamId: message.team_id,
-        });
-      }
-    } catch (err) {
-      console.error('Delete message error:', err);
+    if (message.receiver_id) {
+      await Chat.deleteMessage(messageId);
+
+      const payload = { messageId, senderId: message.sender_id };
+
+      io.to(`user_${message.sender_id}`).emit('messageDeleted', payload);
+      io.to(`user_${message.receiver_id}`).emit('messageDeleted', payload);
+    } else if (message.team_id) {
+      await TeamMessage.delete(messageId);
+
+      const payload = { messageId, senderId: message.sender_id, teamId: message.team_id };
+
+      io.to(`team_${message.team_id}`).emit('messageDeleted', payload);
     }
-  });
+  } catch (err) {
+    console.error('Delete message error:', err);
+  }
+});
+
 
   // ✅ Edit message
   socket.on('editMessage', async ({ id, text }) => {

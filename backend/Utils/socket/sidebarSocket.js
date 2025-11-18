@@ -1,5 +1,5 @@
 module.exports = (io, socket) => {
-  console.log("Sidebar socket connected:", socket.id);
+  // console.log("Sidebar socket connected:", socket.id);
 
   // ---------------------------------------------------------
   // USERS — Real-time Sorting Events

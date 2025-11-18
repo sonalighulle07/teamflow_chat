@@ -3,7 +3,6 @@ const { Team, TeamMember, TeamMessage } = require("../models/TeamModel");
 const db = require("../config/db");
 const meetServ = require("./services/groupMeetings");
 const TeamInvite = require("../models/TeamInvite");
-
 const path = require("path");
 const User = require("../models/User");
 const { sendPushNotification } = require("../Utils/pushService");

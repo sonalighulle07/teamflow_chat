@@ -4,7 +4,7 @@ const db = require("../../config/db"); // ✅ Correct path to DB
 
 module.exports = (io) => {
   io.on("connection", (socket) => {
-    console.log("Socket connected:", socket.id);
+    // console.log("Socket connected:", socket.id);
 
     // -----------------------------
     // 1️⃣ Register user and send pending invites
@@ -14,7 +14,7 @@ module.exports = (io) => {
 
       socket.userId = userId;
       socket.join(`user_${userId}`);
-      console.log(`User ${userId} joined room user_${userId}`);
+      // console.log(`User ${userId} joined room user_${userId}`);
 
       try {
         const pendingInvites = await TeamInvite.getPendingForUser(userId);

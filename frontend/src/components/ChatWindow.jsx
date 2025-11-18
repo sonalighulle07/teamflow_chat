@@ -84,13 +84,15 @@ export default function ChatWindow({
       );
     });
     // message deleted (remove + toast)
-    socket.on("messageDeleted", ({ messageId }) => {
-      console.log("🟢 messageDeleted received on client", messageId);
+    socket.on("messageDeleted", ({ messageId, senderId }) => {
+      // Remove message from the list
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
 
-      // show toast for deletion
-      setDeleteAlert("Message deleted successfully");
-      setTimeout(() => setDeleteAlert(""), 3000);
+      // Show toast only for the user who deleted
+      if (senderId === currentUserId) {
+        setDeleteAlert("Message deleted successfully");
+        setTimeout(() => setDeleteAlert(""), 3000);
+      }
     });
 
     // message edited (update + toast)
@@ -241,18 +243,15 @@ export default function ChatWindow({
   }, [searchQuery, filteredMessages]);
 
   // Handle file selection
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setSelectedFile(file);
-    if (
-      file.type.startsWith("image/") ||
-      file.type.startsWith("video/") ||
-      file.type.startsWith("audio/")
-    ) {
-      setFilePreview(URL.createObjectURL(file));
-    } else setFilePreview(null);
-  };
+ const handleFileChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  setSelectedFile(file); // store actual file
+  setFilePreview(URL.createObjectURL(file)); // preview
+};
+
+
 
   const removeFile = () => {
     setSelectedFile(null);
