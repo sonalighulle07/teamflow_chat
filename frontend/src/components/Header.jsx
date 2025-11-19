@@ -6,7 +6,7 @@ import ProfileModal from "./ProfileModal";
 import ErrorBoundary from "./ErrorBoundary";
 import { URL } from "../config";
 import axios from "axios";
-import socket from "./calls/hooks/socket";
+// import socket from "./calls/hooks/socket";
 
 export default function Header({
   activeUser,
@@ -34,44 +34,44 @@ export default function Header({
     () => localStorage.getItem(`profileImage_${activeUser?.id}`) || null
   );
 
-  // ----------------- Poll Active Meeting & Check Joined -----------------
-  useEffect(() => {
-    if (!selectedTeam || !token) return;
+  // // ----------------- Poll Active Meeting & Check Joined -----------------
+  // useEffect(() => {
+  //   if (!selectedTeam || !token) return;
 
-    const fetchActiveMeeting = async () => {
-      try {
-        const res = await axios.get(
-          `${URL}/api/teams/team/${selectedTeam.id}/active`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+  //   const fetchActiveMeeting = async () => {
+  //     try {
+  //       const res = await axios.get(
+  //         `${URL}/api/teams/team/${selectedTeam.id}/active`,
+  //         { headers: { Authorization: `Bearer ${token}` } }
+  //       );
 
-        if (res.data.active) {
-          setActiveMeeting(res.data.meeting);
+  //       if (res.data.active) {
+  //         setActiveMeeting(res.data.meeting);
 
-          // Ask server if user has joined this meeting
-          socket.emit(
-            "checkJoined",
-            {
-              meetingCode: res.data.meeting.meeting_code,
-              userId: activeUser.id,
-            },
-            (response) => {
-              setHasJoinedMeeting(response.joined);
-            }
-          );
-        } else {
-          setActiveMeeting(null);
-          setHasJoinedMeeting(false);
-        }
-      } catch (err) {
-        console.error("Failed to check active meeting:", err);
-      }
-    };
+  //         // Ask server if user has joined this meeting
+  //         socket.emit(
+  //           "checkJoined",
+  //           {
+  //             meetingCode: res.data.meeting.meeting_code,
+  //             userId: activeUser.id,
+  //           },
+  //           (response) => {
+  //             setHasJoinedMeeting(response.joined);
+  //           }
+  //         );
+  //       } else {
+  //         setActiveMeeting(null);
+  //         setHasJoinedMeeting(false);
+  //       }
+  //     } catch (err) {
+  //       console.error("Failed to check active meeting:", err);
+  //     }
+  //   };
 
-    fetchActiveMeeting();
-    const interval = setInterval(fetchActiveMeeting, 10000);
-    return () => clearInterval(interval);
-  }, [selectedTeam, token, activeUser.id]);
+  //   fetchActiveMeeting();
+  //   const interval = setInterval(fetchActiveMeeting, 10000);
+  //   return () => clearInterval(interval);
+  // }, [selectedTeam, token, activeUser.id]);
 
   // ----------------- Profile Image -----------------
   useEffect(() => {

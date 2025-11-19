@@ -20,6 +20,7 @@ export function useCall(userId, currentUser = {}) {
 
   useEffect(() => {
     if (!userId) return;
+    console.log("connecting socket from useCall...")
     if (!socket.connected) socket.connect();
     socket.emit("register", { userId });
 

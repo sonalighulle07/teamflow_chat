@@ -1,28 +1,20 @@
-// ✅ MeetingRoom.jsx
+// MeetingRoom.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMeeting } from "../hooks/useMeeting";
 import PeerTile from "./PeerTile";
 import MeetingControls from "./MeetingUtils/MeetingControls";
-import { getPreviewStream, clearPreviewStream } from "../../../utils/streamStore";
-import socket from "../hooks/socket"; // ✅ your existing socket instance
+import socket from "../hooks/socket";
+import { getPreviewStream } from "../../../utils/streamStore";
 
 export default function MeetingRoom() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ---- Basic session info ----
   const userId = sessionStorage.getItem("userId");
   const code = sessionStorage.getItem("roomCode");
   const teamId = location?.state?.teamId || null;
 
-  // ---- Grab pre-join media preview if available ----
-  const initialStream = getPreviewStream();
-  useEffect(() => {
-    return () => clearPreviewStream();
-  }, []);
-
-  // ---- Meeting hook (WebRTC + signaling) ----
   const {
     peers,
     localStream,
@@ -38,85 +30,97 @@ export default function MeetingRoom() {
     userRefs
   } = useMeeting(userId, code, teamId);
 
-  // ---- UI states ----
+  const [ready, setReady] = useState(false);
   const [pinnedId, setPinnedId] = useState(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
-  // ---- Combine all streams (local + remote) ----
-  // ✅ Combine all streams with labels from userRefs
-const allStreams = [
-  ...(localStream
-    ? [[userId, localStream, isScreenSharing, "You"]]
-    : []),
-  ...Array.from(peers.entries()).map(([id, stream]) => [
-    id,
-    stream,
-    false,
-    // get label from ref
-    userRefs.current.get(id) || `User ${id}`,
-  ]),
-];
+  const allStreams = [
+    ...(localStream ? [[userId, localStream, isScreenSharing, "You"]] : []),
+    ...Array.from(peers.entries()).map(([id, stream]) => {
+      const name = userRefs?.current?.get(id) || `User ${id}`;
+      return [id, stream, false, name];
+    })
+  ];
 
-
-  // ---- Join meeting flow ----
+  // --------------------------------------------------------
+  // 🚀 WAIT FOR PREVIEW STREAM BEFORE JOINING MEETING
+  // --------------------------------------------------------
   useEffect(() => {
-    const init = async () => {
+    let mounted = true;
+
+    const start = async () => {
+      console.log("MeetingRoom loaded → waiting for preview stream...");
+
+      // let preview = null;
+
+      // // Keep checking until MediaConfirmation sets preview stream
+      // while (!preview) {
+      //   preview = getPreviewStream();
+      //   if (!preview) await new Promise((r) => setTimeout(r, 100));
+      // }
+
+      // console.log("Preview stream received:", preview);
+
+      // Initial mic/cam state
+      const initialMic = sessionStorage.getItem("micOn") === "true";
+      const initialCam = sessionStorage.getItem("cameraOn") === "true";
+
       try {
-        const micOn = sessionStorage.getItem("micOn") === "true";
-        const camOn = sessionStorage.getItem("cameraOn") === "true";
+        await joinMeeting({ 
+          micEnabled: initialMic, 
+          camEnabled: initialCam,
+        });
 
-        console.log("Joining meeting with mic:", micOn, "cam:", camOn);
-        await joinMeeting({ micEnabled: micOn, camEnabled: camOn });
+        if (!mounted) return;
+        setReady(true);
 
-        if (initialStream) {
-          const tracks = initialStream.getTracks();
-          const newStream = new MediaStream(tracks);
-          newStream.getAudioTracks().forEach((t) => (t.enabled = micOn));
-          newStream.getVideoTracks().forEach((t) => (t.enabled = camOn));
-        }
       } catch (err) {
-        console.error("❌ joinMeeting failed:", err);
+        console.error("Join meeting failed:", err);
       }
     };
 
-    init();
+    start();   
 
-    // Cleanup when component unmounts
     return () => {
-      console.log("Unmounting: leaving meeting");
-      socket.emit("leave-room", { roomCode: code, userId });
+      mounted = false;
       leaveMeeting();
     };
-  }, []); // eslint-disable-line
+  }, []);
 
-  // ---- Leave meeting manually ----
+  // --------------------------------------------------------
+  // EXIT MEETING
+  // --------------------------------------------------------
   const handleLeave = useCallback(() => {
     try {
-      socket.emit("leave-room", { roomCode: code, userId });
+      if (socket?.connected) {
+        socket.emit("leaveRoom", { roomCode: code, userId });
+      }
       leaveMeeting();
 
       setToastMsg("You left the meeting");
       setShowToast(true);
+
       setTimeout(() => {
         setShowToast(false);
         navigate(-1);
       }, 1000);
     } catch (err) {
-      console.error("Leave meeting error:", err);
+      console.error("Leave error:", err);
     }
   }, [leaveMeeting, code, userId, navigate]);
 
-  // ---- Handle tab/window close ----
+  // --------------------------------------------------------
+  // Leave on tab close
+  // --------------------------------------------------------
   useEffect(() => {
     const handleUnload = () => {
       try {
-        console.log("Window closing — emitting leave-room");
-        socket.emit("leave-room", { roomCode: code, userId });
+        if (socket?.connected) {
+          socket.emit("leaveRoom", { roomCode: code, userId });
+        }
         leaveMeeting();
-      } catch (err) {
-        console.warn("Unload leave error:", err);
-      }
+      } catch {}
     };
 
     window.addEventListener("beforeunload", handleUnload);
@@ -128,58 +132,68 @@ const allStreams = [
     };
   }, [code, userId, leaveMeeting]);
 
-  // ---- Handle pinning ----
-  const handlePin = useCallback((id) => {
-    setPinnedId((prev) => (prev === id ? null : id));
-  }, []);
-
-  // ---- Toast listener ----
+  // --------------------------------------------------------
+  // TOAST SYSTEM
+  // --------------------------------------------------------
   useEffect(() => {
     const handler = (e) => {
       setToastMsg(e.detail?.message || "");
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
     };
+
     window.addEventListener("meeting-toast", handler);
     return () => window.removeEventListener("meeting-toast", handler);
   }, []);
 
-  // ---- Render ----
+  const handlePin = (id) => {
+    setPinnedId((prev) => (prev === id ? null : id));
+  };
+
+  // --------------------------------------------------------
+  // BLOCK UI UNTIL JOINING COMPLETES
+  // --------------------------------------------------------
+  if (!ready) {
+    return (
+      <div className="h-screen w-screen bg-black text-white flex items-center justify-center text-lg">
+        Joining meeting...
+      </div>
+    );
+  }
+
+  // --------------------------------------------------------
+  // MAIN UI
+  // --------------------------------------------------------
   return (
     <div className="h-screen w-screen bg-black text-white flex flex-col">
-      {/* Room Header */}
-      <div className="text-xs text-gray-400 text-center py-1">
-        Room: {code}
-      </div>
+      <div className="text-xs text-gray-400 text-center py-1">Room: {code}</div>
 
-      {/* Main Video Area */}
+      {/* MAIN VIDEO AREA */}
       <div className="flex-1 flex flex-col p-2 gap-2 overflow-hidden">
         {pinnedId ? (
           <>
-            <div
-              className="flex-1 relative"
-              onClick={() => handlePin(pinnedId)}
-            >
+            {/* PINNED VIEW */}
+            <div className="flex-1 relative" onClick={() => handlePin(pinnedId)}>
               {allStreams
                 .filter(([id]) => id === pinnedId)
-                .map(([id, stream]) => (
+                .map(([id, stream, , label]) => (
                   <PeerTile
                     key={id}
                     stream={stream}
-                    label={id === "local" ? "You" : id}
-                    isLocal={id === "local"}
+                    label={label}
+                    isLocal={id === userId}
                     isPinned
                     onDoubleClick={() => handlePin(id)}
                   />
                 ))}
             </div>
 
-            {/* Thumbnails below */}
+            {/* OTHER THUMBNAILS */}
             {allStreams.filter(([id]) => id !== pinnedId).length > 0 && (
               <div className="flex gap-2 mt-2 h-32 overflow-x-auto">
                 {allStreams
                   .filter(([id]) => id !== pinnedId)
-                  .map(([id, stream]) => (
+                  .map(([id, stream, , label]) => (
                     <div
                       key={id}
                       className="flex-none w-32 cursor-pointer"
@@ -187,8 +201,8 @@ const allStreams = [
                     >
                       <PeerTile
                         stream={stream}
-                        label={id === "local" ? "You" : id}
-                        isLocal={id === "local"}
+                        label={label}
+                        isLocal={id === userId}
                         onDoubleClick={() => handlePin(id)}
                       />
                     </div>
@@ -197,27 +211,27 @@ const allStreams = [
             )}
           </>
         ) : (
+          // GRID MODE
           <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-2">
             {allStreams.map(([id, stream, , label]) => (
-  <div
-    key={id}
-    className="cursor-pointer"
-    onClick={() => handlePin(id)}
-  >
-    <PeerTile
-      stream={stream}
-      label={label}
-      isLocal={id === userId}
-      onDoubleClick={() => handlePin(id)}
-    />
-  </div>
-))}
-
+              <div
+                key={id}
+                className="cursor-pointer"
+                onClick={() => handlePin(id)}
+              >
+                <PeerTile
+                  stream={stream}
+                  label={label}
+                  isLocal={id === userId}
+                  onDoubleClick={() => handlePin(id)}
+                />
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Controls */}
+      {/* CONTROLS */}
       <MeetingControls
         onLeave={handleLeave}
         onToggleMic={toggleMic}
@@ -229,7 +243,7 @@ const allStreams = [
         isScreenSharing={isScreenSharing}
       />
 
-      {/* Toast */}
+      {/* TOAST */}
       {showToast && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-purple-600 text-white rounded shadow-lg">
           {toastMsg}

@@ -9,6 +9,7 @@ import axios from "axios";
 import { useDispatch } from "react-redux";
 import { fetchTeamMembers } from "../Store/Features/Teams/teamThunk";
 import { useSelector } from "react-redux";
+import socket from "./calls/hooks/socket";
 import Header from "./Header";
 export default function TeamChat({ currentUser }) {
   const [messages, setMessages] = useState([]);
@@ -45,10 +46,10 @@ export default function TeamChat({ currentUser }) {
   useEffect(() => {
     if (!selectedTeam || !currentUser) return;
 
-    const socket = io(URL);
+    // const socket = io(URL);
     socketRef.current = socket;
 
-    socket.emit("register", { userId: currentUser.id });
+    // socket.emit("register", { userId: currentUser.id });
 
     // new team message
     socket.on("teamMessage", (msg) => {

@@ -5,10 +5,8 @@ import enUS from "date-fns/locale/en-US";
 import axios from "axios";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import io from "socket.io-client";
+import socket from "../calls/hooks/socket";
  
-// ✅ Socket.IO connection
-const socket = io("http://localhost:3000"); // update URL if needed
  
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({

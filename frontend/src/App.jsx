@@ -6,6 +6,7 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
+import { connectSocket } from '../src/components/calls/hooks/socket'
 
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
@@ -19,7 +20,7 @@ import { useCall } from "./components/calls/hooks/useCall";
 import socket from "./components/calls/hooks/socket";
 import ForwardModal from "./components/ForwardModal";
 import MeetingRoom from "./components/calls/GroupCalls/MeetingRoom";
-import MediaConfirmation from "./components/calls/GroupCalls/MeetingUtils/MediaConfirmation";
+import MediaConfirmation from './components/calls/GroupCalls/MeetingUtils/MediaConfirmation'
 import MyCalendar from "./components/calender/MyCalender";
 import { useSelector, useDispatch } from "react-redux";
 import { rehydrateUser } from "./Store/Features/Users/userSlice";
@@ -252,12 +253,17 @@ function App() {
     }
   }, []);
 
-  // Socket connection
-  useEffect(() => {
-    if (isAuthenticated && userId && !socket.connected) {
-      socket.connect();
-    }
-  }, [isAuthenticated, userId]);
+useEffect(() => {
+  if (isAuthenticated && userId) {
+    connectSocket(userId);
+  }
+
+  return () => {
+      socket.disconnect();
+    };
+
+
+}, [isAuthenticated, userId]);
 
   // Redux rehydrate
   useEffect(() => {

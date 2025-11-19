@@ -6,6 +6,7 @@ import { PaperClipIcon } from "@heroicons/react/24/outline";
 import ForwardModal from "./ForwardModal";
 import { useSelector } from "react-redux";
 import { URL } from "../config";
+import socket from "./calls/hooks/socket";
 
 export default function ChatWindow({
   selectedTeam,
@@ -55,10 +56,8 @@ export default function ChatWindow({
   // Initialize Socket.IO
   // single socket init -- put this once in your component
   useEffect(() => {
-    const socket = io(URL);
+    
     socketRef.current = socket;
-
-    if (currentUserId) socket.emit("register", { userId: currentUserId });
 
     // private messages
     socket.on("privateMessage", (msg) => {
@@ -108,9 +107,7 @@ export default function ChatWindow({
       }
     });
 
-    return () => {
-      socket.disconnect();
-    };
+    
   }, [
     currentUserId,
     selectedUser,
