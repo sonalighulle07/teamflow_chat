@@ -127,19 +127,18 @@ insert: async (
   fileUrl = null,
   type = "text",
   fileName = null,
-  metadata = null,
   reactions = {}
 ) => {
   const query = `
     INSERT INTO team_messages 
-    (sender_id, team_id, text, file_url, file_name, type, deleted, edited, metadata, reactions, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, NOW())
+    (sender_id, team_id, text, file_url, file_name, type, deleted, edited, reactions, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, 0, 0,  ?, NOW())
   `;
 
   const encryptedText = text ? encrypt(text) : "";
   const encryptedFileUrl = fileUrl ? encrypt(fileUrl) : null;
   const encryptedFileName = fileName ? encrypt(fileName) : null;
-  const encryptedMetadata = metadata ? encrypt(JSON.stringify(metadata)) : null;
+ 
   const encryptedReactions = encrypt(JSON.stringify(reactions || {}));
 
   const [result] = await db.query(query, [
@@ -149,7 +148,6 @@ insert: async (
     encryptedFileUrl,
     encryptedFileName,
     type, // keep type plaintext
-    encryptedMetadata,
     encryptedReactions,
   ]);
 
@@ -171,7 +169,6 @@ insert: async (
       file_url: msg.file_url ? decrypt(msg.file_url) : null,
       file_name: msg.file_name ? decrypt(msg.file_name) : null,
       type: msg.type ? decrypt(msg.type) : "text",
-      metadata: msg.metadata ? JSON.parse(decrypt(msg.metadata)) : null,
       reactions: msg.reactions ? JSON.parse(decrypt(msg.reactions)) : {},
     };
   },
@@ -189,7 +186,7 @@ insert: async (
       file_url: msg.file_url ? decrypt(msg.file_url) : null,
       file_name: msg.file_name ? decrypt(msg.file_name) : null,
       type: msg.type ? decrypt(msg.type) : "text",
-      metadata: msg.metadata ? JSON.parse(decrypt(msg.metadata)) : null,
+
       reactions: msg.reactions ? JSON.parse(decrypt(msg.reactions)) : {},
     }));
   },

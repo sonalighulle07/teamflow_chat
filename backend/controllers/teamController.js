@@ -234,7 +234,7 @@ const sendTeamMessage = async (req, res) => {
   const teamId = req.params.teamId;
   console.log("sendTeamMessage called for teamId:", teamId);
   const senderId = req.user?.id;
-  const { text, type, metadata } = req.body; // include metadata
+  const { text, type } = req.body; // include metadata
   const file = req.file;
 
   if (!senderId) {
@@ -266,7 +266,7 @@ const sendTeamMessage = async (req, res) => {
       fileUrl,
       msgType,
       fileName,
-      metadata || null
+    
     );
 
     const newMessage = {
@@ -277,7 +277,6 @@ const sendTeamMessage = async (req, res) => {
       file_url: fileUrl,
       file_name: fileName,
       type: msgType,
-      metadata: metadata || null,
       created_at: new Date(),
     };
 
