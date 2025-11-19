@@ -119,41 +119,42 @@ const TeamChat = {
 
 const TeamMessage = {
   // Insert team message (all fields encrypted)
-  insert: async (
+ // models/TeamModel.js (replace existing insert)
+insert: async (
+  senderId,
+  teamId,
+  text = "",
+  fileUrl = null,
+  type = "text",
+  fileName = null,
+  metadata = null,
+  reactions = {}
+) => {
+  const query = `
+    INSERT INTO team_messages 
+    (sender_id, team_id, text, file_url, file_name, type, deleted, edited, metadata, reactions, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, NOW())
+  `;
+
+  const encryptedText = text ? encrypt(text) : "";
+  const encryptedFileUrl = fileUrl ? encrypt(fileUrl) : null;
+  const encryptedFileName = fileName ? encrypt(fileName) : null;
+  const encryptedMetadata = metadata ? encrypt(JSON.stringify(metadata)) : null;
+  const encryptedReactions = encrypt(JSON.stringify(reactions || {}));
+
+  const [result] = await db.query(query, [
     senderId,
     teamId,
-    text = "",
-    fileUrl = null,
-    type = "text",
-    fileName = null,
-    metadata = null,
-    reactions = {}
-  ) => {
-    const query = `
-      INSERT INTO team_messages 
-      (sender_id, team_id, text, file_url, file_name, type, deleted, edited, reactions, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 0, 0, NULL, NOW())
-    `;
+    encryptedText,
+    encryptedFileUrl,
+    encryptedFileName,
+    type, // keep type plaintext
+    encryptedMetadata,
+    encryptedReactions,
+  ]);
 
-    // Encrypt only sensitive fields
-    const encryptedText = text ? encrypt(text) : "";
-    const encryptedFileUrl = fileUrl ? encrypt(fileUrl) : null;
-    const encryptedFileName = fileName ? encrypt(fileName) : null;
-    const encryptedMetadata = metadata ? encrypt(JSON.stringify(metadata)) : null;
-
-    const [result] = await db.query(query, [
-      senderId,                 // plaintext
-      teamId,                   // plaintext
-      encryptedText,            // encrypted
-      encryptedFileUrl,         // encrypted
-      encryptedFileName,        // encrypted
-      type,                     // plaintext
-      encryptedMetadata,        // encrypted
-      JSON.stringify(reactions) // plaintext JSON
-    ]);
-
-    return { insertId: result.insertId };
-  },
+  return { insertId: result.insertId };
+},
 
   
   getById: async (messageId) => {
@@ -194,14 +195,37 @@ const TeamMessage = {
   },
 
   // Update message text
-  updateText: async (messageId, text) => {
-    const encryptedText = encrypt(text);
-    const [result] = await db.query(
-      "UPDATE team_messages SET text = ?, edited = 1 WHERE id = ?",
-      [encryptedText, messageId]
-    );
-    return result;
-  },
+ updateMessage: async (messageId, { text, fileUrl, fileName, type }) => {
+  const fields = [];
+  const values = [];
+
+  if (text !== undefined) {
+    fields.push("text = ?");
+    values.push(encrypt(text));
+  }
+
+  if (fileUrl !== undefined) {
+    fields.push("file_url = ?");
+    values.push(encrypt(fileUrl));
+  }
+
+  if (fileName !== undefined) {
+    fields.push("file_name = ?");
+    values.push(encrypt(fileName));
+  }
+
+  if (type !== undefined) {
+    fields.push("type = ?");
+    values.push(type);
+  }
+
+  fields.push("edited = 1");
+
+  values.push(messageId);
+
+  await db.query(`UPDATE team_messages SET ${fields.join(", ")} WHERE id = ?`, values);
+},
+
 
   // Soft delete
   softDelete: async (messageId) => {

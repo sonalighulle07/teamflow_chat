@@ -17,7 +17,11 @@ export default function Message({
   onDelete,
   onEdit,
   onForward,
+   chatType, 
+    teamId,
   socket,
+  setMessages,  // <-- add here
+  token,  
 }) {
   // ---- AES Decrypt (same key as backend) ----
   const KEY = "12345678901234567890123456789012"; // 32-byte key
@@ -291,39 +295,55 @@ export default function Message({
       console.error("Failed to fetch messages:", error);
     }
   };
+  const fetchTeamMessages = async () => {
+    if (!teamId) return;
+    try {
+      const res = await axios.get(`${API_URL}/api/teams/${teamId}/messages`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMessages(res.data);
+    } catch (err) {
+      console.error("Failed to fetch team messages:", err);
+    }
+  };
 
   const handleSaveMedia = async () => {
+    if (!editingMessage) return;
+
+    const formData = new FormData();
+    if (editFile instanceof File) formData.append("file", editFile);
+    formData.append("text", editedText || "");
+    formData.append("edited", true);
+
     try {
-      if (!editingMessage) {
-        console.error("No message selected for editing");
-        return;
+      let res;
+      if (chatType === "team" && teamId) {
+        // ✅ Edit team message
+        res = await axios.put(
+          `${API_URL}/api/teams/${teamId}/messages/${editingMessage.id}`,
+          formData,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+      } else {
+        // ✅ Edit private message
+        res = await axios.put(
+          `${API_URL}/api/chats/chats/${editingMessage.id}`,
+          formData,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
       }
-
-      const formData = new FormData();
-
-      // If new file selected, append it
-      if (editFile instanceof File) {
-        formData.append("file", editFile);
-      }
-
-      // Always append text, even empty string
-      formData.append("text", editedText || "");
-      formData.append("edited", true);
-
-      const res = await axios.put(
-        `${API_URL}/api/chats/chats/${editingMessage.id}`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
 
       if (res.data.success) {
         setIsEditing(false);
         setEditFile(null);
         setEditPreview(null);
-        fetchMessages();
+
+        // Refresh messages depending on type
+        if (chatType === "team") fetchTeamMessages();
+        else fetchMessages();
       }
     } catch (err) {
-      console.error("Media update failed:", err);
+      console.error("Failed to update message:", err);
     }
   };
 
@@ -826,18 +846,14 @@ export default function Message({
       </div>
 
       {/* Editing UI */}
-      {/* Editing UI */}
-      {isEditing && (
-        <div
-          style={{
-            top: messagePosition?.top || "50%",
-            left: messagePosition?.left || "50%",
-          }}
-          className="absolute transform -translate-x-1/2 -translate-y-full w-70 bg-white/100 border border-gray-300 rounded-2xl shadow-xl p-2 z-50 animate-slide-up transition-all duration-200 ml-[250px] mt-7"
-        >
-          <h2 className="text-sm font-semibold mb-3 text-purple-700">
-            Edit {editingMessage?.type === "text" ? "Message" : "Media"}
-          </h2>
+     {isEditing && (
+  <div
+    style={{
+      top: messagePosition?.top || "50%",
+      left: messagePosition?.left || "10px", // fallback to left side
+    }}
+    className="absolute transform -translate-y-full w-72 bg-white border border-gray-300 rounded-2xl shadow-xl p-4 z-50 animate-slide-up transition-all duration-200 "
+  >
 
           {/* Text input for text messages */}
           {editingMessage?.type === "text" && (

@@ -46,53 +46,63 @@ export default function TeamChat({ currentUser }) {
   }, [selectedTeamMembers]);
 
   const selectedTeam = useSelector((state) => state.team.selectedTeam);
-
   // --- Initialize socket ---
   useEffect(() => {
     if (!selectedTeam || !currentUser) return;
 
-    const socket = io(URL);
+    const socket = io(URL, { transports: ["websocket"] });
     socketRef.current = socket;
 
-    // new team message
+    // Register user & join room
     socket.emit("register", { userId: currentUser.id });
-    socket.emit("joinRoom", { teamId: selectedTeam.id }); // ✅ add this
+    socket.emit("joinRoom", { teamId: selectedTeam.id });
 
-    // Listen for new team messages
+    // ========= REAL-TIME TEAM MESSAGE =========
     socket.on("teamMessage", (msg) => {
-      if (msg?.team_id === selectedTeam.id) {
+      if (msg.team_id === selectedTeam.id) {
         setMessages((prev) => [...prev, msg]);
       }
     });
 
-    // message deleted (server should emit messageDeleted with { messageId, senderId, teamId })
-    socket.on(
-      "messageDeleted",
-      ({ messageId, senderId, teamId }) => {
-        if (teamId && teamId !== team.id) return; // ignore other teams
-        setMessages((prev) => prev.filter((m) => m.id !== messageId));
-        if (senderId === currentUser.id) {
-          setDeleteAlert("Message deleted successfully");
-          setTimeout(() => setDeleteAlert(""), 3000);
-        }
-      },
-      [selectedTeam, currentUser, selectedTeamMembers]
-    );
+    // ========= MESSAGE EDITED =========
+    socket.on("teamMessageEdited", (msg) => {
+      if (msg.team_id !== selectedTeam.id) return;
 
-    // message edited (server should emit messageEdited with updated message)
-    socket.on("messageEdited", (updatedMsg) => {
-      if (updatedMsg?.team_id && updatedMsg.team_id !== selectedTeam.id) return;
       setMessages((prev) =>
-        prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
+        prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m))
       );
-      // optional toast only for the sender
-      if (updatedMsg?.sender_id === currentUser.id) {
-        setForwardAlert("Message edited successfully");
-        setTimeout(() => setForwardAlert(""), 3000);
-      }
     });
 
-    return () => socket.disconnect();
+    // ========= MESSAGE DELETED =========
+    socket.on("teamMessageDeleted", ({ messageId, teamId }) => {
+      if (teamId !== selectedTeam.id) return;
+
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    });
+
+    // ========= REACTION UPDATED =========
+    socket.on("teamReactionUpdated", (data) => {
+      if (data.teamId !== selectedTeam.id) return;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === data.messageId
+            ? {
+                ...m,
+                reactions: {
+                  ...(m.reactions || {}),
+                  [data.userId]: data.emoji,
+                },
+              }
+            : m
+        )
+      );
+    });
+
+    return () => {
+      socket.emit("leaveRoom", { teamId: selectedTeam.id });
+      socket.disconnect();
+    };
   }, [selectedTeam, currentUser]);
 
   // --- Fetch messages ---
@@ -199,12 +209,15 @@ export default function TeamChat({ currentUser }) {
         return;
       }
 
+      // The saved message returned from backend
       const newMessage = await res.json();
-      setMessages((prev) => [...prev, newMessage]);
 
-      // broadcast new message
-      socketRef.current?.emit("teamMessage", newMessage);
+      socketRef.current?.emit("sendTeamMessage", {
+        ...newMessage,
+        team_id: selectedTeam.id,
+      });
 
+      // Reset UI
       setText("");
       removeFile();
       setShowEmoji(false);
@@ -212,6 +225,7 @@ export default function TeamChat({ currentUser }) {
       console.error("Error sending message:", err);
     }
   };
+
   const highlightText = (text, query) => {
     if (!query) return text;
     const regex = new RegExp(`(${query})`, "gi");
@@ -265,6 +279,7 @@ export default function TeamChat({ currentUser }) {
   // --- Edit message (team) ---
   const handleEdit = async (updatedMsg) => {
     if (!updatedMsg?.id) return;
+
     try {
       const res = await fetch(
         `${URL}/api/teams/${selectedTeam.id}/messages/${updatedMsg.id}`,
@@ -277,11 +292,13 @@ export default function TeamChat({ currentUser }) {
           body: JSON.stringify({ text: updatedMsg.text }),
         }
       );
+
       if (!res.ok) {
         console.error("Edit failed:", await res.text());
         return;
       }
-      // optimistic update
+
+      // Optimistic UI update
       setMessages((prev) =>
         prev.map((m) =>
           m.id === updatedMsg.id
@@ -290,9 +307,12 @@ export default function TeamChat({ currentUser }) {
         )
       );
 
-      socketRef.current?.emit("messageEdited", {
-        ...updatedMsg,
+      // 🔥 Correct real-time emit
+      socketRef.current?.emit("editTeamMessage", {
+        id: updatedMsg.id,
+        text: updatedMsg.text,
         team_id: selectedTeam.id,
+        sender_id: currentUser.id,
       });
     } catch (err) {
       console.error("Edit failed:", err);
@@ -302,8 +322,10 @@ export default function TeamChat({ currentUser }) {
   // --- Delete message (team) ---
   const handleDelete = async (messageId) => {
     if (!selectedTeam?.id) return;
+
+    const teamId = selectedTeam.id;
+
     try {
-      let teamId = selectedTeam.id;
       const res = await fetch(
         `${URL}/api/teams/${teamId}/messages/${messageId}`,
         {
@@ -311,21 +333,26 @@ export default function TeamChat({ currentUser }) {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      if (res.ok) {
-        // remove message from state
-        setMessages((prev) => prev.filter((m) => m.id !== messageId));
-      } else {
-        const data = await res.json();
+
+      if (!res.ok) {
+        const data = await res.text();
         console.error("Delete failed:", data);
+        return;
       }
+
+      // 🔥 Optimistic UI (remove from current screen)
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+      // 🔥 REAL-TIME DELETE EMIT (correct event name)
+      socketRef.current?.emit("deleteTeamMessage", {
+        messageId,
+        teamId,
+      });
     } catch (err) {
       console.error("Delete failed:", err);
     }
   };
 
-  // --- Forward team message ---
-  // If you want to forward a team message to users (private chats) reuse your chats forward endpoint:
-  // POST /api/chats/:messageId/forward { toUserIds: [...], senderId }
   const handleForward = async (messageId, toUserIds) => {
     if (!messageId || !Array.isArray(toUserIds) || toUserIds.length === 0)
       return;
@@ -368,7 +395,10 @@ export default function TeamChat({ currentUser }) {
       {/* <TeamInvites socket={socketRef.current} /> */}
 
       {/* Messages */}
-      <div className="flex-1 p-4 bg-gray-50 overflow-y-auto border border-gray-300 rounded-lg shadow-md">
+      <div
+  className="flex-1 p-4 bg-gray-50 border border-gray-300 rounded-lg shadow-md overflow-y-auto"
+  style={{ maxHeight: "calc(100vh - 200px)" }} // adjust according to your layout
+>
         {selectedTeam ? (
           messages.length > 0 ? (
             (() => {
@@ -418,9 +448,12 @@ export default function TeamChat({ currentUser }) {
                         onForward={(m) => setForwardMsg(m)}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
+                        chatType="team" // "private" or "team"
+                        teamId={selectedTeam.id} // only for team chat
+                        setMessages={setMessages} // <-- add this
+                        token={token}
                         onReact={async (messageId, emoji) => {
                           try {
-                            console.log("Updating reaction:", messageId, emoji);
                             await fetch(
                               `${URL}/api/teams/${selectedTeam.id}/messages/${messageId}/reactions`,
                               {
@@ -432,19 +465,6 @@ export default function TeamChat({ currentUser }) {
                                 body: JSON.stringify({ reactions: { emoji } }),
                               }
                             );
-                            setMessages((prev) =>
-                              prev.map((m) =>
-                                m.id === messageId
-                                  ? { ...m, reactions: m.reactions || null }
-                                  : m
-                              )
-                            );
-                            socketRef.current?.emit("reaction", {
-                              messageId,
-                              teamId: selectedTeam.id,
-                              emoji,
-                              userId: currentUser.id,
-                            });
                           } catch (err) {
                             console.error("Reaction error:", err);
                           }
@@ -500,9 +520,10 @@ export default function TeamChat({ currentUser }) {
               ✕
             </button>
           </div>
-        )}
 
-        <div className="flex items-center gap-2 relative bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
+       )}
+
+        <div className="flex items-center  gap-2 relative  bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
           <input
             type="text"
             placeholder={

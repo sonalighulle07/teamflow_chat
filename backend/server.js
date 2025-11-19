@@ -17,9 +17,9 @@ const eventRoutes = require("./routes/eventRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 
 // Socket handlers
+const teamSocket = require("./Utils/socket/teamSocket");
 const callHandlers = require("./Utils/socket/callHandlers");
 const messageHandlers = require("./Utils/socket/messageHandlers");
-const teamSocket = require("./Utils/socket/teamSocket");
 const eventHandlers = require("./Utils/socket/eventHandlers");
 const sidebarSocket = require("./Utils/socket/sidebarSocket");
 
@@ -68,7 +68,8 @@ io.on("connection", (socket) => {
   messageHandlers(io, socket);
   callHandlers(io, socket);
   eventHandlers(io, socket);
-   teamSocket(io, socket);
+    teamSocket(io, socket);
+
    sidebarSocket(io,socket);
 });
 

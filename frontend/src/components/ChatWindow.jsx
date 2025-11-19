@@ -243,15 +243,13 @@ export default function ChatWindow({
   }, [searchQuery, filteredMessages]);
 
   // Handle file selection
- const handleFileChange = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  setSelectedFile(file); // store actual file
-  setFilePreview(URL.createObjectURL(file)); // preview
-};
-
-
+    setSelectedFile(file); // store actual file
+    setFilePreview(URL.createObjectURL(file)); // preview
+  };
 
   const removeFile = () => {
     setSelectedFile(null);

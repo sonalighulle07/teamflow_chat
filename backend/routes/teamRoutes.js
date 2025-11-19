@@ -68,6 +68,12 @@ router.post("/", authenticateToken, createTeam);
 router.put("/:teamId", authenticateToken, checkTeamMember, updateTeam);
 router.delete("/:teamId", authenticateToken, checkTeamMember, deleteTeam);
 router.get("/:teamId", authenticateToken, checkTeamMember, getTeamById);
+router.put(
+  "/:teamId/messages/:messageId",
+  uploadMiddleware.single("file"),
+
+  editTeamMessage
+);
 
 // ✅ Secure: Get active meeting for a team
 router.get("/team/:teamId/active", authenticateToken, async (req, res) => {

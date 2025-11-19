@@ -219,75 +219,17 @@ const getTeamMembers = async (req, res) => {
 
 // -----------------------
 // GET team messages
-// -----------------------
+
 const getTeamMessages = async (req, res) => {
   const { teamId } = req.params;
   try {
-    const [messages] = await db.query(
-      "SELECT * FROM team_messages WHERE team_id = ? ORDER BY created_at ASC",
-      [teamId]
-    );
+    const messages = await TeamMessage.getMessages(teamId); // uses model decrypt
     res.json(messages);
   } catch (err) {
     console.error("Failed to fetch team messages:", err);
     res.status(500).json({ error: "Failed to fetch messages" });
   }
 };
-
-// // -----------------------
-// // SEND team message (with file support + metadata)
-// // -----------------------
-// const sendTeamMessage = async (req, res) => {
-//   const teamId = req.params.teamId;
-//   const senderId = req.user?.id;
-//   const { text, type, metadata } = req.body; // include metadata
-
-//   const file = req.file;
-
-//   if (!senderId) {
-//     return res.status(401).json({ error: "Unauthorized" });
-//   }
-
-//   try {
-//     let fileUrl = null;
-//     let fileName = null;
-
-//     if (file) {
-//       fileUrl = `/uploads/${file.filename}`;
-//       fileName = file.originalname;
-//     }
-
-//     // Insert message into DB
-//     const result = await TeamMessage.insert(
-//       senderId,
-//       teamId,
-//       text || "",
-//       fileUrl,
-//       type || (file ? "file" : "text"),
-//       fileName,
-//       metadata || null
-//     );
-
-//     res.json({
-//       id: result.insertId,
-//       team_id: teamId,
-//       sender_id: senderId,
-//       text: text || "",
-//       file_url: fileUrl,
-//       file_name: fileName,
-//       type: type || (file ? "file" : "text"),
-//       metadata: metadata || null,
-//       created_at: new Date(),
-//     });
-//   } catch (err) {
-//     console.error("Failed to send message:", err);
-//     res.status(500).json({ error: "Failed to send message" });
-//   }
-// };
-
-// -----------------------
-// SEND team message (with file support + metadata + notifications)
-// -----------------------
 const sendTeamMessage = async (req, res) => {
   const teamId = req.params.teamId;
   console.log("sendTeamMessage called for teamId:", teamId);
@@ -377,33 +319,61 @@ const sendTeamMessage = async (req, res) => {
     res.status(500).json({ error: "Failed to send message" });
   }
 };
-
-
-
-
 // -----------------------
 // EDIT team message
-// -----------------------
 const editTeamMessage = async (req, res) => {
-  const { messageId } = req.params;
+  const { teamId, messageId } = req.params;
   const { text } = req.body;
+  const file = req.file;
+
   try {
-    await TeamMessage.updateText(messageId, text);
-    res.json({ success: true });
+    let fileUrl = null;
+    let fileName = null;
+    let msgType = null;
+
+    if (file) {
+      fileUrl = `/uploads/${file.filename}`;
+      fileName = file.originalname;
+
+      if (file.mimetype.startsWith("image/")) msgType = "image";
+      else if (file.mimetype.startsWith("video/")) msgType = "video";
+      else if (file.mimetype.startsWith("audio/")) msgType = "audio";
+      else msgType = "file";
+    }
+
+    await TeamMessage.updateMessage(messageId, {
+      text,
+      fileUrl,
+      fileName,
+      type: msgType,
+    });
+
+    const updatedMsg = await TeamMessage.getById(messageId);
+
+    req.io?.to(`team_${teamId}`).emit("messageEdited", updatedMsg);
+
+    res.json({ success: true, message: updatedMsg });
   } catch (err) {
-    console.error("Failed to edit message:", err);
-    res.status(500).json({ error: "Failed to edit message" });
+    console.error("❌ Failed to edit team message:", err);
+    res.status(500).json({ error: "Failed to edit team message" });
   }
 };
+;
 
 // -----------------------
 // DELETE team message
 // -----------------------
+// deleteTeamMessage
 const deleteTeamMessage = async (req, res) => {
-  console.log("Delete team msg")
-  const { messageId } = req.params;
+  const { teamId, messageId } = req.params;
   try {
+    const before = await TeamMessage.getById(messageId);
     await TeamMessage.deletePermanent(messageId);
+    req.io?.to(`team_${teamId}`).emit("messageDeleted", {
+      messageId,
+      senderId: before?.sender_id,
+      teamId,
+    });
     res.json({ success: true });
   } catch (err) {
     console.error("Failed to delete message:", err);
@@ -414,18 +384,24 @@ const deleteTeamMessage = async (req, res) => {
 // -----------------------
 // UPDATE reactions on team message
 // -----------------------
+// updateTeamMessageReactions
 const updateTeamMessageReactions = async (req, res) => {
-  const { messageId } = req.params;
-  const { reactions } = req.body;
+  const { teamId, messageId } = req.params;
+  const { reactions } = req.body; // expect object
   try {
-    await TeamMessage.updateReactions(messageId, JSON.stringify(reactions));
-    res.json({ success: true });
+    await TeamMessage.updateReactions(messageId, reactions); // model encrypts
+    const updatedMsg = await TeamMessage.getById(messageId);
+    req.io?.to(`team_${teamId}`).emit("messageReactionsUpdated", {
+      messageId,
+      reactions: updatedMsg.reactions,
+      teamId,
+    });
+    res.json({ success: true, reactions: updatedMsg.reactions });
   } catch (err) {
     console.error("Failed to update reactions:", err);
     res.status(500).json({ error: "Failed to update reactions" });
   }
 };
-
 
 // -----------------------
 // GET or CREATE meeting link for a team
@@ -496,9 +472,6 @@ const getTeamsSortedByActivity = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch teams" });
   }
 };
-
-
-
 module.exports = {
    sendTeamInvites,
   getPendingInvites,
