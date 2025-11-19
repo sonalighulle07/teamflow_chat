@@ -21,12 +21,6 @@ export default function CreateTeam({
     if (currentUser?.id && showModal) setSelectedUsers([currentUser.id]);
   }, [currentUser, showModal]);
 
-  // Register socket for current user
-  useEffect(() => {
-    if (socket && currentUser?.id) {
-      socket.emit("register", { userId: currentUser.id });
-    }
-  }, [socket, currentUser]);
 
   // Toggle user selection
   const toggleUser = (id) => {

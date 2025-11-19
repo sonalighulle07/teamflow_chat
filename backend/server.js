@@ -63,7 +63,9 @@ app.use("/api/organizations", organizationRoutes);
 
 // Socket.io
 io.on("connection", (socket) => {
-  // console.log("Socket connected:", socket.id);
+
+  console.log("Socket connected: Server.js", socket.id);
+
 
   messageHandlers(io, socket);
   callHandlers(io, socket);

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 
-import { io } from "socket.io-client";
 import Picker from "emoji-picker-react";
 import { PaperClipIcon } from "@heroicons/react/24/outline";
 import Message from "./Message";
@@ -11,10 +10,7 @@ import { useDispatch } from "react-redux";
 import { fetchTeamMembers } from "../Store/Features/Teams/teamThunk";
 import { useSelector } from "react-redux";
 
-import CryptoJS from "crypto-js";
-// import TeamInvites from "./TeamInvites";
-
-import Header from "./Header";
+import socket from "./calls/hooks/socket";
 
 export default function TeamChat({ currentUser }) {
   const [messages, setMessages] = useState([]);
@@ -50,12 +46,12 @@ export default function TeamChat({ currentUser }) {
   useEffect(() => {
     if (!selectedTeam || !currentUser) return;
 
-    const socket = io(URL, { transports: ["websocket"] });
     socketRef.current = socket;
 
     // Register user & join room
     socket.emit("register", { userId: currentUser.id });
     socket.emit("joinRoom", { teamId: selectedTeam.id });
+    socketRef.current = socket;
 
     // ========= REAL-TIME TEAM MESSAGE =========
     socket.on("teamMessage", (msg) => {
@@ -396,9 +392,9 @@ export default function TeamChat({ currentUser }) {
 
       {/* Messages */}
       <div
-  className="flex-1 p-4 bg-gray-50 border border-gray-300 rounded-lg shadow-md overflow-y-auto"
-  style={{ maxHeight: "calc(100vh - 200px)" }} // adjust according to your layout
->
+        className="flex-1 p-4 bg-gray-50 border border-gray-300 rounded-lg shadow-md overflow-y-auto"
+        style={{ maxHeight: "calc(100vh - 200px)" }} // adjust according to your layout
+      >
         {selectedTeam ? (
           messages.length > 0 ? (
             (() => {
@@ -520,8 +516,7 @@ export default function TeamChat({ currentUser }) {
               ✕
             </button>
           </div>
-
-       )}
+        )}
 
         <div className="flex items-center  gap-2 relative  bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
           <input

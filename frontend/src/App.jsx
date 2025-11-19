@@ -6,6 +6,7 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
+import { connectSocket } from '../src/components/calls/hooks/socket'
 
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
@@ -19,7 +20,7 @@ import { useCall } from "./components/calls/hooks/useCall";
 import socket from "./components/calls/hooks/socket";
 import ForwardModal from "./components/ForwardModal";
 import MeetingRoom from "./components/calls/GroupCalls/MeetingRoom";
-import MediaConfirmation from "./components/calls/GroupCalls/MeetingUtils/MediaConfirmation";
+import MediaConfirmation from './components/calls/GroupCalls/MeetingUtils/MediaConfirmation'
 import MyCalendar from "./components/calender/MyCalender";
 import { useSelector, useDispatch } from "react-redux";
 import { rehydrateUser } from "./Store/Features/Users/userSlice";
@@ -88,7 +89,7 @@ function AppRoutes({
 
       {/* Prejoin media page */}
       <Route
-        path="/prejoin/:code"
+        path="/prejoin/:credentials"
         element={
           <ProtectedRoute isAuthenticated={isAuthenticated}>
             <MediaConfirmation userId={userId} currentUser={currentUser} />
@@ -98,7 +99,7 @@ function AppRoutes({
 
       {/* Meeting Room */}
       <Route
-        path="/meet/:code"
+        path="/meet/:credentials"
         element={
           <ProtectedRoute isAuthenticated={isAuthenticated}>
             <MeetingRoom userId={userId} currentUser={currentUser} />
@@ -274,12 +275,18 @@ function App() {
     }
   }, []);
 
-  // Socket connection
-  useEffect(() => {
-    if (isAuthenticated && userId && !socket.connected) {
-      socket.connect();
+useEffect(() => {
+  if (isAuthenticated && userId) {
+    if (!socket.connected) {
+      console.log("🔌 Connecting socket...");
+      connectSocket(userId);
     }
-  }, [isAuthenticated, userId]);
+
+    // 🔥 Important: register user socket
+    socket.emit("register", { userId: String(userId) });
+  }
+}, [isAuthenticated, userId]);
+
 
   // Redux rehydrate
   useEffect(() => {

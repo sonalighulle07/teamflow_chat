@@ -6,8 +6,10 @@ import ProfileModal from "./ProfileModal";
 import ErrorBoundary from "./ErrorBoundary";
 import { URL } from "../config";
 import axios from "axios";
+
 import socket from "./calls/hooks/socket";
 import { FaUsers } from "react-icons/fa";
+
 
 export default function Header({
   activeUser,
@@ -81,6 +83,7 @@ export default function Header({
   useEffect(() => {
     if (!selectedTeam || !token) return;
 
+
     const fetchActiveMeeting = async () => {
       try {
         const res = await axios.get(
@@ -91,17 +94,26 @@ export default function Header({
         if (res.data.active) {
           setActiveMeeting(res.data.meeting);
 
+
+          console.log("Active meeting data:",res.data)
+
+          const roomCode = res.data.meeting.meeting_code?.split("-")[2] || null;
+          console.log("Room code:",roomCode)
+
           // Ask server if user has joined this meeting
-          socket.emit(
-            "checkJoined",
-            {
-              meetingCode: res.data.meeting.meeting_code,
-              userId: activeUser.id,
-            },
-            (response) => {
-              setHasJoinedMeeting(response.joined);
-            }
-          );
+socket.emit(
+  "checkJoined",
+  {
+    roomCode: roomCode,   // <-- Use roomCode consistently
+    userId: String(activeUser.id),
+  },
+  ({ joined }) => {       // <-- FIX callback destructuring
+    console.log("Check joined res:", joined);
+    setHasJoinedMeeting(joined);
+  }
+);
+
+
         } else {
           setActiveMeeting(null);
           setHasJoinedMeeting(false);
@@ -170,6 +182,8 @@ export default function Header({
       );
 
       const { active, meeting } = response.data;
+
+      console.log("Active meeting data:",response.data);
 
       if (active && meeting?.meeting_code === activeMeeting.meeting_code) {
         window.open(
@@ -281,6 +295,7 @@ export default function Header({
 
           {isChatVisible && renderMeetingButton()}
           {/* 👥 Group Members Button */}
+
           {isChatVisible && selectedTeam && (
             <div className="relative" ref={dropdownRef}>
               <button

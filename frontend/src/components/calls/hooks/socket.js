@@ -1,13 +1,3 @@
-// import { io } from "socket.io-client";
-
-// // Vite picks up VITE_ env vars via import.meta.env
-// const SIGNALING_SERVER =
-//   import.meta.env.VITE_SIGNALING_URL || "http://localhost:3000";
-
-// const socket = io(SIGNALING_SERVER, { autoConnect: false });
-
-// export default socket;
-
 import { io } from "socket.io-client";
 
 // Ensure the signaling URL is defined
@@ -17,23 +7,28 @@ if (!SIGNALING_SERVER) {
   throw new Error("VITE_SIGNALING_URL is not defined. Check your .env file.");
 }
 
-// Prefer WebSocket transport to avoid polling-related CORS issues
+// Create socket instance (will NOT auto-connect)
 const socket = io(SIGNALING_SERVER, {
   transports: ["websocket"],
   autoConnect: false,
 });
+
+
+/**
+ * Connect socket with userId auth
+ */
 export const connectSocket = (userId) => {
   if (!socket.connected) {
+    console.log("connecting socket from socket.js...")
     socket.auth = { userId };
     socket.connect();
   }
   return socket;
 };
 
-// Get socket instance
+/**
+ * Get socket instance
+ */
 export const getSocket = () => socket;
+
 export default socket;
-
-
-
-
