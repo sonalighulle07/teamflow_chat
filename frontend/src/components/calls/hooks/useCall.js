@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import socket from "./socket";
+import { set } from "date-fns";
 
-export function useCall(userId, currentUser = {}) {
+export function useCall(userId, currentUsername) {
   const [callType, setCallType] = useState(null);
   const [incoming, setIncoming] = useState(null);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -11,12 +12,8 @@ export function useCall(userId, currentUser = {}) {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const peerMap = useRef(new Map());
+  const [inCall,setInCall] = useState(false);
 
-  // Determine username to emit with events (try parameter -> window -> fallback)
-  const currentUsername =
-    (currentUser && (currentUser.username || currentUser.name)) ||
-    window.currentUsername ||
-    "You";
 
   useEffect(() => {
     if (!userId) return;
@@ -38,14 +35,18 @@ export function useCall(userId, currentUser = {}) {
       socket.off("callCancelled", handleCallCancelled);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId,socket]);
 
-  function handleIncomingCall({ from, offer, callType }) {
+  function handleIncomingCall({ from,fromUsername, offer, callType }) {
+    console.log("Inside handleIncomingCall")
     console.log("📥 Incoming call from", from);
-    setIncoming({ from, offer, callType });
+    setIncoming({ from, fromUsername, offer, callType });
+    console.log("incoming call data:",{ from,fromUsername,offer,callType});
+    console.log("Incoming details set:", incoming);
   }
 
   async function handleCallAccepted({ answer, from }) {
+    setInCall(true);
     const peer = peerMap.current.get(from);
     if (peer) {
       try {
@@ -69,6 +70,7 @@ export function useCall(userId, currentUser = {}) {
 
   // payload could be { from, username }
   function handleEndCall(payload = {}) {
+    setInCall(false);
     const { from, username } = payload;
     const name = username || from || "Remote";
     // Notify user - replace with your toast if you have one
@@ -87,10 +89,12 @@ export function useCall(userId, currentUser = {}) {
   }
 
   function handleCallCancelled() {
+    setInCall(false);
     cleanup();
   }
 
   async function startCall(type, remoteUser) {
+    setInCall(true);
     if (!remoteUser) return;
     setCallType(type);
 
@@ -134,7 +138,7 @@ export function useCall(userId, currentUser = {}) {
         to: remoteUser.id,
         offer,
         callType: type,
-        username: currentUsername, // optional: include caller name
+        fromUsername: currentUsername, // optional: include caller name
       });
     } catch (err) {
       console.error("❌ Failed to start call:", err);
@@ -144,6 +148,7 @@ export function useCall(userId, currentUser = {}) {
 
   async function acceptCall() {
     if (!incoming) return;
+    setInCall(true);
     setCallType(incoming.callType);
 
     try {
@@ -200,6 +205,7 @@ export function useCall(userId, currentUser = {}) {
 
   // remoteUser is expected to be { id, ... } - pass the remote participant when ending the call
   function endCall(remoteUser) {
+    setInCall(false);
     if (!remoteUser) return;
     socket.emit("endCall", { from: userId, to: remoteUser.id, username: currentUsername });
     cleanup();
@@ -346,5 +352,6 @@ export function useCall(userId, currentUser = {}) {
     isVideoEnabled,
     isMaximized,
     setIsMaximized,
+    inCall
   };
 }

@@ -2,6 +2,8 @@ const { Team, TeamMember, TeamMessage } = require("../models/TeamModel");
 const db = require("../config/db");
 const path = require("path");
 const meetServ = require("./services/groupMeetings")
+const User = require("../models/User");
+const { sendPushNotification } = require("../Utils/pushService");
 // -----------------------
 // GET all teams
 // -----------------------
@@ -158,14 +160,65 @@ const getTeamMessages = async (req, res) => {
   }
 };
 
+// // -----------------------
+// // SEND team message (with file support + metadata)
+// // -----------------------
+// const sendTeamMessage = async (req, res) => {
+//   const teamId = req.params.teamId;
+//   const senderId = req.user?.id;
+//   const { text, type, metadata } = req.body; // include metadata
+
+//   const file = req.file;
+
+//   if (!senderId) {
+//     return res.status(401).json({ error: "Unauthorized" });
+//   }
+
+//   try {
+//     let fileUrl = null;
+//     let fileName = null;
+
+//     if (file) {
+//       fileUrl = `/uploads/${file.filename}`;
+//       fileName = file.originalname;
+//     }
+
+//     // Insert message into DB
+//     const result = await TeamMessage.insert(
+//       senderId,
+//       teamId,
+//       text || "",
+//       fileUrl,
+//       type || (file ? "file" : "text"),
+//       fileName,
+//       metadata || null
+//     );
+
+//     res.json({
+//       id: result.insertId,
+//       team_id: teamId,
+//       sender_id: senderId,
+//       text: text || "",
+//       file_url: fileUrl,
+//       file_name: fileName,
+//       type: type || (file ? "file" : "text"),
+//       metadata: metadata || null,
+//       created_at: new Date(),
+//     });
+//   } catch (err) {
+//     console.error("Failed to send message:", err);
+//     res.status(500).json({ error: "Failed to send message" });
+//   }
+// };
+
 // -----------------------
-// SEND team message (with file support + metadata)
+// SEND team message (with file support + metadata + notifications)
 // -----------------------
 const sendTeamMessage = async (req, res) => {
   const teamId = req.params.teamId;
+  console.log("sendTeamMessage called for teamId:", teamId);
   const senderId = req.user?.id;
   const { text, type, metadata } = req.body; // include metadata
-
   const file = req.file;
 
   if (!senderId) {
@@ -175,10 +228,18 @@ const sendTeamMessage = async (req, res) => {
   try {
     let fileUrl = null;
     let fileName = null;
+    let msgType = type || "text";
 
     if (file) {
       fileUrl = `/uploads/${file.filename}`;
       fileName = file.originalname;
+
+      // Infer message type from file mimetype if not provided
+      const mime = file.mimetype || "";
+      if (mime.startsWith("image/")) msgType = "image";
+      else if (mime.startsWith("video/")) msgType = "video";
+      else if (mime.startsWith("audio/")) msgType = "audio";
+      else msgType = "file";
     }
 
     // Insert message into DB
@@ -187,27 +248,62 @@ const sendTeamMessage = async (req, res) => {
       teamId,
       text || "",
       fileUrl,
-      type || (file ? "file" : "text"),
+      msgType,
       fileName,
       metadata || null
     );
 
-    res.json({
+    const newMessage = {
       id: result.insertId,
       team_id: teamId,
       sender_id: senderId,
       text: text || "",
       file_url: fileUrl,
       file_name: fileName,
-      type: type || (file ? "file" : "text"),
+      type: msgType,
       metadata: metadata || null,
       created_at: new Date(),
-    });
+    };
+
+    // Emit message to all connected members of the team
+    if (req.io) {
+      req.io.to(`team_${teamId}`).emit("teamMessage", newMessage);
+    }
+
+    // Push notifications to team members
+    try {
+      const sender = await User.findById(senderId);
+      const teamMembers = await TeamMember.getMembers(teamId); // ⬅️ implement this in your Team model
+
+      console.log("Team members for notifications:", teamMembers);
+
+      for (const member of teamMembers) {
+        if (member.user_id === senderId) continue; // skip sender
+
+        const subscription = await User.getPushSubscription(member.user_id);
+        if (subscription) {
+          await sendPushNotification(subscription, {
+            title: `👥👥 Team Message (${member.team_name})`,
+            body: text
+              ? `💬 ${sender.username}: ${text}`
+              : fileUrl
+              ? `📎 ${sender.username} sent a ${msgType} file`
+              : `${sender.username} sent a message in your team`,
+            icon: "/icons/team.png",
+          });
+        }
+      }
+    } catch (pushErr) {
+      console.error("Team push notification failed:", pushErr);
+    }
+
+    res.json(newMessage);
   } catch (err) {
     console.error("Failed to send message:", err);
     res.status(500).json({ error: "Failed to send message" });
   }
 };
+
 
 
 

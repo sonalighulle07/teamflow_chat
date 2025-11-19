@@ -15,6 +15,15 @@ export default function MeetingRoom() {
   const code = sessionStorage.getItem("roomCode");
   const teamId = location?.state?.teamId || null;
 
+
+  // ---- Grab pre-join media preview if available ----
+  const initialStream = getPreviewStream();
+  useEffect(() => {
+    return () => clearPreviewStream();
+  }, []);
+
+  // ---- Meeting hook (WebRTC + signaling) ----
+
   const {
     peers,
     localStream,

@@ -199,7 +199,7 @@ function AppRoutes({
               {call.callState.incoming && (
                 <IncomingCallModal
                   visible
-                  fromUser={call.callState.callerUsername} // <-- updated
+                  fromUser={call.callState.incoming.fromUsername} // <-- updated
                   callType={call.callState.type}
                   onAccept={call.acceptCall}
                   onReject={call.rejectCall}
@@ -207,7 +207,7 @@ function AppRoutes({
               )}
 
               {/* Ongoing call overlay */}
-              {call.callState.type && (
+              {call.inCall && (
                 <CallOverlay
                   socket={socket}
                   callType={call.callState.type}
@@ -225,6 +225,7 @@ function AppRoutes({
                   onMaximize={() => call.setIsMaximized(true)}
                   onClose={call.endCall}
                   isMaximized={call.isMaximized}
+                  inCall={call.inCall}
                 />
               )}
             </div>
@@ -242,7 +243,9 @@ function App() {
     !!sessionStorage.getItem("chatToken")
   );
   const userId = currentUser?.id;
-  const call = useCall(userId);
+  const call = useCall(userId,currentUser?.username);
+
+ 
 
   // Service Worker
   useEffect(() => {

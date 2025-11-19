@@ -322,7 +322,7 @@ export default function ChatWindow({
 
       // Emit to server for real-time
       if (selectedUser) socketRef.current.emit("privateMessage", newMessage);
-      else if (selectedTeam) socketRef.current.emit("teamMessage", newMessage);
+      // else if (selectedTeam) socketRef.current.emit("teamMessage", newMessage);
 
       setText("");
       removeFile();

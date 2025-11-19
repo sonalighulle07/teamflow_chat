@@ -6,7 +6,10 @@ import ProfileModal from "./ProfileModal";
 import ErrorBoundary from "./ErrorBoundary";
 import { URL } from "../config";
 import axios from "axios";
-// import socket from "./calls/hooks/socket";
+
+import socket from "./calls/hooks/socket";
+import { FaUsers } from "react-icons/fa";
+
 
 export default function Header({
   activeUser,
@@ -18,7 +21,7 @@ export default function Header({
   const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
   const navigate = useNavigate();
   const [showSearch, setShowSearch] = useState(false);
-  const [activeMeeting, setActiveMeeting] = useState(null); 
+  const [activeMeeting, setActiveMeeting] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [hasJoinedMeeting, setHasJoinedMeeting] = useState(false);
 
@@ -34,44 +37,60 @@ export default function Header({
     () => localStorage.getItem(`profileImage_${activeUser?.id}`) || null
   );
 
-  // // ----------------- Poll Active Meeting & Check Joined -----------------
-  // useEffect(() => {
-  //   if (!selectedTeam || !token) return;
+  const [showMembers, setShowMembers] = useState(false);
+  const { selectedTeamMembers } = useSelector((state) => state.team);
+  const dropdownRef = useRef(null);
 
-  //   const fetchActiveMeeting = async () => {
-  //     try {
-  //       const res = await axios.get(
-  //         `${URL}/api/teams/team/${selectedTeam.id}/active`,
-  //         { headers: { Authorization: `Bearer ${token}` } }
-  //       );
+  // Hide dropdown if clicked outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowMembers(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  //       if (res.data.active) {
-  //         setActiveMeeting(res.data.meeting);
+  // ----------------- Poll Active Meeting & Check Joined -----------------
+  useEffect(() => {
+    if (!selectedTeam || !token) return;
 
-  //         // Ask server if user has joined this meeting
-  //         socket.emit(
-  //           "checkJoined",
-  //           {
-  //             meetingCode: res.data.meeting.meeting_code,
-  //             userId: activeUser.id,
-  //           },
-  //           (response) => {
-  //             setHasJoinedMeeting(response.joined);
-  //           }
-  //         );
-  //       } else {
-  //         setActiveMeeting(null);
-  //         setHasJoinedMeeting(false);
-  //       }
-  //     } catch (err) {
-  //       console.error("Failed to check active meeting:", err);
-  //     }
-  //   };
 
-  //   fetchActiveMeeting();
-  //   const interval = setInterval(fetchActiveMeeting, 10000);
-  //   return () => clearInterval(interval);
-  // }, [selectedTeam, token, activeUser.id]);
+    const fetchActiveMeeting = async () => {
+      try {
+        const res = await axios.get(
+          `${URL}/api/teams/team/${selectedTeam.id}/active`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (res.data.active) {
+          setActiveMeeting(res.data.meeting);
+
+          // Ask server if user has joined this meeting
+          socket.emit(
+            "checkJoined",
+            {
+              meetingCode: res.data.meeting.meeting_code,
+              userId: activeUser.id,
+            },
+            (response) => {
+              setHasJoinedMeeting(response.joined);
+            }
+          );
+        } else {
+          setActiveMeeting(null);
+          setHasJoinedMeeting(false);
+        }
+      } catch (err) {
+        console.error("Failed to check active meeting:", err);
+      }
+    };
+
+    fetchActiveMeeting();
+    const interval = setInterval(fetchActiveMeeting, 10000);
+    return () => clearInterval(interval);
+  }, [selectedTeam, token, activeUser.id]);
 
   // ----------------- Profile Image -----------------
   useEffect(() => {
@@ -171,7 +190,11 @@ export default function Header({
             : "Start Meeting"
         }
         onClick={
-          hasJoinedMeeting ? null : activeMeeting ? joinActiveMeeting : startGroupCall
+          hasJoinedMeeting
+            ? null
+            : activeMeeting
+            ? joinActiveMeeting
+            : startGroupCall
         }
         disabled={isCreatingMeeting || hasJoinedMeeting}
       >
@@ -231,6 +254,69 @@ export default function Header({
         {/* Right Section */}
         <div className="flex items-center gap-3">
           {isChatVisible && renderMeetingButton()}
+
+          {/* 👥 Group Members Button */}
+          {isChatVisible && selectedTeam && (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowMembers((prev) => !prev)}
+                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm"
+                title="View Group Members"
+              >
+                <FaUsers size={18} />
+              </button>
+
+              {showMembers && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-2xl shadow-lg z-50 overflow-hidden">
+                  <div className="bg-purple-600 text-white px-3 py-2 text-sm font-semibold flex justify-between items-center">
+                    <span>{selectedTeam?.name} Members</span>
+                  </div>
+
+                  {/* Members List */}
+                  <ul className="max-h-60 overflow-y-auto divide-y divide-gray-100">
+                    {selectedTeamMembers?.length > 0 ? (
+                      selectedTeamMembers.map((member) => (
+                        <li
+                          key={member.id}
+                          className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 transition-colors duration-200"
+                        >
+                          {member.profile_image ? (
+                            <img
+                              src={`${URL}${member.profile_image}`}
+                              alt={member.username}
+                              className="w-7 h-7 rounded-full object-cover border border-gray-300"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-purple-400 text-white flex items-center justify-center text-xs font-semibold uppercase">
+                              {member.username?.[0] || "?"}
+                            </div>
+                          )}
+                          <span className="text-gray-700 text-sm font-medium truncate">
+                            {member.username}
+                          </span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-center text-gray-500 text-sm py-3">
+                        No members found
+                      </li>
+                    )}
+                  </ul>
+
+                  {/* ➕ Add Member Option */}
+                  <button
+                    onClick={() => {
+                      setShowMembers(false);
+                      handleAddMember(); // 👈 call your function (defined below)
+                    }}
+                    className="w-full px-3 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50 border-t border-gray-100 flex items-center justify-center gap-2 transition-all duration-200"
+                  >
+                    <span className="text-lg">➕</span> Add Member
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Individual call buttons */}
           {isChatVisible && selectedUser && !selectedTeam && (
@@ -308,7 +394,9 @@ export default function Header({
                 {username?.[0]?.toUpperCase() || "G"}
               </div>
             )}
-            <div className="text-black font-semibold text-xs mt-1">{username}</div>
+            <div className="text-black font-semibold text-xs mt-1">
+              {username}
+            </div>
           </div>
         </div>
       </div>
