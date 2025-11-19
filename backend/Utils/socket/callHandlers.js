@@ -8,6 +8,7 @@ const meetServ = require("../../controllers/services/groupMeetings"); // make su
 
 module.exports = function callHandlers(io, socket) {
    socket.on("register", ({ userId }) => {
+    console.log("Registering socket for user:", userId);
     if (!userId) return;
     userId = String(userId);
     socket.userId = userId;
@@ -92,12 +93,15 @@ socket.on("joinRoom", ({ userId, username, roomCode }, callback) => {
 });
 
 
-  socket.on("checkJoined", ({ meetingCode, userId }, callback) => {
+socket.on("checkJoined", ({ roomCode, userId }, callback) => {
+
+  console.log("Check joined called with:",{roomCode,userId});
   const joined =
-    activeRooms.has(meetingCode) && activeRooms.get(meetingCode).has(String(userId));
+    activeRooms.has(roomCode) && activeRooms.get(roomCode).has(String(userId));
 
   if (callback) callback({ joined });
 });
+
 
 
   socket.on("offer", ({ to, offer }) => {
@@ -166,9 +170,7 @@ socket.on("startMeeting", async ({ teamId, startedBy, meetingCode }) => {
   } catch (error) {
     console.error("❌ Failed to start meeting in DB:", error);
   }
-});
-
-
+ });
 
   socket.on("disconnect", () => {
     const userId = String(socket.userId);
@@ -176,12 +178,13 @@ socket.on("startMeeting", async ({ teamId, startedBy, meetingCode }) => {
 
     if (roomCode && activeRooms.has(roomCode)) {
       activeRooms.get(roomCode).delete(userId);
-      // socket.to(roomCode).emit("userLeft", { userId });
+      socket.to(roomCode).emit("userLeft", { userId });
       if (activeRooms.get(roomCode).size === 0) activeRooms.delete(roomCode);
     }
 
     if (userId) meetingSockets.delete(userId);
     console.log(`❌ Socket disconnected: ${socket.id} (${userId})`);
+
   });
 };
 

@@ -17,8 +17,6 @@ export function useCall(userId, currentUsername) {
 
   useEffect(() => {
     if (!userId) return;
-    if (!socket.connected) socket.connect();
-    socket.emit("register", { userId });
 
     socket.on("incomingCall", handleIncomingCall);
     socket.on("callAccepted", handleCallAccepted);

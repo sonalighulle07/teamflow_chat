@@ -10,9 +10,10 @@ import axios from "axios";
 import { useDispatch } from "react-redux";
 import { fetchTeamMembers } from "../Store/Features/Teams/teamThunk";
 import { useSelector } from "react-redux";
-
 import CryptoJS from "crypto-js";
 // import TeamInvites from "./TeamInvites";
+
+import socket from "./calls/hooks/socket";
 
 import Header from "./Header";
 
@@ -51,11 +52,9 @@ export default function TeamChat({ currentUser }) {
   useEffect(() => {
     if (!selectedTeam || !currentUser) return;
 
-    const socket = io(URL);
     socketRef.current = socket;
 
-    // new team message
-    socket.emit("register", { userId: currentUser.id });
+  
     socket.emit("joinRoom", { teamId: selectedTeam.id }); // ✅ add this
 
     // Listen for new team messages
@@ -92,7 +91,6 @@ export default function TeamChat({ currentUser }) {
       }
     });
 
-    return () => socket.disconnect();
   }, [selectedTeam, currentUser]);
 
   // --- Fetch messages ---
