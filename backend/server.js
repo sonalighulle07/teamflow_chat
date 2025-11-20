@@ -70,9 +70,9 @@ io.on("connection", (socket) => {
   messageHandlers(io, socket);
   callHandlers(io, socket);
   eventHandlers(io, socket);
-    teamSocket(io, socket);
+  teamSocket(io, socket);
 
-   sidebarSocket(io,socket);
+  sidebarSocket(io,socket);
 });
 
 // Start server

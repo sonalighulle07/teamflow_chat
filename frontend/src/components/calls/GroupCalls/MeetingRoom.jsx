@@ -13,9 +13,9 @@ export default function MeetingRoom() {
   const userId = JSON.parse(sessionStorage.getItem("chatUser"))?.id;
   const { credentials } = useParams();
 
-  console.log("userID:",userId)
+  console.log("userID:",userId);
 
-  console.log("param credentials:",credentials)
+  console.log("param credentials:",credentials);
   const code = credentials?.split("-")[2] || null;
   console.log("Room Code:", code);
 
@@ -160,74 +160,84 @@ export default function MeetingRoom() {
   // --------------------------------------------------------
   // MAIN UI
   // --------------------------------------------------------
-  return (
-    <div className="h-screen w-screen bg-black text-white flex flex-col">
-      <div className="text-xs text-gray-400 text-center py-1">Room: {code}</div>
+ return (
+  <div className="h-screen w-screen bg-black text-white flex flex-col overflow-hidden">
 
-      {/* MAIN VIDEO AREA */}
-      <div className="flex-1 flex flex-col p-2 gap-2 overflow-hidden">
-        {pinnedId ? (
-          <>
-            {/* PINNED VIEW */}
-            <div className="flex-1 relative" onClick={() => handlePin(pinnedId)}>
-              {allStreams
-                .filter(([id]) => id === pinnedId)
-                .map(([id, stream, , label]) => (
-                  <PeerTile
-                    key={id}
-                    stream={stream}
-                    label={label}
-                    isLocal={id === userId}
-                    isPinned
-                    onDoubleClick={() => handlePin(id)}
-                  />
-                ))}
-            </div>
+    <div className="text-xs text-gray-400 text-center py-1">
+      Room: {code}
+    </div>
 
-            {/* OTHER THUMBNAILS */}
-            {allStreams.filter(([id]) => id !== pinnedId).length > 0 && (
-              <div className="flex gap-2 mt-2 h-32 overflow-x-auto">
-                {allStreams
-                  .filter(([id]) => id !== pinnedId)
-                  .map(([id, stream, , label]) => (
-                    <div
-                      key={id}
-                      className="flex-none w-32 cursor-pointer"
-                      onClick={() => handlePin(id)}
-                    >
-                      <PeerTile
-                        stream={stream}
-                        label={label}
-                        isLocal={id === userId}
-                        onDoubleClick={() => handlePin(id)}
-                      />
-                    </div>
-                  ))}
-              </div>
-            )}
-          </>
-        ) : (
-          // GRID MODE
-          <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-2">
-            {allStreams.map(([id, stream, , label]) => (
-              <div
-                key={id}
-                className="cursor-pointer"
-                onClick={() => handlePin(id)}
-              >
+    {/* MAIN VIDEO AREA */}
+    <div className="flex-1 flex flex-col p-2 gap-2 overflow-hidden relative z-10">
+
+      {pinnedId ? (
+        <>
+          {/* PINNED VIEW */}
+          <div
+            className="flex-1 relative overflow-hidden rounded-xl border border-gray-700"
+            onClick={() => handlePin(pinnedId)}
+          >
+            {allStreams
+              .filter(([id]) => id === pinnedId)
+              .map(([id, stream, , label]) => (
                 <PeerTile
+                  key={id}
                   stream={stream}
                   label={label}
                   isLocal={id === userId}
+                  isPinned
+                  className="h-full w-full"
                   onDoubleClick={() => handlePin(id)}
                 />
-              </div>
-            ))}
+              ))}
           </div>
-        )}
-      </div>
 
-      {/* CONTROLS */}
+          {/* OTHER THUMBNAILS */}
+          {allStreams.filter(([id]) => id !== pinnedId).length > 0 && (
+            <div className="flex gap-2 mt-2 h-32 overflow-x-auto">
+              {allStreams
+                .filter(([id]) => id !== pinnedId)
+                .map(([id, stream, , label]) => (
+                  <div
+                    key={id}
+                    className="flex-none w-32 cursor-pointer"
+                    onClick={() => handlePin(id)}
+                  >
+                    <PeerTile
+                      stream={stream}
+                      label={label}
+                      isLocal={id === userId}
+                      onDoubleClick={() => handlePin(id)}
+                    />
+                  </div>
+                ))}
+            </div>
+          )}
+
+        </>
+      ) : (
+        // GRID MODE
+        <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-2 overflow-hidden">
+          {allStreams.map(([id, stream, , label]) => (
+            <div
+              key={id}
+              className="cursor-pointer"
+              onClick={() => handlePin(id)}
+            >
+              <PeerTile
+                stream={stream}
+                label={label}
+                isLocal={id === userId}
+                onDoubleClick={() => handlePin(id)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* CONTROLS - ALWAYS ON TOP */}
+    <div className="relative z-20 bg-black/40 backdrop-blur-md">
       <MeetingControls
         onLeave={handleLeave}
         onToggleMic={toggleMic}
@@ -238,13 +248,15 @@ export default function MeetingRoom() {
         isVideoEnabled={isVideoEnabled}
         isScreenSharing={isScreenSharing}
       />
-
-      {/* TOAST */}
-      {showToast && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-purple-600 text-white rounded shadow-lg">
-          {toastMsg}
-        </div>
-      )}
     </div>
-  );
+
+    {/* TOAST */}
+    {showToast && (
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-purple-600 text-white rounded shadow-lg z-[999]">
+        {toastMsg}
+      </div>
+    )}
+  </div>
+);
+
 }

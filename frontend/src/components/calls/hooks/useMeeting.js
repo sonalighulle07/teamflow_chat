@@ -15,132 +15,164 @@ export function useMeeting(userId, roomCode, teamId = null) {
   const peerMap = useRef(new Map());
   const hasJoinedRef = useRef(false);
   const localStreamRef = useRef(null);
-  
-  // ------------------------------------------
-  // JOIN MEETING
-  // ------------------------------------------
-  async function joinMeeting({ micEnabled = true, camEnabled = true } = {}) {
-    if (hasJoinedRef.current) return;
 
-    console.log("Join meeting called with micEnabled:", micEnabled, "camEnabled:", camEnabled);
 
-    const sessionKey = `joined_${roomCode}_${userId}`;
-    if (sessionStorage.getItem(sessionKey)) {
-      hasJoinedRef.current = true;
-      return;
-    }
+  // ------------------------------------------
+// OPTIMIZED JOIN MEETING
+// ------------------------------------------
+async function joinMeeting({ micEnabled = true, camEnabled = true } = {}) {
+  console.log("Join meeting called with micEnabled:", micEnabled, "camEnabled:", camEnabled);
+
+  const sessionKey = `joined_${roomCode}_${userId}`;
+
+  // Attach socket handlers ALWAYS (even if already joined)
+  setupSocketHandlers();
+
+  if (hasJoinedRef.current) return;
+  if (sessionStorage.getItem(sessionKey)) {
     hasJoinedRef.current = true;
-    sessionStorage.setItem(sessionKey, "true");
+    return;
+  }
 
-   
-    // Get media
-    let stream;
+  // Mark joined
+  hasJoinedRef.current = true;
+  sessionStorage.setItem(sessionKey, "true");
+
+  // ------------------------------------------
+  // MEDIA INITIALIZATION
+  // ------------------------------------------
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: true,
+    });
+
+    // Apply user preferences
+    stream.getAudioTracks().forEach((t) => (t.enabled = !!micEnabled));
+    stream.getVideoTracks().forEach((t) => (t.enabled = !!camEnabled));
+  } catch (err) {
+    console.error("Failed to get media:", err);
+    stream = new MediaStream();
+  }
+
+  // Clone for local preview & sending
+  const clonedStream = new MediaStream(stream.getTracks());
+  updateLocalStream(clonedStream);
+
+  setIsMuted(!micEnabled);
+  setIsVideoEnabled(camEnabled);
+
+  // Attach tracks to existing peers
+  peerMap.current.forEach((peer) => {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      stream.getAudioTracks().forEach((t) => (t.enabled = !!micEnabled));
-      stream.getVideoTracks().forEach((t) => (t.enabled = !!camEnabled));
-    } catch (err) {
-      console.error("Failed to get user media:", err);
-      stream = new MediaStream();
-    }
+      clonedStream.getTracks().forEach((track) => peer.addTrack(track, clonedStream));
+    } catch {}
+  });
 
-    // Clone it
-    const clonedStream = new MediaStream(stream.getTracks());
-    setPreviewStream(clonedStream);
-    updateLocalStream(clonedStream);
+  // ------------------------------------------
+  // EMIT JOIN EVENT
+  // ------------------------------------------
+  const user = JSON.parse(sessionStorage.getItem("chatUser") || "{}");
+  socket.emit("joinRoom", {
+    userId,
+    username: user.username || "Unknown User",
+    roomCode,
+  });
+}
 
-    setIsMuted(!micEnabled);
-    setIsVideoEnabled(camEnabled);
 
-    // Re-attach tracks to existing peers
-    peerMap.current.forEach((peer) => {
-      try {
-        clonedStream.getTracks().forEach((t) => peer.addTrack(t, clonedStream));
-      } catch (e) {}
-    });
 
-    // SOCKET HANDLERS
-    socket.off("existingUsers").on("existingUsers", ({ users }) => {
-      users.forEach(({ userId: rId, username }) => {
-        userRefs.current.set(rId, username);
-        if (!peerMap.current.has(rId)) createPeer(rId, true);
-      });
-    });
+  
+function setupSocketHandlers() {
+  // Prevent duplicate listeners
+  socket.off("existingUsers");
+  socket.off("userJoined");
+  socket.off("offer");
+  socket.off("answer");
+  socket.off("iceCandidate");
+  socket.off("userLeft");
 
-    socket.off("userJoined").on("userJoined", ({ userId: rId, username }) => {
+  // ----- EXISTING USERS -----
+  socket.on("existingUsers", ({ users }) => {
+    users.forEach(({ userId: rId, username }) => {
       userRefs.current.set(rId, username);
       if (!peerMap.current.has(rId)) createPeer(rId, true);
-
-      window.dispatchEvent(
-        new CustomEvent("meeting-toast", {
-          detail: { message: `${username} joined the meeting` },
-        })
-      );
     });
- 
-    socket.off("offer").on("offer", async ({ from, offer }) => {
-      let peer = peerMap.current.get(from);
-      if (!peer) peer = createPeer(from, false);
+  });
 
+  // ----- USER JOINED -----
+  socket.on("userJoined", ({ userId: rId, username }) => {
+    userRefs.current.set(rId, username);
+    if (!peerMap.current.has(rId)) createPeer(rId, true);
+
+    window.dispatchEvent(
+      new CustomEvent("meeting-toast", {
+        detail: { message: `${username} joined the meeting` },
+      })
+    );
+  });
+
+  // ----- OFFER -----
+  socket.on("offer", async ({ from, offer }) => {
+    let peer = peerMap.current.get(from);
+    if (!peer) peer = createPeer(from, false);
+
+    try {
+      await peer.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      socket.emit("answer", { to: from, answer: peer.localDescription });
+    } catch (err) {
+      console.error("Offer handling failed:", err);
+    }
+  });
+
+  // ----- ANSWER -----
+  socket.on("answer", async ({ from, answer }) => {
+    const peer = peerMap.current.get(from);
+    if (!peer) return;
+
+    try {
+      await peer.setRemoteDescription(new RTCSessionDescription(answer));
+    } catch (err) {
+      console.error("Setting answer failed:", err);
+    }
+  });
+
+  // ----- ICE CANDIDATE -----
+  socket.on("iceCandidate", async ({ from, candidate }) => {
+    const peer = peerMap.current.get(from);
+    if (peer && candidate) {
       try {
-        await peer.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peer.createAnswer();
-        await peer.setLocalDescription(answer);
-        socket.emit("answer", { to: from, answer: peer.localDescription });
+        await peer.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (err) {
-        console.error("Offer handling failed:", err);
+        console.warn("addIceCandidate failed:", err);
       }
+    }
+  });
+
+  // ----- USER LEFT -----
+  socket.on("userLeft", ({ userId: rId, username }) => {
+    userRefs.current.delete(rId);
+    const peer = peerMap.current.get(rId);
+    if (peer) peer.close();
+    peerMap.current.delete(rId);
+
+    setPeers((prev) => {
+      const updated = new Map(prev);
+      updated.delete(rId);
+      return updated;
     });
 
-    socket.off("answer").on("answer", async ({ from, answer }) => {
-      const peer = peerMap.current.get(from);
-      if (!peer) return;
+    window.dispatchEvent(
+      new CustomEvent("meeting-toast", {
+        detail: { message: `${username} left the meeting` },
+      })
+    );
+  });
+}
 
-      try {
-        await peer.setRemoteDescription(new RTCSessionDescription(answer));
-      } catch (err) {
-        console.error("Setting answer failed:", err);
-      }
-    });
-
-    socket.off("iceCandidate").on("iceCandidate", async ({ from, candidate }) => {
-      const peer = peerMap.current.get(from);
-      if (peer && candidate) {
-        try {
-          await peer.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (err) {
-          console.warn("addIceCandidate failed:", err);
-        }
-      }
-    });
-
-    socket.off("userLeft").on("userLeft", ({ userId: rId, username }) => {
-      userRefs.current.delete(rId);
-      const peer = peerMap.current.get(rId);
-      if (peer) peer.close();
-      peerMap.current.delete(rId);
-
-      setPeers((prev) => {
-        const updated = new Map(prev);
-        updated.delete(rId);
-        return updated;
-      });
-
-      window.dispatchEvent(
-        new CustomEvent("meeting-toast", {
-          detail: { message: `${username} left the meeting` },
-        })
-      );
-    });
-
-    // Emit joinRoom
-    const user = JSON.parse(sessionStorage.getItem("chatUser") || "{}");
-    socket.emit("joinRoom", {
-      userId,
-      username: user.username || "Unknown User",
-      roomCode,
-    });
-  }
 
   // ------------------------------------------
   // LEAVE MEETING

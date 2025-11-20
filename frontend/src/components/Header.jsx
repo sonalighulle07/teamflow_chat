@@ -317,7 +317,7 @@ socket.emit(
                     {selectedTeamMembers?.length > 0 ? (
                       selectedTeamMembers.map((member) => (
                         <li
-                          key={member.id}
+                          key={member.user_id}
                           className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 transition-colors duration-200"
                         >
                           {member.profile_image ? (

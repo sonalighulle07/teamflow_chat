@@ -57,9 +57,6 @@ const handleJoin = () => {
   );
 };
 
-
-
-
   // --- Load preview camera/mic ---
   useEffect(() => {
     const loadPreviewStream = async () => {
