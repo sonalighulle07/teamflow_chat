@@ -23,9 +23,7 @@ export default function Header({
   const [showSearch, setShowSearch] = useState(false);
   const [activeMeeting, setActiveMeeting] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
-
   const [hasJoinedMeeting, setHasJoinedMeeting] = useState(false);
-
   const searchInputRef = useRef(null);
   const { selectedUser, activeNav } = useSelector((state) => state.user);
   const username = activeUser?.username || "Guest";

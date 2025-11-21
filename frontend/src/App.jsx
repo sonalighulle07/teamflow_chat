@@ -6,8 +6,9 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-import { connectSocket } from '../src/components/calls/hooks/socket'
-
+import { connectSocket } from "../src/components/calls/hooks/socket";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
 import Login from "./components/Login";
@@ -20,7 +21,7 @@ import { useCall } from "./components/calls/hooks/useCall";
 import socket from "./components/calls/hooks/socket";
 import ForwardModal from "./components/ForwardModal";
 import MeetingRoom from "./components/calls/GroupCalls/MeetingRoom";
-import MediaConfirmation from './components/calls/GroupCalls/MeetingUtils/MediaConfirmation'
+import MediaConfirmation from "./components/calls/GroupCalls/MeetingUtils/MediaConfirmation";
 import MyCalendar from "./components/calender/MyCalender";
 import { useSelector, useDispatch } from "react-redux";
 import { rehydrateUser } from "./Store/Features/Users/userSlice";
@@ -167,6 +168,7 @@ function AppRoutes({
                         team={selectedTeam}
                         currentUser={currentUser}
                         searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery} // <-- add this
                       />
                     </div>
                   )}
@@ -247,6 +249,16 @@ function AppRoutes({
                   inCall={call.inCall}
                 />
               )}
+              <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                pauseOnHover
+                draggable
+                theme="colored"
+              />
             </div>
           )
         }
@@ -262,9 +274,7 @@ function App() {
     !!sessionStorage.getItem("chatToken")
   );
   const userId = currentUser?.id;
-  const call = useCall(userId,currentUser?.username);
-
- 
+  const call = useCall(userId, currentUser?.username);
 
   // Service Worker
   useEffect(() => {
@@ -275,18 +285,17 @@ function App() {
     }
   }, []);
 
-useEffect(() => {
-  if (isAuthenticated && userId) {
-    if (!socket.connected) {
-      console.log("🔌 Connecting socket...");
-      connectSocket(userId);
+  useEffect(() => {
+    if (isAuthenticated && userId) {
+      if (!socket.connected) {
+        console.log("🔌 Connecting socket...");
+        connectSocket(userId);
+      }
+
+      // 🔥 Important: register user socket
+      socket.emit("register", { userId: String(userId) });
     }
-
-    // 🔥 Important: register user socket
-    socket.emit("register", { userId: String(userId) });
-  }
-}, [isAuthenticated, userId]);
-
+  }, [isAuthenticated, userId]);
 
   // Redux rehydrate
   useEffect(() => {

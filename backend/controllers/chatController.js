@@ -215,7 +215,8 @@ exports.editMessage = async (req, res) => {
     res.json(updatedMessage);
 
     // Broadcast via socket
-    if (req.io) req.io.emit("messageUpdated", updatedMessage);
+   if (req.io) req.io.emit("messageEdited", updatedMessage);
+
   } catch (err) {
     console.error("Edit message error:", err);
     res.status(500).json({ error: "Internal Server Error" });

@@ -95,18 +95,17 @@ export default function ChatWindow({
     });
 
     // message edited (update + toast)
-    socket.on("messageEdited", (updatedMsg) => {
-      console.log("🟣 messageEdited received on client", updatedMsg);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
-      );
+   // message edited (update full message)
+socket.on("messageEdited", (updatedMsg) => {
+  console.log("🟣 messageEdited received on client", updatedMsg);
 
-      // optional: show toast only for sender
-      if (updatedMsg.sender_id === currentUserId) {
-        setDeleteAlert("Message edited successfully");
-        setTimeout(() => setDeleteAlert(""), 3000);
-      }
-    });
+  setMessages((prev) =>
+    prev.map((m) =>
+      String(m.id) === String(updatedMsg.id) ? { ...updatedMsg } : m
+    )
+  );
+});
+
 
     
   }, [
@@ -151,24 +150,31 @@ export default function ChatWindow({
   };
 
   // Edit message
-  const handleEdit = async (updatedMsg) => {
-    try {
-      const res = await fetch(`${URL}/api/chats/${updatedMsg.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ text: updatedMsg.text }),
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        socketRef.current.emit("editMessage", updated);
-      }
-    } catch (err) {
-      console.error("Edit failed:", err);
+const handleEdit = async (updatedMsg) => {
+  // Immediately update UI (optimistic)
+
+  try {
+    const res = await fetch(`${URL}/api/chats/edit/${updatedMsg.id}`, {
+  method: "PUT",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  body: JSON.stringify({ text: updatedMsg.text }),
+});
+
+
+    if (res.ok) {
+      const updated = await res.json();
+      // emit to server
+      socketRef.current.emit("editMessage", { id: updated.id, text: updated.text });
     }
-  };
+  } catch (err) {
+    console.error("Edit failed:", err);
+  }
+};
+
+
 
   const handleForward = async (messageId, toUserIds) => {
     if (!messageId || !toUserIds?.length) return;
@@ -301,19 +307,6 @@ export default function ChatWindow({
 
   return (
     <div className="flex-1 flex flex-col h-full relative">
-      {/* Temporary delete alert */}
-      {deleteAlert && (
-        <div className="fixed top-[100px] right-[36%] bg-green-500 text-white p-3 rounded shadow z-50">
-          {deleteAlert}
-        </div>
-      )}
-
-      {/* Temporary forward alert */}
-      {forwardAlert && (
-        <div className="fixed top-[100px] right-[36%] bg-blue-400 text-white p-3 rounded shadow z-50">
-          {forwardAlert}
-        </div>
-      )}
 
       {/* Chat messages */}
       <div className="flex-1 p-4 bg-gray-50 overflow-y-auto border border-gray-300 rounded-lg ">

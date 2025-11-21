@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FaSmile, FaEllipsisV } from "react-icons/fa";
 import EmojiPicker from "emoji-picker-react";
-// import { URL } from "../config";
+import { toast } from "react-toastify";
 import CryptoJS from "crypto-js";
 import axios from "axios";
 
@@ -17,11 +17,11 @@ export default function Message({
   onDelete,
   onEdit,
   onForward,
-   chatType, 
-    teamId,
+  chatType,
+  teamId,
   socket,
-  setMessages,  // <-- add here
-  token,  
+  setMessages, // <-- add here
+  token,
 }) {
   // ---- AES Decrypt (same key as backend) ----
   const KEY = "12345678901234567890123456789012"; // 32-byte key
@@ -176,16 +176,26 @@ export default function Message({
       }
     };
 
-    socket.on("messageEdited", handleMessageEdited);
-    socket.on("messageEdited", handleGlobalMessageEdited);
     socket.on("reaction", handleReactionEvent);
 
     return () => {
-      socket.off("messageEdited", handleMessageEdited);
-      socket.off("messageEdited", handleGlobalMessageEdited);
+    
       socket.off("reaction", handleReactionEvent);
     };
   }, [socket, message.id]);
+socket.on("messageEdited", (updatedMsg) => {
+  if (updatedMsg.id === message.id) {
+    setEditedText(safeDecrypt(updatedMsg.text));
+    setEditPreview(
+      updatedMsg.file_url ? getFileUrl(safeDecrypt(updatedMsg.file_url)) : null
+    );
+  }
+  if (setMessages) {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
+    );
+  }
+});
 
   // ---- hover handlers ----
   const handleMouseEnter = () => {
@@ -206,16 +216,16 @@ export default function Message({
     []
   );
   const [messagePosition, setMessagePosition] = useState(null);
+const handleEditClick = (msg, e) => {
+  setEditingMessage(msg);
+  const rect = e.currentTarget.getBoundingClientRect();
+  setMessagePosition({
+    top: rect.top + window.scrollY,
+    left: rect.left + rect.width / 2,
+  });
+  setIsEditing(true);
+};
 
-  const handleEditClick = (msg, e) => {
-    setEditingMessage(msg);
-    const rect = e.currentTarget.getBoundingClientRect();
-    setMessagePosition({
-      top: rect.top + window.scrollY,
-      left: rect.left + rect.width / 2,
-    });
-    setIsEditing(true);
-  };
 
   // ---- media helpers ----
   const getFileUrl = (url) => (url?.startsWith("http") ? url : `${URL}${url}`);
@@ -244,19 +254,29 @@ export default function Message({
   const userId = currentUser?.id;
 
   const toggleReaction = (emoji) => {
-    setReactedEmojis((prev) => {
-      const prevData = prev[emoji] || { count: 0, users: {} };
-      const usersMap = { ...(prevData.users || {}) };
-      const alreadyReacted = userId && usersMap[userId];
-      if (alreadyReacted) delete usersMap[userId];
-      else if (userId) usersMap[userId] = 1;
-      return {
-        ...prev,
-        [emoji]: { count: Object.keys(usersMap).length, users: usersMap },
-      };
+  setReactedEmojis((prev) => {
+    const prevData = prev[emoji] || { count: 0, users: {} };
+    const usersMap = { ...(prevData.users || {}) };
+    const alreadyReacted = userId && usersMap[userId];
+    if (alreadyReacted) delete usersMap[userId];
+    else if (userId) usersMap[userId] = 1;
+    return {
+      ...prev,
+      [emoji]: { count: Object.keys(usersMap).length, users: usersMap },
+    };
+  });
+
+  // ✅ emit socket event
+  if (socket) {
+    socket.emit("react", {
+      messageId: message.id,
+      userId,
+      emoji,
     });
-    if (typeof onReact === "function") onReact(message.id, emoji);
-  };
+  }
+
+  if (typeof onReact === "function") onReact(message.id, emoji);
+};
 
   const handlePickerEmoji = (emojiObject) => {
     const e = emojiObject?.emoji;
@@ -334,14 +354,26 @@ export default function Message({
       }
 
       if (res.data.success) {
-        setIsEditing(false);
-        setEditFile(null);
-        setEditPreview(null);
+  setIsEditing(false);
+  setEditFile(null);
+  setEditPreview(null);
 
-        // Refresh messages depending on type
-        if (chatType === "team") fetchTeamMessages();
-        else fetchMessages();
-      }
+  toast.success("Message edited successfully");
+
+  // Emit updated message for real-time
+ socket.emit("editMessage", {
+  id: editingMessage.id,
+  text: editedText || "",
+  file_url: res.data.file_url,
+  file_type: res.data.file_type,
+});
+
+
+  // Refresh messages
+  if (chatType === "team") fetchTeamMessages();
+  else fetchMessages();
+}
+
     } catch (err) {
       console.error("Failed to update message:", err);
     }
@@ -846,15 +878,14 @@ export default function Message({
       </div>
 
       {/* Editing UI */}
-     {isEditing && (
-  <div
-    style={{
-      top: messagePosition?.top || "50%",
-      left: messagePosition?.left || "10px", // fallback to left side
-    }}
-    className="absolute transform -translate-y-full w-72 bg-white border border-gray-300 rounded-2xl shadow-xl p-4 z-50 animate-slide-up transition-all duration-200 "
-  >
-
+      {isEditing && (
+        <div
+          style={{
+            top: messagePosition?.top || "50%",
+            left: messagePosition?.left || "10px", // fallback to left side
+          }}
+          className="transform -translate-y-full w-72 bg-white border border-gray-300 rounded-2xl shadow-xl p-4 z-50 animate-slide-up transition-all duration-200 mr-32 "
+        >
           {/* Text input for text messages */}
           {editingMessage?.type === "text" && (
             <textarea

@@ -121,32 +121,35 @@ socket.on('deleteMessage', async ({ messageId }) => {
 
   // ✅ Edit message
   socket.on('editMessage', async ({ id, text }) => {
-    try {
-      const message =
-        (await Chat.getMessageById(id)) || (await TeamMessage.getById(id));
-      if (!message) return;
+  try {
+    const message =
+      (await Chat.getMessageById(id)) || (await TeamMessage.getById(id));
+    if (!message) return;
 
-      if (message.receiver_id) {
-        await Chat.updateMessage(id, text); // Chat handles encryption
-        const updated = await Chat.getMessageById(id);
-        updated.text = decryptText(updated.text);
+    let updated;
 
-        io.to(`user_${message.sender_id}`).emit('messageEdited', updated);
-        io.to(`user_${message.receiver_id}`).emit('messageEdited', updated);
-      } else if (message.team_id) {
-        await TeamMessage.updateText(id, text); // TeamMessage handles encryption
-        const updated = await TeamMessage.getById(id);
-        updated.text = decryptText(updated.text);
-        updated.metadata = updated.metadata
-          ? JSON.parse(decryptText(updated.metadata))
-          : null;
+    if (message.receiver_id) {
+      await Chat.updateMessage(id, text); // encrypted internally
+      updated = await Chat.getMessageById(id);
+      updated.text = decryptText(updated.text);
+      updated.metadata = updated.metadata ? JSON.parse(decryptText(updated.metadata)) : null;
 
-        io.to(`team_${message.team_id}`).emit('messageEdited', updated);
-      }
-    } catch (err) {
-      console.error('Edit message error:', err);
+      // Emit updated message in real-time
+      io.to(`user_${message.sender_id}`).emit('messageEdited', updated);
+      io.to(`user_${message.receiver_id}`).emit('messageEdited', updated);
+    } else if (message.team_id) {
+      await TeamMessage.updateText(id, text); // encrypted internally
+      updated = await TeamMessage.getById(id);
+      updated.text = decryptText(updated.text);
+      updated.metadata = updated.metadata ? JSON.parse(decryptText(updated.metadata)) : null;
+
+      io.to(`team_${message.team_id}`).emit('messageEdited', updated);
     }
-  });
+  } catch (err) {
+    console.error('Edit message error:', err);
+  }
+});
+
 
   // ✅ Reaction
  socket.on('reaction', async ({ messageId, userId, emoji }) => {
