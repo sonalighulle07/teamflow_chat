@@ -1,32 +1,39 @@
 const User = require("../../models/User");
 const { sendPushNotification } = require("../../Utils/pushService");
 
-const activeRooms = new Map(); // roomCode => Set<userIds>
-const meetingSockets = new Map(); // userId => socket.id
+const activeRooms = {};  // { roomCode: { userId: { username, socketId } } }
+const meetingSockets = new Map(); // userId => socketId
 
-const meetServ = require("../../controllers/services/groupMeetings"); // make sure this import is at the top
+const meetServ = require("../../controllers/services/groupMeetings");
 
 module.exports = function callHandlers(io, socket) {
-   socket.on("register", ({ userId }) => {
-    console.log("Registering socket for user:", userId);
+  // -----------------------------------------------------
+  // REGISTER USER → For Direct Calls
+  // -----------------------------------------------------
+  socket.on("register", ({ userId }) => {
     if (!userId) return;
+
     userId = String(userId);
     socket.userId = userId;
     socket.join(`user_${userId}`);
     meetingSockets.set(userId, socket.id);
+
     console.log(`✅ Registered socket for user: ${userId}`);
   });
 
+  // -----------------------------------------------------
+  // ONE-TO-ONE CALL EVENTS
+  // -----------------------------------------------------
   socket.on("callUser", async ({ from, fromUsername, to, offer, callType }) => {
-    console.log(`📞 Call from ${from} to ${to} (${callType})`);
-    console.log("Call from fromusername:",fromUsername);
     io.to(`user_${to}`).emit("incomingCall", { from, fromUsername, offer, callType });
+
+    // Push Notification
     try {
       const subscription = await User.getPushSubscription(to);
       if (subscription) {
         await sendPushNotification(subscription, {
           title: "Incoming Call",
-          body: `📞 ${callType} call from ${fromUsername || from}`,
+          body: `📞 ${callType} call from ${fromUsername}`,
           icon: "/icons/call.png",
         });
       }
@@ -39,20 +46,36 @@ module.exports = function callHandlers(io, socket) {
     io.to(`user_${to}`).emit("callAccepted", { answer, from, fromUsername });
   });
 
-  socket.on("iceCandidate", ({ to, from, candidate }) => {
-    io.to(`user_${to}`).emit("iceCandidate", { from, candidate });
-  });
-
-  socket.on("endCall", ({ from, fromUsername, to }) => {
-    
-    if (to) io.to(`user_${to}`).emit("endCall", { from, fromUsername });
-    if (from) io.to(`user_${from}`).emit("endCall", { from, fromUsername });
-  });
-
   socket.on("cancelCall", ({ to, from, fromUsername }) => {
     io.to(`user_${to}`).emit("callCancelled", { from, fromUsername });
   });
 
+  socket.on("endCall", ({ from, fromUsername, to }) => {
+    if (to) io.to(`user_${to}`).emit("endCall", { from, fromUsername });
+    if (from) io.to(`user_${from}`).emit("endCall", { from, fromUsername });
+  });
+
+  // -----------------------------------------------------
+  // WEBRTC SIGNAL RELAY
+  // -----------------------------------------------------
+  socket.on("offer", ({ to, offer }) => {
+    const target = meetingSockets.get(String(to));
+    if (target) io.to(target).emit("offer", { from: socket.userId, offer });
+  });
+
+  socket.on("answer", ({ to, answer }) => {
+    const target = meetingSockets.get(String(to));
+    if (target) io.to(target).emit("answer", { from: socket.userId, answer });
+  });
+
+  socket.on("iceCandidate", ({ to, candidate }) => {
+    const target = meetingSockets.get(String(to));
+    if (target) io.to(target).emit("iceCandidate", { from: socket.userId, candidate });
+  });
+
+  // -----------------------------------------------------
+  // GROUP MEETING — JOIN ROOM
+  // -----------------------------------------------------
 socket.on("joinRoom", ({ userId, username, roomCode }, callback) => {
   if (!userId || !roomCode) {
     const msg = "Missing userId or roomCode.";
@@ -63,129 +86,120 @@ socket.on("joinRoom", ({ userId, username, roomCode }, callback) => {
   userId = String(userId);
   roomCode = String(roomCode);
 
-  // prevent duplicate joins
-  if (activeRooms.has(roomCode) && activeRooms.get(roomCode).has(userId)) {
-    console.log(`❌ Duplicate join attempt: ${userId} in ${roomCode}`);
-    if (callback) return callback({ success: false, message: "Already in meeting" });
-    return socket.emit("error", { message: "You are already in this meeting." });
+  // Prevent duplicate join
+  if (activeRooms[roomCode] && activeRooms[roomCode][userId]) {
+    const msg = "Already in meeting";
+    if (callback) return callback({ success: false, message: msg });
+    return socket.emit("error", { message: msg });
+  }
+
+  if (!activeRooms[roomCode]) {
+    activeRooms[roomCode] = {};
   }
 
   socket.userId = userId;
   socket.roomCode = roomCode;
   socket.join(roomCode);
 
-  if (!activeRooms.has(roomCode)) activeRooms.set(roomCode, new Set());
-  activeRooms.get(roomCode).add(userId);
+  // Store user
+  activeRooms[roomCode][userId] = {
+    username,
+    socketId: socket.id,
+    joinedAt: Date.now(),
+  };
+
+  // Existing users
+  const existingUsers = Object.entries(activeRooms[roomCode])
+    .filter(([id]) => id !== userId)
+    .map(([id, u]) => ({ userId: id, username: u.username }));
+
+  // BACKEND FIX HERE 👇
+  socket.emit("existingUsers", { users: existingUsers });
 
   meetingSockets.set(userId, socket.id);
 
-  console.log(`👥 User ${userId} joined room ${roomCode}`);
-  console.log(`Room ${roomCode} now has:`, Array.from(activeRooms.get(roomCode)));
-
   socket.to(roomCode).emit("userJoined", { userId, username });
-  socket.emit("meeting-toast", { message: "You joined the meeting" });
 
-  const existingUsers = Array.from(activeRooms.get(roomCode)).filter((id) => id !== userId);
-  socket.emit("existingUsers", { users: existingUsers });
+  console.log(`👥 User ${userId} joined room ${roomCode}`);
+  console.log("Room Users:", activeRooms[roomCode]);
 
-  // ✅ Confirm success back to frontend
   if (callback) callback({ success: true, users: existingUsers });
 });
 
 
-socket.on("checkJoined", ({ roomCode, userId }, callback) => {
-
-  console.log("Check joined called with:",{roomCode,userId});
-  const joined =
-    activeRooms.has(roomCode) && activeRooms.get(roomCode).has(String(userId));
-
-  if (callback) callback({ joined });
-});
-
-
-
-  socket.on("offer", ({ to, offer }) => {
-    const targetSocketId = meetingSockets.get(String(to));
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("offer", { from: socket.userId, offer });
-    }
+  // -----------------------------------------------------
+  // CHECK JOIN STATUS (Reconnect Support)
+  // -----------------------------------------------------
+  socket.on("checkJoined", ({ roomCode, userId }, callback) => {
+    userId = String(userId);
+    const joined =
+      activeRooms[roomCode] && activeRooms[roomCode][userId]
+        ? true
+        : false;
+    if (callback) callback({ joined });
   });
 
-  socket.on("answer", ({ to, answer }) => {
-    const targetSocketId = meetingSockets.get(String(to));
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("answer", { from: socket.userId, answer });
-    }
-  });
+  // -----------------------------------------------------
+  // LEAVE ROOM
+  // -----------------------------------------------------
+  socket.on("leaveRoom", async ({ userId, username, roomCode, teamId }) => {
+    userId = String(userId);
+    roomCode = String(roomCode);
 
-  socket.on("iceCandidate", ({ to, candidate }) => {
-    const targetSocketId = meetingSockets.get(String(to));
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("iceCandidate", { from: socket.userId, candidate });
-    }
-  });
+    socket.leave(roomCode);
+    socket.to(roomCode).emit("userLeft", { userId,username });
 
-socket.on("leaveRoom", async ({ userId, username, roomCode, teamId }) => {
-  console.log("🚪 leaveRoom triggered:", { userId, username, roomCode, teamId });
+    if (activeRooms[roomCode]) {
+      delete activeRooms[roomCode][userId];
 
-  userId = String(userId);
-  roomCode = String(roomCode);
+      // If room empty → delete room
+      if (Object.keys(activeRooms[roomCode]).length === 0) {
+        delete activeRooms[roomCode];
 
-  socket.leave(roomCode);
-  socket.to(roomCode).emit("userLeft", { userId, username });
-  socket.emit("meeting-toast", { message: "You left the meeting" });
-
-  if (activeRooms.has(roomCode)) {
-  activeRooms.get(roomCode).delete(userId);
-
-  if (activeRooms.get(roomCode).size === 0) {
-    activeRooms.delete(roomCode);
-    console.log(`🏁 All users left room ${roomCode}.`);
-
-    if (teamId) {
-      console.log(`Ending DB meeting for team ${teamId}...`);
-      try {
-        const result = await meetServ.endMeeting(Number(teamId), Number(userId));
-        console.log("✅ Meeting ended successfully:", result.message);
-      } catch (err) {
-        console.error("❌ Failed to end meeting in DB:", err);
+        if (teamId) {
+          try {
+            await meetServ.endMeeting(Number(teamId), Number(userId));
+            console.log(`🏁 Meeting ended for team ${teamId}`);
+          } catch (err) {
+            console.error("❌ DB meeting end failed:", err);
+          }
+        }
       }
-    } else {
-      console.log("🌀 Ad-hoc meeting ended (no teamId, no DB update).");
     }
-  }
-}
 
-  meetingSockets.delete(userId);
-  console.log(`👋 User ${userId} left room ${roomCode}`);
-});
+    meetingSockets.delete(userId);
+  });
 
-// To update the database when 
-socket.on("startMeeting", async ({ teamId, startedBy, meetingCode }) => {
-  try {
-    console.log(`🚀 Starting meeting for team ${teamId} by user ${startedBy}`);
+  // -----------------------------------------------------
+  // START MEETING (DB)
+  // -----------------------------------------------------
+  socket.on("startMeeting", async ({ teamId, startedBy, meetingCode }) => {
+    try {
+      await meetServ.startMeeting(teamId, startedBy, meetingCode);
+      console.log("Meeting marked active in DB");
+    } catch (err) {
+      console.error(err);
+    }
+  });
 
-    await meetServ.startMeeting(teamId, startedBy, meetingCode); // service function
-    console.log("✅ Meeting marked active in DB");
-  } catch (error) {
-    console.error("❌ Failed to start meeting in DB:", error);
-  }
- });
-
+  // -----------------------------------------------------
+  // DISCONNECT
+  // -----------------------------------------------------
   socket.on("disconnect", () => {
     const userId = String(socket.userId);
     const roomCode = String(socket.roomCode);
 
-    if (roomCode && activeRooms.has(roomCode)) {
-      activeRooms.get(roomCode).delete(userId);
+    if (roomCode && activeRooms[roomCode]) {
+      delete activeRooms[roomCode][userId];
+
       socket.to(roomCode).emit("userLeft", { userId });
-      if (activeRooms.get(roomCode).size === 0) activeRooms.delete(roomCode);
+
+      if (Object.keys(activeRooms[roomCode]).length === 0) {
+        delete activeRooms[roomCode];
+      }
     }
 
-    if (userId) meetingSockets.delete(userId);
+    meetingSockets.delete(userId);
     console.log(`❌ Socket disconnected: ${socket.id} (${userId})`);
-
   });
 };
-
-      
