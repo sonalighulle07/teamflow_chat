@@ -1,9 +1,6 @@
 const db = require("../config/db");
 const { encrypt, decrypt } = require("../Utils/crypto");
 
-// ---------------------------
-// Team
-// ---------------------------
 const Team = {
   // Get all teams
   getAll: async () => {
@@ -26,7 +23,7 @@ const Team = {
     if (!result.insertId) {
       throw new Error("Team creation failed: insertId missing");
     }
-    return result.insertId; // Always return the new team ID
+    return result.insertId; 
   },
 
   // Update team name
@@ -58,12 +55,45 @@ const Team = {
     );
     return rows;
   },
+   getTeamsWithLastMessage: async (userId) => {
+    const [rows] = await db.query(
+      `
+      SELECT 
+        t.id, 
+        t.name, 
+        t.created_by, 
+        t.created_at,
+        tm.id AS last_message_id,
+        tm.text AS last_message_text,
+        tm.type AS last_message_type,
+        tm.created_at AS last_message_time
+      FROM teams t
+      JOIN team_members tmbr ON tmbr.team_id = t.id
+      LEFT JOIN team_messages tm ON tm.id = (
+        SELECT id FROM team_messages 
+        WHERE team_id = t.id 
+        ORDER BY created_at DESC 
+        LIMIT 1
+      )
+      WHERE tmbr.user_id = ?
+      ORDER BY last_message_time DESC, t.created_at DESC
+      `,
+      [userId]
+    );
+
+    return rows.map((team) => ({
+      ...team,
+      last_message_text: team.last_message_text
+        ? decrypt(team.last_message_text)
+        : "",
+      last_message_time: team.last_message_time
+        ? new Date(team.last_message_time)
+        : new Date(team.created_at),
+    }));
+  },
 };
 
-
-// ---------------------------
 // Team Members
-// ---------------------------
 const TeamMember = {
   add: async (team_id, user_id, role = "member") => {
     const [result] = await db.query(
@@ -117,9 +147,8 @@ const TeamChat = {
   },
 };
 
+// Insert team message (all fields encrypted)
 const TeamMessage = {
-  // Insert team message (all fields encrypted)
- // models/TeamModel.js (replace existing insert)
 insert: async (
   senderId,
   teamId,
@@ -147,7 +176,7 @@ insert: async (
     encryptedText,
     encryptedFileUrl,
     encryptedFileName,
-    type, // keep type plaintext
+    type, 
     encryptedReactions,
   ]);
 
@@ -223,16 +252,6 @@ insert: async (
   await db.query(`UPDATE team_messages SET ${fields.join(", ")} WHERE id = ?`, values);
 },
 
-
-  // Soft delete
-  softDelete: async (messageId) => {
-    const [result] = await db.query(
-      "UPDATE team_messages SET deleted = 1 WHERE id = ?",
-      [messageId]
-    );
-    return result;
-  },
-
   // Hard delete
   deletePermanent: async (messageId) => {
     const [result] = await db.query(
@@ -252,6 +271,7 @@ insert: async (
     );
     return result;
   },
+  
 };
 
 module.exports = {

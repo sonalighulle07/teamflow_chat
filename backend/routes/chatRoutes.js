@@ -28,10 +28,7 @@ router.delete("/:messageId", authenticateToken, chatController.deleteMessage);
 // Edit message
 router.put("/edit/:messageId", authenticateToken, chatController.editMessage);
 
-
 // Forward message
 router.post("/:messageId/forward", authenticateToken, chatController.forwardMessage);
-
-
 
 module.exports = router;

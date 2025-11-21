@@ -7,6 +7,7 @@ import ForwardModal from "./ForwardModal";
 import { useSelector } from "react-redux";
 import { URL } from "../config";
 import socket from "./calls/hooks/socket";
+import { toast } from "react-toastify";
 
 export default function ChatWindow({
   selectedTeam,
@@ -56,19 +57,17 @@ export default function ChatWindow({
   // Initialize Socket.IO
   // single socket init -- put this once in your component
   useEffect(() => {
-    
     socketRef.current = socket;
 
     // private messages
     socket.on("privateMessage", (msg) => {
-      if (
-        selectedUser &&
-        (msg.sender_id === selectedUser.id ||
-          msg.receiver_id === selectedUser.id)
-      ) {
-        setMessages((prev) => [...prev, msg]);
-      }
-    });
+  setMessages((prev) => {
+    // Ignore duplicate
+    if (prev.some((m) => m.id === msg.id)) return prev;
+    return [...prev, msg];
+  });
+});
+
 
     socket.on("teamMessage", (msg) => {
       if (selectedTeam && msg.team_id === selectedTeam.id) {
@@ -86,28 +85,19 @@ export default function ChatWindow({
     socket.on("messageDeleted", ({ messageId, senderId }) => {
       // Remove message from the list
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
-
-      // Show toast only for the user who deleted
-      if (senderId === currentUserId) {
-        setDeleteAlert("Message deleted successfully");
-        setTimeout(() => setDeleteAlert(""), 3000);
-      }
     });
 
     // message edited (update + toast)
-   // message edited (update full message)
-socket.on("messageEdited", (updatedMsg) => {
-  console.log("🟣 messageEdited received on client", updatedMsg);
+    // message edited (update full message)
+    socket.on("messageEdited", (updatedMsg) => {
+      console.log("🟣 messageEdited received on client", updatedMsg);
 
-  setMessages((prev) =>
-    prev.map((m) =>
-      String(m.id) === String(updatedMsg.id) ? { ...updatedMsg } : m
-    )
-  );
-});
-
-
-    
+      setMessages((prev) =>
+        prev.map((m) =>
+          String(m.id) === String(updatedMsg.id) ? { ...updatedMsg } : m
+        )
+      );
+    });
   }, [
     currentUserId,
     selectedUser,
@@ -145,36 +135,36 @@ socket.on("messageEdited", (updatedMsg) => {
 
   const handleDelete = (messageId) => {
     if (!socketRef.current) return;
-
     socketRef.current.emit("deleteMessage", { messageId });
+    toast.success("Message deleted successfully!");
   };
 
   // Edit message
-const handleEdit = async (updatedMsg) => {
-  // Immediately update UI (optimistic)
+  const handleEdit = async (updatedMsg) => {
+    // Immediately update UI (optimistic)
 
-  try {
-    const res = await fetch(`${URL}/api/chats/edit/${updatedMsg.id}`, {
-  method: "PUT",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  },
-  body: JSON.stringify({ text: updatedMsg.text }),
-});
+    try {
+      const res = await fetch(`${URL}/api/chats/edit/${updatedMsg.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text: updatedMsg.text }),
+      });
 
-
-    if (res.ok) {
-      const updated = await res.json();
-      // emit to server
-      socketRef.current.emit("editMessage", { id: updated.id, text: updated.text });
+      if (res.ok) {
+        const updated = await res.json();
+        // emit to server
+        socketRef.current.emit("editMessage", {
+          id: updated.id,
+          text: updated.text,
+        });
+      }
+    } catch (err) {
+      console.error("Edit failed:", err);
     }
-  } catch (err) {
-    console.error("Edit failed:", err);
-  }
-};
-
-
+  };
 
   const handleForward = async (messageId, toUserIds) => {
     if (!messageId || !toUserIds?.length) return;
@@ -189,11 +179,9 @@ const handleEdit = async (updatedMsg) => {
       });
       const data = await res.json();
       if (data.success) {
-        setForwardAlert("Message forwarded successfully ");
-        setTimeout(() => setForwardAlert(""), 3000); // hide after 3 sec
+        toast.success("Message forwarded successfully!");
       } else {
-        setForwardAlert("Forward failed ");
-        setTimeout(() => setForwardAlert(""), 3000);
+        toast.error("Forward failed!");
       }
     } catch (err) {
       console.error("Forward failed", err);
@@ -307,7 +295,6 @@ const handleEdit = async (updatedMsg) => {
 
   return (
     <div className="flex-1 flex flex-col h-full relative">
-
       {/* Chat messages */}
       <div className="flex-1 p-4 bg-gray-50 overflow-y-auto border border-gray-300 rounded-lg ">
         {selectedUser || selectedTeam ? (

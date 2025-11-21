@@ -3,10 +3,9 @@ const fs = require("fs").promises;
 const bcrypt = require("bcrypt");
 
 class User {
-  // ===== Create User =====
   static async create({ full_name, email, contact, username, password, organization_id }) {
     try {
-      // ✅ Hash password before inserting
+      //  Hash password before inserting
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const [result] = await pool.query(

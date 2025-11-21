@@ -254,8 +254,8 @@ export default function MyCalendar() {
   };
  
   return (
-    <div className="min-h-screen p-6 flex justify-center mt-[5px]">
-      <div className="bg-white mb-[20px] mt-[10px] rounded-3xl p-6 w-[950px] border border-gray-200">
+    <div className="min-h-screen p-6 flex justify-center mt-[10px]">
+      <div className="mb-[20px] mt-[10px] rounded-3xl p-2 w-[950px] ">
         <Calendar
           localizer={localizer}
           events={events}

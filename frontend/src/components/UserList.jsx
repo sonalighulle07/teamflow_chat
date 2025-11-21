@@ -125,26 +125,29 @@ export default function UserList({
   };
 
   // Merge and sort users/teams by last message date
-  const displayedItems = useMemo(() => {
-    const allUsers = users.map((u) => ({ ...u, type: "user" }));
-    const allTeams = teams.map((t) => ({ ...t, type: "team" }));
+const displayedItems = useMemo(() => {
+  const allUsers = users.map((u) => ({ ...u, type: "user" }));
+  const allTeams = teams.map((t) => ({ ...t, type: "team" }));
 
-    const sortedUsers = allUsers.sort((a, b) => {
-      const aTime = lastMessages[a.id]
-        ? new Date(lastMessages[a.id]).getTime()
-        : a.created_at
-        ? new Date(a.created_at).getTime()
-        : 0;
-      const bTime = lastMessages[b.id]
-        ? new Date(lastMessages[b.id]).getTime()
-        : b.created_at
-        ? new Date(b.created_at).getTime()
-        : 0;
-      return bTime - aTime;
-    });
+  const allItems = [...allUsers, ...allTeams];
 
-    return [...sortedUsers, ...allTeams];
-  }, [users, teams, lastMessages]);
+  return allItems.sort((a, b) => {
+    const aTime = lastMessages[a.id]
+      ? new Date(lastMessages[a.id]).getTime()
+      : a.created_at
+      ? new Date(a.created_at).getTime()
+      : 0;
+
+    const bTime = lastMessages[b.id]
+      ? new Date(lastMessages[b.id]).getTime()
+      : b.created_at
+      ? new Date(b.created_at).getTime()
+      : 0;
+
+    return bTime - aTime; // newest first
+  });
+}, [users, teams, lastMessages]);
+
 
   // Scroll to first search match
   useEffect(() => {

@@ -33,13 +33,16 @@ const userSlice = createSlice({
     setActiveNav: (state, action) => {
       state.activeNav = action.payload;
     },
-    logout: (state) => {
-      state.currentUser = null;
-      state.userList = [];
-      state.selectedUser = null;
-      sessionStorage.removeItem("chatUser");
-      sessionStorage.removeItem("chatToken");
-    },
+   logout: (state) => {
+  state.currentUser = null;
+  state.userList = [];
+  state.selectedUser = null;
+  sessionStorage.removeItem("chatUser");
+  sessionStorage.removeItem("chatToken");
+  localStorage.removeItem("chatUser");   // ✅ clear localStorage
+  localStorage.removeItem("chatToken");  // ✅ clear token
+},
+
     rehydrateUser: (state) => {
       const saved = sessionStorage.getItem("chatUser");
       if (saved) state.currentUser = JSON.parse(saved);

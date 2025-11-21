@@ -4,12 +4,8 @@ const Meeting = require("../models/MeetingsModal");
 exports.createMeeting = async (req, res) => {
   const { hostId, title, scheduledAt, type } = req.body;
   const code = uuidv4().slice(0, 8);
-
-  // Convert ISO to MySQL DATETIME format: "YYYY-MM-DD HH:MM:SS"
   const date = new Date(scheduledAt);
   const mysqlDate = date.toISOString().slice(0, 19).replace("T", " ");
-
-
   try {
     await Meeting.createMeeting({
       hostId,
@@ -31,6 +27,7 @@ exports.createMeeting = async (req, res) => {
   }
 };
 
+
 exports.getMeeting = async (req, res) => {
   const { code } = req.params;
 
@@ -47,6 +44,7 @@ exports.getMeeting = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
 
 exports.getUserMeetings = async (req, res) => {
   const { userId } = req.params;

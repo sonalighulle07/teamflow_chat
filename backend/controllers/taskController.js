@@ -1,4 +1,3 @@
-// backend/controllers/taskController.js
 const Task = require("../models/taskModel");
 
 exports.getAllTasks = async (req, res) => {

@@ -75,7 +75,7 @@ router.put(
   editTeamMessage
 );
 
-// ✅ Secure: Get active meeting for a team
+//  Secure: Get active meeting for a team
 router.get("/team/:teamId/active", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   try {
@@ -87,15 +87,11 @@ router.get("/team/:teamId/active", authenticateToken, async (req, res) => {
   }
 });
 
-
-
-// -----------------------
 // Member Management
 // -----------------------
 router.post("/:teamId/members", authenticateToken, checkTeamMember, addTeamMember);
 router.get("/:teamId/members", authenticateToken, checkTeamMember, getTeamMembers);
 
-// -----------------------
 // Team Chat
 // -----------------------
 router.get("/:teamId/messages", authenticateToken, checkTeamMember, getTeamMessages);

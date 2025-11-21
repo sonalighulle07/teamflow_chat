@@ -1,24 +1,19 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const pool = require('../config/db'); // ✅ Import your DB connection
+const pool = require('../config/db'); 
 const User = require('../models/User');
-
 
 // ===== Register =====
 exports.register = async (req, res) => {
   try {
     const { full_name, email, contact, username, password, organization_id } = req.body;
-    console.log("📥 Incoming registration data:", req.body); 
+    console.log(" Incoming registration data:", req.body); 
 
-    // ✅ Validate organization selection
+    //  Validate organization selection
     if (!organization_id) {
       return res.status(400).json({ success: false, message: "Organization ID is required" });
     }
-
-    // ✅ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // ✅ Insert new user
     const [result] = await pool.query(
       `INSERT INTO users (full_name, email, contact, username, password, organization_id)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -26,13 +21,10 @@ exports.register = async (req, res) => {
     );
 
     const userId = result.insertId;
-
-    // ✅ Generate JWT token
     const token = jwt.sign({ id: userId, username }, process.env.JWT_SECRET || "secret_key", {
       expiresIn: "7d",
     });
 
-    // ✅ Response
     res.status(201).json({
       success: true,
       message: " registered successfully!",
@@ -63,11 +55,7 @@ exports.login = async (req, res) => {
     if (!match) {
       return res.status(400).json({ success: false, message: 'Incorrect password' });
     }
-
-    // ✅ Set user as online
     await pool.query('UPDATE users SET is_online = 1 WHERE id = ?', [user.id]);
-
-    // ✅ Generate JWT
     const token = jwt.sign(
       { id: user.id },
       process.env.JWT_SECRET || 'secret_key',

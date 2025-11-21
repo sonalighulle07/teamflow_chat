@@ -10,7 +10,6 @@ import axios from "axios";
 import socket from "./calls/hooks/socket";
 import { FaUsers } from "react-icons/fa";
 
-
 export default function Header({
   activeUser,
   onStartCall,
@@ -33,9 +32,7 @@ export default function Header({
 
   const token = sessionStorage.getItem("chatToken");
 
-  const [profileImage, setProfileImage] = useState(
-    () => localStorage.getItem(`profileImage_${activeUser?.id}`) || null
-  );
+  const [profileImage, setProfileImage] = useState(null);
 
   const [showMembers, setShowMembers] = useState(false);
   const { selectedTeamMembers } = useSelector((state) => state.team);
@@ -65,7 +62,6 @@ export default function Header({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showSearch, searchQuery]);
 
-
   // Hide dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -81,7 +77,6 @@ export default function Header({
   useEffect(() => {
     if (!selectedTeam || !token) return;
 
-
     const fetchActiveMeeting = async () => {
       try {
         const res = await axios.get(
@@ -92,26 +87,24 @@ export default function Header({
         if (res.data.active) {
           setActiveMeeting(res.data.meeting);
 
-
-          console.log("Active meeting data:",res.data)
+          console.log("Active meeting data:", res.data);
 
           const roomCode = res.data.meeting.meeting_code?.split("-")[2] || null;
-          console.log("Room code:",roomCode)
+          console.log("Room code:", roomCode);
 
           // Ask server if user has joined this meeting
-socket.emit(
-  "checkJoined",
-  {
-    roomCode: roomCode,   // <-- Use roomCode consistently
-    userId: String(activeUser.id),
-  },
-  ({ joined }) => {       // <-- FIX callback destructuring
-    console.log("Check joined res:", joined);
-    setHasJoinedMeeting(joined);
-  }
-);
-
-
+          socket.emit(
+            "checkJoined",
+            {
+              roomCode: roomCode, // <-- Use roomCode consistently
+              userId: String(activeUser.id),
+            },
+            ({ joined }) => {
+              // <-- FIX callback destructuring
+              console.log("Check joined res:", joined);
+              setHasJoinedMeeting(joined);
+            }
+          );
         } else {
           setActiveMeeting(null);
           setHasJoinedMeeting(false);
@@ -127,13 +120,25 @@ socket.emit(
   }, [selectedTeam, token, activeUser.id]);
 
   // ----------------- Profile Image -----------------
-  useEffect(() => {
-    if (activeUser?.profile_image) {
-      const imgUrl = `${URL}${activeUser.profile_image}`;
-      setProfileImage(imgUrl);
-      localStorage.setItem(`profileImage_${activeUser.id}`, imgUrl);
-    }
-  }, [activeUser]);
+
+ useEffect(() => {
+  if (!activeUser) {
+    setProfileImage(null);
+    return;
+  }
+
+  const stored = localStorage.getItem(`profileImage_${activeUser.id}`);
+  if (stored) {
+    setProfileImage(stored);
+  } else if (activeUser.profile_image) {
+    const imgUrl = `${URL}${activeUser.profile_image}`;
+    setProfileImage(imgUrl);
+    localStorage.setItem(`profileImage_${activeUser.id}`, imgUrl);
+  } else {
+    setProfileImage(null);
+  }
+}, [activeUser]);
+
 
   // ----------------- Search Focus -----------------
   useEffect(() => {
@@ -142,13 +147,14 @@ socket.emit(
 
   // ----------------- Logout -----------------
   const logout = () => {
-    sessionStorage.clear();
-    localStorage.removeItem("chatToken");
-    localStorage.removeItem("chatUser");
-    localStorage.removeItem(`profileImage_${activeUser?.id}`);
-    setIsAuthenticated(false);
-    navigate("/");
-  };
+  sessionStorage.clear();        // clear session data
+  localStorage.removeItem("chatToken"); 
+  localStorage.removeItem("chatUser");
+  // ✅ Keep profile image in localStorage
+  setIsAuthenticated(false);
+  navigate("/");
+};
+
 
   // ----------------- Meeting Functions -----------------
   const startGroupCall = async () => {
@@ -181,7 +187,7 @@ socket.emit(
 
       const { active, meeting } = response.data;
 
-      console.log("Active meeting data:",response.data);
+      console.log("Active meeting data:", response.data);
 
       if (active && meeting?.meeting_code === activeMeeting.meeting_code) {
         window.open(
@@ -289,8 +295,6 @@ socket.emit(
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
-
-
           {isChatVisible && renderMeetingButton()}
           {/* 👥 Group Members Button */}
 
@@ -455,13 +459,9 @@ socket.emit(
                 localStorage.setItem(`profileImage_${activeUser.id}`, img);
               else localStorage.removeItem(`profileImage_${activeUser.id}`);
             }}
-            setIsAuthenticated={setIsAuthenticated}
           />
         </ErrorBoundary>
       )}
     </>
   );
 }
-
-
-

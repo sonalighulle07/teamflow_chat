@@ -142,7 +142,7 @@ const updateMessageReactions = async (messageId, emoji) => {
     messageId,
   ]);
 
-  // ✅ Re-fetch and decrypt the updated message
+  // Re-fetch and decrypt the updated message
   const updatedMessage = await getMessageById(messageId);
   return updatedMessage;
 };

@@ -75,22 +75,28 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   // -----------------------
   // Fetch last messages for teams
   // -----------------------
-  const fetchLastTeamMessages = async (userId) => {
-    try {
-      const res = await axios.get(`${URL}/api/teams/user/${userId}/sorted`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const lastMessagesObj = {};
-      res.data.forEach((team) => {
-        lastMessagesObj[team.id] = new Date(
-          team.last_message_time || team.created_at
-        );
-      });
-      setLastTeamMessages(lastMessagesObj);
-    } catch (err) {
-      console.error("Failed to fetch last team messages", err);
-    }
-  };
+  // -----------------------
+  // Fetch last messages for teams
+  // -----------------------
+ const fetchLastTeamMessages = async (userId) => {
+  try {
+    const res = await axios.get(`${URL}/api/teams/user/${userId}/sorted`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const lastMessagesObj = {};
+    res.data.forEach((team) => {
+      
+      lastMessagesObj[team.id] = new Date(team.last_message_time || team.created_at);
+    });
+
+    setLastTeamMessages(lastMessagesObj);
+    
+  } catch (err) {
+    console.error("Failed to fetch last team messages", err);
+  }
+};
+
 
   // -----------------------
   // Load saved last messages from localStorage

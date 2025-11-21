@@ -10,12 +10,10 @@ exports.getEvents = async (req, res) => {
   }
 };
  
-// ✅ Create Event with Socket.IO
+//  Create Event with Socket.IO
 exports.createEvent = async (req, res) => {
   try {
     const event = await Event.create(req.body);
- 
-    // Emit eventCreated to all connected clients
     if (req.io) req.io.emit("eventCreated", event);
  
     res.json(event);
@@ -25,14 +23,11 @@ exports.createEvent = async (req, res) => {
   }
 };
  
-// ✅ Update Event with Socket.IO
+//  Update Event with Socket.IO
 exports.updateEvent = async (req, res) => {
   try {
     const event = await Event.update(req.params.id, req.body);
- 
-    // Emit eventUpdated to all connected clients
     if (req.io) req.io.emit("eventUpdated", event);
- 
     res.json(event);
   } catch (err) {
     console.error(err);
@@ -40,12 +35,10 @@ exports.updateEvent = async (req, res) => {
   }
 };
  
-// ✅ Delete Event with Socket.IO
+// Delete Event with Socket.IO
 exports.deleteEvent = async (req, res) => {
   try {
     await Event.delete(req.params.id);
- 
-    // Emit eventDeleted with the deleted event id
     if (req.io) req.io.emit("eventDeleted", { id: req.params.id });
  
     res.json({ message: "Event deleted" });

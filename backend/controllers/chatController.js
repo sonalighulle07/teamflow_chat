@@ -4,8 +4,6 @@ const { sendPushNotification } = require("../Utils/pushService");
 const db = require("../config/db"); 
 const { encrypt, decrypt } = require("../Utils/crypto");
 
-
-
 // GET all messages
 exports.getMessages = async (req, res) => {
   try {   
@@ -65,7 +63,6 @@ exports.sendMessage = async (req, res) => {
       fileName
     );
 
-    // Emit message to both sender & receiver
     if (req.io) {
       req.io.to(`user_${senderId}`).emit("privateMessage", newMessage);
       req.io.to(`user_${receiverId}`).emit("privateMessage", newMessage);
@@ -73,7 +70,6 @@ exports.sendMessage = async (req, res) => {
 
     // Push notification
     try {
-      
       const sender = await User.findById(senderId);
       const subscription = await User.getPushSubscription(receiverId);
       if (subscription) {
@@ -136,9 +132,9 @@ exports.reactMessage = async (req, res) => {
 
     // Toggle reaction: add or remove
     if (emojiData.users[userId]) {
-      delete emojiData.users[userId]; // ✅ remove reaction if already exists
+      delete emojiData.users[userId]; 
     } else {
-      emojiData.users[userId] = 1; // ✅ add reaction
+      emojiData.users[userId] = 1; 
     }
 
     // Update total count
@@ -152,8 +148,6 @@ exports.reactMessage = async (req, res) => {
 
     // Return updated reactions
     res.json({ reactions });
-
-    // Broadcast via Socket.IO
     if (req.io) {
       req.io.emit("reaction", { messageId, reactions });
     }
@@ -195,7 +189,6 @@ exports.editMessage = async (req, res) => {
     if (text !== undefined) updatedFields.text = encrypt(text);
     if (file_name !== undefined) updatedFields.file_name = encrypt(file_name);
 
-    // If file uploaded
     if (req.file) {
       updatedFields.file_url = `/uploads/${req.file.filename}`;
       updatedFields.file_type = req.file.mimetype;
@@ -241,7 +234,7 @@ exports.forwardMessage = async (req, res) => {
     const newMessages = [];
 
     for (const receiverId of toUserIds) {
-      if (receiverId === senderId) continue; // skip if sender selects themselves
+      if (receiverId === senderId) continue; 
 
       const [result] = await db.query(
         `INSERT INTO chats 
@@ -250,7 +243,7 @@ exports.forwardMessage = async (req, res) => {
         [
           senderId,
           receiverId,
-          message.text, // already encrypted in DB
+          message.text, 
           message.file_url,
           message.file_name,
           message.file_type,
@@ -278,6 +271,7 @@ exports.forwardMessage = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+
 // GET /api/chats/last-messages/:userId
 exports.getLastMessagesByUser = async (req, res) => {
   const userId = req.params.userId;
