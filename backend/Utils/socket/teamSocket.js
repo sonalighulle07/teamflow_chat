@@ -31,26 +31,24 @@ module.exports = (io, socket) => {
     socket.join(`team_${teamId}`);
   });
 
-  
   // LEAVE TEAM ROOM
   socket.on("leaveRoom", ({ teamId }) => {
     if (!teamId) return;
     socket.leave(`team_${teamId}`);
   });
 
-
   // SEND TEAM MESSAGE
   socket.on("sendTeamMessage", (msg) => {
     io.to(`team_${msg.team_id}`).emit("teamMessage", msg);
   });
-
+  
 
   // EDIT TEAM MESSAGE
   socket.on("editTeamMessage", (msg) => {
     io.to(`team_${msg.team_id}`).emit("teamMessageEdited", msg);
   });
 
-
+  
   // DELETE TEAM MESSAGE
   socket.on("deleteTeamMessage", ({ messageId, teamId }) => {
     io.to(`team_${teamId}`).emit("teamMessageDeleted", {

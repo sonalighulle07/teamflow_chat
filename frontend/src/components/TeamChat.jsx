@@ -31,11 +31,7 @@ export default function TeamChat({
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const messageRefs = useRef({});
-  // const formatDate = (dateString) => {
-  //   const options = { year: "numeric", month: "short", day: "numeric" };
-  //   return new Date(dateString).toLocaleDateString(undefined, options);
-  // };
-
+ 
   const dispatch = useDispatch();
   const selectedTeamMembers = useSelector(
     (state) => state.team.selectedTeamMembers
