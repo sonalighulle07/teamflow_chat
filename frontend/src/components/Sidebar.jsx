@@ -170,7 +170,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   }, [userList, searchQuery]);
 
   const filteredTeams = useMemo(() => {
-    let list = [...teamList]; // ✅ make a copy
+    let list = [...teamList]; // make a copy
     if (searchQuery) {
       list = list.filter((t) =>
         t.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -186,9 +186,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
     return list;
   }, [teamList, searchQuery, lastTeamMessages]);
 
-  // -----------------------
   // Sidebar nav items
-  // -----------------------
   const navItems = [
     { icon: <FaCommentDots />, label: "Chat" },
     { icon: <FaVideo />, label: "Meet" },

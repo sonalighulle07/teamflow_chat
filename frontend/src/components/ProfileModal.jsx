@@ -109,11 +109,11 @@ useEffect(() => {
       const data = await res.json();
 
       if (data.success) {
-        // ⭐ 1. Clear ALL storage completely
+        //  1. Clear ALL storage completely
         sessionStorage.clear();
         localStorage.clear();
 
-        // ⭐ 2. Clear Redux user & auth state
+        //  2. Clear Redux user & auth state
         if (window.store) {
           window.store.dispatch({ type: "user/setCurrentUser", payload: null });
           window.store.dispatch({
@@ -122,11 +122,11 @@ useEffect(() => {
           });
         }
 
-        // ⭐ 3. Reset preview image
+        //  3. Reset preview image
         setPreview(null);
         setProfileImage?.(null);
 
-        // ⭐ 4. FORCE logout navigation (fresh reload)
+        //  4. FORCE logout navigation (fresh reload)
         window.location.href = "/register";
 
         return;

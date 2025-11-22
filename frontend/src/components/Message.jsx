@@ -4,9 +4,7 @@ import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-toastify";
 import CryptoJS from "crypto-js";
 import axios from "axios";
-
 import { URL as API_URL } from "../config";
-
 import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
 export default function Message({
   message,

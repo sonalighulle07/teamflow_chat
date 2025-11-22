@@ -113,7 +113,7 @@ export default function UserList({
   onSelectTeam,
   searchQuery = "",
   selectedUser,
-  selectedTeam, // ✅ Added selectedTeam
+  selectedTeam, //  Added selectedTeam
   lastMessages = {},
 }) {
   const listRef = useRef(null);

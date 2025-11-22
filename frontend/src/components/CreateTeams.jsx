@@ -1,4 +1,3 @@
-// 📁 src/components/CreateTeam.jsx
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { URL } from "../config";
@@ -30,16 +29,14 @@ export default function CreateTeam({
     );
   };
 
-  // -----------------------------
   // Create team & send invites
-  // -----------------------------
   const handleCreateTeam = async () => {
     if (!teamName || selectedUsers.length === 0) {
       return alert("Enter team name and select members!");
     }
 
     try {
-      // 1️⃣ Create team
+      // 1️ Create team
       const { data: team } = await axios.post(
         `${URL}/api/teams`,
         { name: teamName, created_by: currentUser.id },
@@ -48,11 +45,11 @@ export default function CreateTeam({
 
       const teamId = team.id;
 
-      // 2️⃣ Invite only other users
+      // 2️ Invite only other users
       const inviteUsers = selectedUsers.filter((uid) => uid !== currentUser.id);
 
       if (inviteUsers.length > 0) {
-        // 3️⃣ Send invites via API
+        // 3️ Send invites via API
         await axios.post(
           `${URL}/api/teams/send-invites`,
           {
@@ -64,7 +61,7 @@ export default function CreateTeam({
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
-        // 4️⃣ Emit single socket event for all invited users
+        // 4️ Emit single socket event for all invited users
         socket.emit("teamInviteReceived", {
           teamId,
           teamName,

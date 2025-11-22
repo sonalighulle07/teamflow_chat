@@ -7,7 +7,6 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import socket from "../calls/hooks/socket";
  
- 
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({
   format,
@@ -18,7 +17,7 @@ const localizer = dateFnsLocalizer({
 });
 const URL = "http://localhost:3000/api/events";
  
-// 🎯 Event Component
+//  Event Component
 const EventComponent = ({ event, onEdit, onDelete }) => {
   const [hover, setHover] = React.useState(false);
   const now = new Date();
@@ -66,11 +65,10 @@ const EventComponent = ({ event, onEdit, onDelete }) => {
   );
 };
  
-// 🎨 Custom Toolbar
+//  Custom Toolbar
 const CustomToolbar = ({ label, onNavigate, onView, view }) => {
   const [activeView, setActiveView] = useState(view);
   const [activeNav, setActiveNav] = useState("TODAY");
- 
   useEffect(() => setActiveView(view), [view]);
  
   const navButtonClass = (nav) =>
@@ -154,7 +152,7 @@ const CustomToolbar = ({ label, onNavigate, onView, view }) => {
   );
 };
  
-// 📅 Main Calendar Component
+//  Main Calendar Component
 export default function MyCalendar() {
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -166,7 +164,7 @@ export default function MyCalendar() {
   const [currentView, setCurrentView] = useState(Views.MONTH);
   const [currentDate, setCurrentDate] = useState(new Date());
  
-  // 🔄 Fetch events
+  //  Fetch events
   const fetchEvents = async () => {
     try {
       const res = await axios.get(URL);
@@ -184,7 +182,7 @@ export default function MyCalendar() {
   useEffect(() => {
     fetchEvents();
  
-    // 🔴 Listen to Socket.IO updates
+    //  Listen to Socket.IO updates
     socket.on("eventCreated", fetchEvents);
     socket.on("eventUpdated", fetchEvents);
     socket.on("eventDeleted", fetchEvents);
@@ -233,7 +231,7 @@ export default function MyCalendar() {
       }
       setShowModal(false);
       setSelectedEvent(null);
-      // 🔴 No need to manually setEvents, fetchEvents will update via Socket.IO
+      //  No need to manually setEvents, fetchEvents will update via Socket.IO
     } catch (err) {
       console.error(err);
       alert("Failed to save event.");
@@ -246,7 +244,7 @@ export default function MyCalendar() {
       await axios.delete(`${URL}/${event.id}`);
       setShowModal(false);
       setSelectedEvent(null);
-      // 🔴 fetchEvents will be triggered by Socket.IO
+      //  fetchEvents will be triggered by Socket.IO
     } catch (err) {
       console.error(err);
       alert("Failed to delete event.");

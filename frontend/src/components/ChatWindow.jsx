@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import Message from "./Message";
-import { io } from "socket.io-client";
 import Picker from "emoji-picker-react";
 import { PaperClipIcon } from "@heroicons/react/24/outline";
 import ForwardModal from "./ForwardModal";
@@ -16,15 +15,13 @@ export default function ChatWindow({
   currentUserId,
   searchQuery,
 }) {
-  const [forwardAlert, setForwardAlert] = useState("");
+ 
   const { selectedUser, currentUser } = useSelector((state) => state.user);
-
   const token = sessionStorage.getItem("chatToken");
   const [text, setText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [showEmoji, setShowEmoji] = useState(false);
-  const [deleteAlert, setDeleteAlert] = useState("");
   const [forwardMsg, setForwardMsg] = useState(null);
   const [filteredMessages, setFilteredMessages] = useState([]);
 
@@ -55,19 +52,15 @@ export default function ChatWindow({
   };
 
   // Initialize Socket.IO
-  // single socket init -- put this once in your component
   useEffect(() => {
     socketRef.current = socket;
 
-    // private messages
     socket.on("privateMessage", (msg) => {
   setMessages((prev) => {
-    // Ignore duplicate
     if (prev.some((m) => m.id === msg.id)) return prev;
     return [...prev, msg];
   });
 });
-
 
     socket.on("teamMessage", (msg) => {
       if (selectedTeam && msg.team_id === selectedTeam.id) {
@@ -81,17 +74,13 @@ export default function ChatWindow({
         prev.map((m) => (m.id === message.id ? message : m))
       );
     });
-    // message deleted (remove + toast)
     socket.on("messageDeleted", ({ messageId, senderId }) => {
-      // Remove message from the list
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
     });
 
     // message edited (update + toast)
-    // message edited (update full message)
     socket.on("messageEdited", (updatedMsg) => {
-      console.log("🟣 messageEdited received on client", updatedMsg);
-
+      console.log(" messageEdited received on client", updatedMsg);
       setMessages((prev) =>
         prev.map((m) =>
           String(m.id) === String(updatedMsg.id) ? { ...updatedMsg } : m
@@ -141,8 +130,6 @@ export default function ChatWindow({
 
   // Edit message
   const handleEdit = async (updatedMsg) => {
-    // Immediately update UI (optimistic)
-
     try {
       const res = await fetch(`${URL}/api/chats/edit/${updatedMsg.id}`, {
         method: "PUT",
@@ -155,7 +142,6 @@ export default function ChatWindow({
 
       if (res.ok) {
         const updated = await res.json();
-        // emit to server
         socketRef.current.emit("editMessage", {
           id: updated.id,
           text: updated.text,
@@ -216,7 +202,6 @@ export default function ChatWindow({
   useEffect(() => {
     if (!searchQuery || filteredMessages.length === 0) return;
 
-    // Wait for React to render filtered messages first
     const timer = setTimeout(() => {
       const firstMsg = filteredMessages[0];
       const key = firstMsg.id || messages.indexOf(firstMsg);
@@ -228,7 +213,7 @@ export default function ChatWindow({
           block: "center",
         });
       }
-    }, 300); // delay to allow render
+    }, 300); 
 
     return () => clearTimeout(timer);
   }, [searchQuery, filteredMessages]);
@@ -238,8 +223,8 @@ export default function ChatWindow({
     const file = e.target.files[0];
     if (!file) return;
 
-    setSelectedFile(file); // store actual file
-    setFilePreview(URL.createObjectURL(file)); // preview
+    setSelectedFile(file); 
+    setFilePreview(URL.createObjectURL(file)); 
   };
 
   const removeFile = () => {
@@ -331,7 +316,7 @@ export default function ChatWindow({
                     onDelete={handleDelete}
                     onEdit={handleEdit}
                     onForward={(msg) => setForwardMsg(msg)}
-                    socket={socketRef.current} // <<< Pass socket here
+                    socket={socketRef.current}
                   />
                 </div>
               );

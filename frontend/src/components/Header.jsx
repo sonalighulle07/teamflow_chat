@@ -6,7 +6,6 @@ import ProfileModal from "./ProfileModal";
 import ErrorBoundary from "./ErrorBoundary";
 import { URL } from "../config";
 import axios from "axios";
-
 import socket from "./calls/hooks/socket";
 import { FaUsers } from "react-icons/fa";
 
@@ -27,29 +26,23 @@ export default function Header({
   const { selectedUser, activeNav } = useSelector((state) => state.user);
   const username = activeUser?.username || "Guest";
   const { selectedTeam } = useSelector((state) => state.team);
-
   const isChatVisible = activeNav === "Chat" || activeNav === "Communities";
-
   const token = sessionStorage.getItem("chatToken");
-
   const [profileImage, setProfileImage] = useState(null);
-
   const [showMembers, setShowMembers] = useState(false);
   const { selectedTeamMembers } = useSelector((state) => state.team);
   const dropdownRef = useRef(null);
-
   const searchRef = useRef(null);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setShowSearch(false); // close dropdown
-        setSearchQuery(""); // clear input
+        setShowSearch(false); 
+        setSearchQuery(""); 
 
-        if (!searchQuery) return; // if nothing typed, don't show toast
-
-        // Show toast if data not available
+        if (!searchQuery) return; 
         setToast("Data not available");
-        setTimeout(() => setToast(""), 3000); // hide after 3s
+        setTimeout(() => setToast(""), 3000)
       }
     };
 
@@ -150,11 +143,10 @@ export default function Header({
   sessionStorage.clear();        // clear session data
   localStorage.removeItem("chatToken"); 
   localStorage.removeItem("chatUser");
-  // ✅ Keep profile image in localStorage
+  //  Keep profile image in localStorage
   setIsAuthenticated(false);
   navigate("/");
 };
-
 
   // ----------------- Meeting Functions -----------------
   const startGroupCall = async () => {
@@ -170,7 +162,7 @@ export default function Header({
 
       window.open(`${window.location.origin}/prejoin/${meetingCode}`, "_blank");
     } catch (err) {
-      console.error("❌ Failed to create meeting:", err);
+      console.error(" Failed to create meeting:", err);
     } finally {
       setIsCreatingMeeting(false);
     }
@@ -198,7 +190,7 @@ export default function Header({
         alert("⚠️ This meeting is no longer active.");
       }
     } catch (err) {
-      console.error("❌ Failed to validate meeting status:", err);
+      console.error(" Failed to validate meeting status:", err);
       alert("Unable to verify meeting status. Please try again.");
     }
   };
