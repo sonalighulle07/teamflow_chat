@@ -23,9 +23,7 @@ export default function CallOverlay({
   const remoteVideoRefs = useRef([]);
 
   useEffect(() => {
-
   }),[inCall];
-
 
   useEffect(() => {
     if (localVideoRef.current && localStream) {

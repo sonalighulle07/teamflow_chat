@@ -15,21 +15,21 @@ function decrypt(text) {
     if (!text || typeof text !== "string") return text;
 
     // must contain ':' separating IV and ciphertext
-    if (!text.includes(":")) return text; // already plain text
+    if (!text.includes(":")) return text; 
 
     const [ivHex, encrypted] = text.split(":");
     if (!ivHex || !encrypted) return text;
 
     const iv = Buffer.from(ivHex, "hex");
-    if (iv.length !== 16) return text; // invalid IV size
+    if (iv.length !== 16) return text; 
 
     const decipher = crypto.createDecipheriv("aes-256-cbc", Buffer.from(KEY), iv);
     let decrypted = decipher.update(encrypted, "hex", "utf8");
     decrypted += decipher.final("utf8");
     return decrypted;
   } catch (err) {
-    console.warn("⚠️ Decrypt failed, returning original text:", err.message);
-    return text; // fallback safely
+    console.warn(" Decrypt failed, returning original text:", err.message);
+    return text; 
   }
 }
 

@@ -1,4 +1,3 @@
-// userThunks.js
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { setCurrentUser } from "./userSlice";
 import {URL} from '../../../config';
@@ -11,32 +10,27 @@ export const loginUser = createAsyncThunk(
       const res = await fetch(`${URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // important for cookies/session
+        credentials: "include", 
         body: JSON.stringify({ username, password }),
       });
-
       const data = await res.json();
 
 
       if (!res.ok || !data.success) {
         return rejectWithValue(data.message || "Login failed");
       }
-
-      // Persist session locally
       sessionStorage.setItem("chatUser", JSON.stringify(data.user));
       sessionStorage.setItem("chatToken", data.token);
-
       localStorage.setItem("chatUser", JSON.stringify(data.user));
       localStorage.setItem("chatToken", data.token);
 
-      return data.user; // returned to slice
+      return data.user; 
     } catch (err) {
       return rejectWithValue("Server error, try again later.");
     }
   }
 );
 
-// ---------------------- FETCH USERS ----------------------
 // ---------------------- FETCH USERS ----------------------
 export const fetchUsers = createAsyncThunk(
   "user/fetchUsers",
@@ -51,8 +45,6 @@ export const fetchUsers = createAsyncThunk(
       const currentUserId = currentUser.id;
 
       console.log("Fetching users for org:", orgId);
-
-      // ✅ Always include organization_id filter
       const res = await fetch(`${URL}/api/users?organization_id=${orgId}`, {
         credentials: "include",
       });
@@ -62,7 +54,7 @@ export const fetchUsers = createAsyncThunk(
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error("Invalid response format");
 
-      // ✅ Remove current user from the list
+      //  Remove current user from the list
       return data.filter((u) => u.id !== currentUserId);
     } catch (err) {
       return rejectWithValue(err.message || "Server error while fetching users.");

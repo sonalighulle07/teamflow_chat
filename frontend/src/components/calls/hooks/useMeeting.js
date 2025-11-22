@@ -1,4 +1,3 @@
-// useMeeting.js
 import { useState, useRef, useEffect } from "react";
 import socket from "../hooks/socket";
 import { setPreviewStream } from "../../../utils/streamStore";
@@ -10,15 +9,13 @@ export function useMeeting(userId, roomCode, teamId = null) {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
 
-  const userRefs = useRef(new Map()); // username map
+  const userRefs = useRef(new Map());
 
   const peerMap = useRef(new Map());
   const hasJoinedRef = useRef(false);
   const localStreamRef = useRef(null);
-  
-  // ------------------------------------------
+
   // JOIN MEETING
-  // ------------------------------------------
   async function joinMeeting({ micEnabled = true, camEnabled = true } = {}) {
     if (hasJoinedRef.current) return;
 
@@ -142,9 +139,7 @@ export function useMeeting(userId, roomCode, teamId = null) {
     });
   }
 
-  // ------------------------------------------
   // LEAVE MEETING
-  // ------------------------------------------
   function leaveMeeting() {
     if (!hasJoinedRef.current) return;
     hasJoinedRef.current = false;
@@ -173,21 +168,15 @@ export function useMeeting(userId, roomCode, teamId = null) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
     }
     updateLocalStream(null);
-
     sessionStorage.removeItem(`joined_${roomCode}_${userId}`);
   }
-
 
   const updateLocalStream = (s) => {
     localStreamRef.current = s;
     setLocalStream(s);
   };
 
-
-  // ------------------------------------------
   // PEER CREATION
-  // ------------------------------------------
-
   function createPeer(remoteId, initiator = false) {
     if (peerMap.current.has(remoteId)) return peerMap.current.get(remoteId);
 
@@ -236,7 +225,6 @@ export function useMeeting(userId, roomCode, teamId = null) {
     };
 
     peerMap.current.set(remoteId, peer);
-
     // If initiator → create offer immediately
     if (initiator) {
       (async () => {
@@ -253,10 +241,7 @@ export function useMeeting(userId, roomCode, teamId = null) {
     return peer;
   }
 
- 
-  // ------------------------------------------
   // CAMERA TOGGLE
-  // ------------------------------------------
   const toggleCam = async () => {
     if (!localStreamRef.current) return;
 
@@ -300,24 +285,17 @@ export function useMeeting(userId, roomCode, teamId = null) {
     }
   };
 
-  // ------------------------------------------
   // MIC TOGGLE
-  // ------------------------------------------
   const toggleMic = () => {
     if (!localStreamRef.current) return;
-
     const track = localStreamRef.current.getAudioTracks()[0];
     if (!track) return;
-
     track.enabled = !track.enabled;
     setIsMuted(!track.enabled);
-
     sessionStorage.setItem("micOn", track.enabled ? "true" : "false");
   };
 
-  // ------------------------------------------
   // SCREEN SHARE
-  // ------------------------------------------
   async function startScreenShare() {
     if (!localStreamRef.current) return;
 
@@ -374,7 +352,6 @@ export function useMeeting(userId, roomCode, teamId = null) {
     }
   }
 
-  // ------------------------------------------
   return {
     peers,
     localStream,

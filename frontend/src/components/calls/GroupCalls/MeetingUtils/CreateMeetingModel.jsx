@@ -39,7 +39,7 @@ export default function CreateMeetingModal({ userId }) {
   };
 
   const handleViewCalendar = () => {
-    dispatch(setActiveNav("Calendar")); // ✅ Switch main view to Calendar
+    dispatch(setActiveNav("Calendar")); //  Switch main view to Calendar
   };
 
   return (

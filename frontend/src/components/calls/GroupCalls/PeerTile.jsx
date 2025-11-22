@@ -12,7 +12,7 @@ export default function PeerTile({
   const [videoActive, setVideoActive] = useState(true);
   const [speaking, setSpeaking] = useState(false);
   
-  // 🎥 Handle video stream binding + track state
+  //  Handle video stream binding + track state
   useEffect(() => {
     if (!videoRef.current) return;
 
@@ -55,7 +55,7 @@ export default function PeerTile({
     };
   }, [stream]);
 
-  // 🎤 Detect if user is speaking (audio activity)
+  //  Detect if user is speaking (audio activity)
   useEffect(() => {
     if (!stream || !stream.getAudioTracks().length) return;
 
@@ -82,7 +82,6 @@ export default function PeerTile({
         analyser.disconnect();
         ctx.close();
       } catch (err) {
-        // ignore disconnect errors
       }
     };
   }, [stream]);

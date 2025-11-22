@@ -1,9 +1,4 @@
 module.exports = (io, socket) => {
-  // console.log("Sidebar socket connected:", socket.id);
-
-  // ---------------------------------------------------------
-  // USERS — Real-time Sorting Events
-  // ---------------------------------------------------------
 
   // When user becomes online
   socket.on("userOnline", ({ userId }) => {
@@ -29,10 +24,8 @@ module.exports = (io, socket) => {
     });
   });
 
-  // ---------------------------------------------------------
+  
   // TEAMS — Real-time Sorting Events
-  // ---------------------------------------------------------
-
   // When team gets new message
   socket.on("teamChatActivity", ({ teamId }) => {
     io.emit("teamActivity", {

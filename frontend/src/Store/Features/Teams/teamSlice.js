@@ -1,7 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { fetchTeams, fetchTeamMembers } from "./teamThunk";
 
-
 const initialState = {
   teamList: [],
   selectedTeam: null,
@@ -16,7 +15,7 @@ const teamSlice = createSlice({
 
   reducers: {
     setTeamList: (state, action) => {
-      state.teamList = [...action.payload]; // ✅ Create new array for UI re-render
+      state.teamList = [...action.payload]; 
     },
     setSelectedTeam: (state, action) => {
       state.selectedTeam = action.payload;
@@ -36,7 +35,6 @@ const teamSlice = createSlice({
       })
       .addCase(fetchTeams.fulfilled, (state, action) => {
         state.loading = false;
-        // ✅ Important change - force re-render by creating a new array
         state.teamList = [...action.payload];
       })
       .addCase(fetchTeams.rejected, (state, action) => {

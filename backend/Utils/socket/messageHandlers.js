@@ -2,9 +2,8 @@ const Chat = require('../../models/chatModel');
 const { TeamMessage } = require('../../models/TeamModel');
 const { encrypt: encryptText, decrypt: decryptText } = require('../../Utils/crypto');
 
-
 module.exports = (io, socket) => {
-  // ✅ Register user
+  //  Register user
   socket.on('register', ({ userId }) => {
     if (!userId) return;
     socket.userId = userId;
@@ -12,7 +11,7 @@ module.exports = (io, socket) => {
     console.log(`User registered: ${userId}`);
   });
 
-  // ✅ Join team room & send decrypted chat history
+  //  Join team room & send decrypted chat history
   socket.on('joinTeam', async ({ teamId }) => {
     if (!teamId) return;
 
@@ -63,7 +62,7 @@ module.exports = (io, socket) => {
     }
   });
 
-  // ✅ Team message
+  //  Team message
   socket.on('teamMessage', async (msg) => {
     try {
       const { senderId, teamId, text, fileUrl, type, fileName, metadata } = msg;
@@ -89,8 +88,7 @@ module.exports = (io, socket) => {
       console.error('Team message error:', err);
     }
   });
-
-  // ✅ Delete message
+ 
  // Delete message
 socket.on('deleteMessage', async ({ messageId }) => {
   try {
@@ -119,7 +117,7 @@ socket.on('deleteMessage', async ({ messageId }) => {
 });
 
 
-  // ✅ Edit message
+  //  Edit message
   socket.on('editMessage', async ({ id, text }) => {
   try {
     const message =
@@ -129,7 +127,7 @@ socket.on('deleteMessage', async ({ messageId }) => {
     let updated;
 
     if (message.receiver_id) {
-      await Chat.updateMessage(id, text); // encrypted internally
+      await Chat.updateMessage(id, text); 
       updated = await Chat.getMessageById(id);
       updated.text = decryptText(updated.text);
       updated.metadata = updated.metadata ? JSON.parse(decryptText(updated.metadata)) : null;
@@ -138,7 +136,7 @@ socket.on('deleteMessage', async ({ messageId }) => {
       io.to(`user_${message.sender_id}`).emit('messageEdited', updated);
       io.to(`user_${message.receiver_id}`).emit('messageEdited', updated);
     } else if (message.team_id) {
-      await TeamMessage.updateText(id, text); // encrypted internally
+      await TeamMessage.updateText(id, text); 
       updated = await TeamMessage.getById(id);
       updated.text = decryptText(updated.text);
       updated.metadata = updated.metadata ? JSON.parse(decryptText(updated.metadata)) : null;
@@ -150,8 +148,7 @@ socket.on('deleteMessage', async ({ messageId }) => {
   }
 });
 
-
-  // ✅ Reaction
+  //  Reaction
  socket.on('reaction', async ({ messageId, userId, emoji }) => {
   try {
     const message =
@@ -194,9 +191,7 @@ socket.on('deleteMessage', async ({ messageId }) => {
   }
 });
 
-
-
-  // ✅ Typing indicators
+  //  Typing indicators
   socket.on('typingStart', ({ teamId, receiverId }) => {
     if (teamId) socket.to(`team_${teamId}`).emit('userTyping', { userId: socket.userId });
     else if (receiverId) socket.to(`user_${receiverId}`).emit('userTyping', { userId: socket.userId });
@@ -207,7 +202,7 @@ socket.on('deleteMessage', async ({ messageId }) => {
     else if (receiverId) socket.to(`user_${receiverId}`).emit('userStoppedTyping', { userId: socket.userId });
   });
 
-  // ✅ Read receipts
+  //  Read receipts
   socket.on('messageRead', async ({ messageId }) => {
     try {
       const message =

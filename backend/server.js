@@ -52,12 +52,10 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chats", chatRoutes);
-
 app.use("/api/subscribe", notificationRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/teams", teamRoutes);
 app.use("/api/events", eventRoutes);
-
 app.use("/api/tasks", taskRoutes);
 app.use("/api/organizations", organizationRoutes);
 
@@ -65,14 +63,11 @@ app.use("/api/organizations", organizationRoutes);
 io.on("connection", (socket) => {
 
   console.log("Socket connected: Server.js", socket.id);
-
-
   messageHandlers(io, socket);
   callHandlers(io, socket);
   eventHandlers(io, socket);
-    teamSocket(io, socket);
-
-   sidebarSocket(io,socket);
+  teamSocket(io, socket);
+  sidebarSocket(io,socket);
 });
 
 // Start server

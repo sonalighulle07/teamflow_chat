@@ -41,7 +41,6 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     display: none !important;
 }
 
-/* Optional: Customize scrollbar appearance */
 ::-webkit-scrollbar {
   width: 4px;
 }

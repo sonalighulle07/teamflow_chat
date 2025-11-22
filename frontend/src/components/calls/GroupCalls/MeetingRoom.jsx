@@ -1,33 +1,23 @@
-// MeetingRoom.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useLocation, useNavigate,useParams } from "react-router-dom";
 import { useMeeting } from "../hooks/useMeeting";
 import PeerTile from "./PeerTile";
 import MeetingControls from "./MeetingUtils/MeetingControls";
 
-
 export default function MeetingRoom() {
   const location = useLocation();
   const navigate = useNavigate();
-
   const userId = JSON.parse(sessionStorage.getItem("chatUser"))?.id;
   const { credentials } = useParams();
 
   console.log("userID:",userId)
-
   console.log("param credentials:",credentials)
   const code = credentials?.split("-")[2] || null;
   console.log("Room Code:", code);
-
-  // meeting_code = "team-121-cc100426"
-
-  const teamId = credentials.split("-")[1]; // 👉 "121"
-
+  const teamId = credentials.split("-")[1]; 
   console.log("Team ID:", teamId);
 
-
   // ---- Meeting hook (WebRTC + signaling) ----
-
   const {
     peers,
     localStream,
@@ -56,16 +46,11 @@ export default function MeetingRoom() {
     })
   ];
 
-  // --------------------------------------------------------
-  // 🚀 WAIT FOR PREVIEW STREAM BEFORE JOINING MEETING
-  // --------------------------------------------------------
+  //  WAIT FOR PREVIEW STREAM BEFORE JOINING MEETING
   useEffect(() => {
     let mounted = true;
-
     const start = async () => {
       console.log("MeetingRoom loaded → waiting for preview stream...");
-
-
       // Initial mic/cam state
       const initialMic = sessionStorage.getItem("micOn") === "true";
       const initialCam = sessionStorage.getItem("cameraOn") === "true";
@@ -85,19 +70,16 @@ export default function MeetingRoom() {
     };
 
     start();   
-
     return () => {
       mounted = false;
       leaveMeeting();
     };
   }, []);
 
-  // --------------------------------------------------------
+  
   // EXIT MEETING
-  // --------------------------------------------------------
   const handleLeave = useCallback(() => {
     try {
-      
       leaveMeeting();
       setToastMsg("You left the meeting");
       setShowToast(true);
@@ -111,9 +93,7 @@ export default function MeetingRoom() {
     }
   }, [leaveMeeting, code, userId, navigate]);
 
-  // --------------------------------------------------------
   // Leave on tab close
-  // --------------------------------------------------------
   useEffect(() => {
     const handleUnload = () => {
         leaveMeeting();
@@ -128,9 +108,8 @@ export default function MeetingRoom() {
     };
   }, [code, userId, leaveMeeting]);
 
-  // --------------------------------------------------------
+
   // TOAST SYSTEM
-  // --------------------------------------------------------
   useEffect(() => {
     const handler = (e) => {
       setToastMsg(e.detail?.message || "");
@@ -146,9 +125,8 @@ export default function MeetingRoom() {
     setPinnedId((prev) => (prev === id ? null : id));
   };
 
-  // --------------------------------------------------------
+  
   // BLOCK UI UNTIL JOINING COMPLETES
-  // --------------------------------------------------------
   if (!ready) {
     return (
       <div className="h-screen w-screen bg-black text-white flex items-center justify-center text-lg">
@@ -157,9 +135,7 @@ export default function MeetingRoom() {
     );
   }
 
-  // --------------------------------------------------------
   // MAIN UI
-  // --------------------------------------------------------
   return (
     <div className="h-screen w-screen bg-black text-white flex flex-col">
       <div className="text-xs text-gray-400 text-center py-1">Room: {code}</div>

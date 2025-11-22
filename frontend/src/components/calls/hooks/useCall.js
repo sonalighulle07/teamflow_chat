@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import socket from "./socket";
-import { set } from "date-fns";
 
 export function useCall(userId, currentUsername) {
   const [callType, setCallType] = useState(null);
@@ -14,10 +13,8 @@ export function useCall(userId, currentUsername) {
   const peerMap = useRef(new Map());
   const [inCall,setInCall] = useState(false);
 
-
   useEffect(() => {
     if (!userId) return;
-
     socket.on("incomingCall", handleIncomingCall);
     socket.on("callAccepted", handleCallAccepted);
     socket.on("iceCandidate", handleIceCandidate);
@@ -31,7 +28,6 @@ export function useCall(userId, currentUsername) {
       socket.off("endCall", handleEndCall);
       socket.off("callCancelled", handleCallCancelled);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId,socket]);
 
   function handleIncomingCall({ from,fromUsername, offer, callType }) {
@@ -65,22 +61,17 @@ export function useCall(userId, currentUsername) {
     }
   }
 
-  // payload could be { from, username }
   function handleEndCall(payload = {}) {
     setInCall(false);
     const { from, username } = payload;
     const name = username || from || "Remote";
-    // Notify user - replace with your toast if you have one
+  
     try {
-      // Use a toast in your app instead of alert if available
-      // e.g., toast.info(`${name} ended the call`);
-      // fallback:
       if (typeof window !== "undefined" && window && window.document) {
-        // tiny non-blocking UI-friendly notification
         console.log(`📞 Call ended by ${name}`);
       }
     } catch (err) {
-      /* ignore */
+
     }
     cleanup();
   }
@@ -135,10 +126,10 @@ export function useCall(userId, currentUsername) {
         to: remoteUser.id,
         offer,
         callType: type,
-        fromUsername: currentUsername, // optional: include caller name
+        fromUsername: currentUsername, 
       });
     } catch (err) {
-      console.error("❌ Failed to start call:", err);
+      console.error(" Failed to start call:", err);
       cleanup();
     }
   }
@@ -187,7 +178,7 @@ export function useCall(userId, currentUsername) {
       socket.emit("answerCall", { to: incoming.from, answer, from: userId, username: currentUsername });
       setIncoming(null);
     } catch (err) {
-      console.error("❌ Failed to accept call:", err);
+      console.error("Failed to accept call:", err);
       cleanup();
     }
   }
@@ -200,7 +191,6 @@ export function useCall(userId, currentUsername) {
     cleanup();
   }
 
-  // remoteUser is expected to be { id, ... } - pass the remote participant when ending the call
   function endCall(remoteUser) {
     setInCall(false);
     if (!remoteUser) return;
@@ -230,7 +220,6 @@ export function useCall(userId, currentUsername) {
       try {
         peer.close();
       } catch (err) {
-        /* ignore */
       }
     });
     peerMap.current.clear();

@@ -39,8 +39,8 @@ const userSlice = createSlice({
   state.selectedUser = null;
   sessionStorage.removeItem("chatUser");
   sessionStorage.removeItem("chatToken");
-  localStorage.removeItem("chatUser");   // ✅ clear localStorage
-  localStorage.removeItem("chatToken");  // ✅ clear token
+  localStorage.removeItem("chatUser");
+  localStorage.removeItem("chatToken");  
 },
 
     rehydrateUser: (state) => {
@@ -51,7 +51,6 @@ const userSlice = createSlice({
       state.selectedUser = action.payload;
     },
 
-    // ✅ Force UI update by creating a NEW array
     setUserList: (state, action) => {
       state.userList = [...(action.payload || [])];
     },
@@ -73,14 +72,14 @@ const userSlice = createSlice({
         state.error = action.payload;
       })
 
-      // ✅ Makes sure UI refreshes when fetchUsers runs
+      //  Makes sure UI refreshes when fetchUsers runs
       .addCase(fetchUsers.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.loading = false;
-        state.userList = [...(action.payload || [])]; // ✅ IMPORTANT CHANGE
+        state.userList = [...(action.payload || [])]; 
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;

@@ -46,12 +46,11 @@ function AppRoutes({
   const [teamMessages, setTeamMessages] = useState([]);
   const { activeNav } = useSelector((state) => state.user);
   const [showTeamInvites, setShowTeamInvites] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState(null); // ✅ local state for selected team
+  const [selectedTeam, setSelectedTeam] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
-
   const location = useLocation();
 
   const handleOpenForwardModal = (message) => {
@@ -226,7 +225,6 @@ function AppRoutes({
                   onReject={call.rejectCall}
                 />
               )}
-
               {/* Ongoing call overlay */}
               {call.inCall && (
                 <CallOverlay
@@ -280,7 +278,7 @@ function App() {
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").then((reg) => {
-        console.log("✅ Service Worker registered:", reg);
+        console.log("Service Worker registered:", reg);
       });
     }
   }, []);
@@ -291,20 +289,18 @@ function App() {
         console.log("🔌 Connecting socket...");
         connectSocket(userId);
       }
-
-      // 🔥 Important: register user socket
+      //  register user socket
       socket.emit("register", { userId: String(userId) });
     }
   }, [isAuthenticated, userId]);
 
-  // Redux rehydrate
+
   useEffect(() => {
     if (isAuthenticated && !currentUser) {
       dispatch(rehydrateUser());
     }
   }, [isAuthenticated, currentUser, dispatch]);
 
-  // Push subscription
   useEffect(() => {
     async function subscribeUser() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -313,28 +309,24 @@ function App() {
         const reg = await navigator.serviceWorker.ready;
         const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
         if (!vapidKey) {
-          console.error("❌ VAPID key missing");
+          console.error(" VAPID key missing");
           return;
         }
-
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(vapidKey),
         });
-
         const user = JSON.parse(sessionStorage.getItem("chatUser"));
         await fetch("http://localhost:3000/api/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: user.id, subscription: sub }),
         });
-
-        console.log("✅ Push subscription sent to backend");
+        console.log(" Push subscription sent to backend");
       } catch (err) {
         console.error("Push subscription failed:", err);
       }
     }
-
     if (isAuthenticated && userId) {
       subscribeUser();
     }

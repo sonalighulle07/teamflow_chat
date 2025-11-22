@@ -1,4 +1,3 @@
-// MediaConfirmation.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash } from "react-icons/fa";
@@ -19,7 +18,7 @@ const MediaConfirmation = ({ userId, currentUser }) => {
   const code = credentials?.split("-")[2] || null;
   console.log("Room Code:", code);
 
-  const teamId = credentials.split("-")[1]; // 👉 "121"
+  const teamId = credentials.split("-")[1]; 
 
   console.log("Team ID:", teamId);
 
@@ -35,7 +34,7 @@ const handleJoin = () => {
     ({ joined }) => {
       if (joined) {
         alert("You are already in this meeting on another tab or session.");
-        return; // ❌ Stop further actions
+        return; 
       }
 
       // If not joined → continue normally
@@ -56,10 +55,6 @@ const handleJoin = () => {
     }
   );
 };
-
-
-
-
   // --- Load preview camera/mic ---
   useEffect(() => {
     const loadPreviewStream = async () => {
