@@ -228,6 +228,7 @@ function AppRoutes({
               {/* Ongoing call overlay */}
               {call.inCall && (
                 <CallOverlay
+                  callId={call.callState.callId}
                   socket={socket}
                   callType={call.callState.type}
                   localStream={call.localStream}
