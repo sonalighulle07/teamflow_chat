@@ -6,7 +6,7 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-import { connectSocket } from '../src/components/calls/hooks/socket'
+import { connectSocket } from "../src/components/calls/hooks/socket";
 
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
@@ -20,7 +20,7 @@ import { useCall } from "./components/calls/hooks/useCall";
 import socket from "./components/calls/hooks/socket";
 import ForwardModal from "./components/ForwardModal";
 import MeetingRoom from "./components/calls/GroupCalls/MeetingRoom";
-import MediaConfirmation from './components/calls/GroupCalls/MeetingUtils/MediaConfirmation'
+import MediaConfirmation from "./components/calls/GroupCalls/MeetingUtils/MediaConfirmation";
 import MyCalendar from "./components/calender/MyCalender";
 import { useSelector, useDispatch } from "react-redux";
 import { rehydrateUser } from "./Store/Features/Users/userSlice";
@@ -226,10 +226,9 @@ function AppRoutes({
               )}
 
               {/* Ongoing call overlay */}
-              {call.inCall && (
+              {call.callState.type && (
                 <CallOverlay
                   callId={call.callState.callId}
-                  socket={socket}
                   callType={call.callState.type}
                   localStream={call.localStream}
                   remoteStreams={call.remoteStreams}
@@ -246,6 +245,8 @@ function AppRoutes({
                   onClose={call.endCall}
                   isMaximized={call.isMaximized}
                   inCall={call.inCall}
+                  addUser={call.addUserToCall} // ✅ FIXED
+                  cancelInvite={call.cancelInviteFor} // ✅ FIXED
                 />
               )}
             </div>
@@ -263,9 +264,7 @@ function App() {
     !!sessionStorage.getItem("chatToken")
   );
   const userId = currentUser?.id;
-  const call = useCall(userId,currentUser?.username);
-
- 
+  const call = useCall(userId, currentUser?.username);
 
   // Service Worker
   useEffect(() => {
@@ -276,18 +275,17 @@ function App() {
     }
   }, []);
 
-useEffect(() => {
-  if (isAuthenticated && userId) {
-    if (!socket.connected) {
-      console.log("🔌 Connecting socket...");
-      connectSocket(userId);
+  useEffect(() => {
+    if (isAuthenticated && userId) {
+      if (!socket.connected) {
+        console.log("🔌 Connecting socket...");
+        connectSocket(userId);
+      }
+
+      // 🔥 Important: register user socket
+      socket.emit("register", { userId: String(userId) });
     }
-
-    // 🔥 Important: register user socket
-    socket.emit("register", { userId: String(userId) });
-  }
-}, [isAuthenticated, userId]);
-
+  }, [isAuthenticated, userId]);
 
   // Redux rehydrate
   useEffect(() => {

@@ -39,6 +39,7 @@ export default function CallOverlay({
   const remoteVideoRefs = useRef([]);
 
   const userList = useSelector((state) => state.user.userList || []);
+  const currentUser = useSelector((state) => state.user.currentUser);
 
   const [showUserList, setShowUserList] = useState(false);
 
@@ -115,8 +116,11 @@ export default function CallOverlay({
   // when user clicks "Add" from popup
   const handleAddClick = (uid) => {
     const u = userList.find((x) => String(x.id) === String(uid));
+    
     addInviteTile(uid, u?.username || "User", "ringing");
     // notify server to add the user into this call room
+
+
     if (typeof addUser === "function" && callId) {
       addUser(uid, u?.username || "User");
     } else {
