@@ -175,6 +175,24 @@ export default function Message({
         setReactedEmojis(normalizeReactions(reactions));
       }
     };
+socket.on('teamMessageUpdated', (updatedMessage) => {
+  // Update the messages state
+  setMessages(prevMessages =>
+    prevMessages.map(msg =>
+      msg.id === updatedMessage.id ? updatedMessage : msg
+    )
+  );
+
+  // Update reactedEmojis if this message is open
+  if (selectedMessage?.id === updatedMessage.id) {
+    const reactions = updatedMessage.reactions || {};
+    const normalized = {};
+    for (let emoji in reactions) normalized[emoji] = reactions[emoji].count;
+    setReactedEmojis(normalized);
+  }
+});
+
+
 
     socket.on("reaction", handleReactionEvent);
 
@@ -254,19 +272,47 @@ const handleEditClick = (msg, e) => {
   const userId = currentUser?.id;
 
   const toggleReaction = (emoji) => {
+  // 1️⃣ Update local reacted emojis state
   setReactedEmojis((prev) => {
     const prevData = prev[emoji] || { count: 0, users: {} };
-    const usersMap = { ...(prevData.users || {}) };
+    const usersMap = { ...prevData.users };
     const alreadyReacted = userId && usersMap[userId];
+
     if (alreadyReacted) delete usersMap[userId];
     else if (userId) usersMap[userId] = 1;
+
     return {
       ...prev,
       [emoji]: { count: Object.keys(usersMap).length, users: usersMap },
     };
   });
 
-  // ✅ emit socket event
+  // 2️⃣ Update messages state separately (outside the updater)
+  if (setMessages) {
+    setMessages((msgs) =>
+      msgs.map((msg) => {
+        if (msg.id !== message.id) return msg;
+
+        // Update the reactions for this message
+        const prevEmojiData = msg.reactions || {};
+        const usersMap = { ...((prevEmojiData[emoji] || {}).users || {}) };
+        const alreadyReacted = userId && usersMap[userId];
+
+        if (alreadyReacted) delete usersMap[userId];
+        else if (userId) usersMap[userId] = 1;
+
+        return {
+          ...msg,
+          reactions: {
+            ...prevEmojiData,
+            [emoji]: { count: Object.keys(usersMap).length, users: usersMap },
+          },
+        };
+      })
+    );
+  }
+
+  // 3️⃣ Emit socket event
   if (socket) {
     socket.emit("react", {
       messageId: message.id,
@@ -275,8 +321,11 @@ const handleEditClick = (msg, e) => {
     });
   }
 
+  // 4️⃣ Call callback
   if (typeof onReact === "function") onReact(message.id, emoji);
 };
+
+
 
   const handlePickerEmoji = (emojiObject) => {
     const e = emojiObject?.emoji;
@@ -818,36 +867,70 @@ const handleEditClick = (msg, e) => {
 
       {/* Reactions below bubble */}
       <div className="mt-1">
-        {Object.keys(reactedEmojis).length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {Object.entries(reactedEmojis).map(([emoji, data]) => {
-              const count =
-                typeof data.count === "number"
-                  ? data.count
-                  : Object.keys(data.users || {}).length;
-              if (count === 0) return null;
-              const reacted = !!(userId && data.users && data.users[userId]);
-              return (
-                <button
-                  key={emoji}
-                  onClick={() => toggleReaction(emoji)}
-                  className={`flex items-center gap-1 px-2 py-1 text-sm rounded-full shadow-sm ${
-                    reacted ? "bg-gray-200" : "bg-gray-100"
-                  }`}
-                  title={
-                    reacted
-                      ? "You reacted — click to remove"
-                      : "React — click to add"
-                  }
-                >
-                  <span>{emoji}</span>
-                  <span className="text-xs">{count}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+  {Object.keys(reactedEmojis).length > 0 && (
+    <div className="flex flex-wrap gap-1">
+      {Object.entries(reactedEmojis).map(([emoji, data]) => {
+        const count =
+          typeof data.count === "number"
+            ? data.count
+            : Object.keys(data.users || {}).length;
+        if (count === 0) return null;
+
+        const reacted = !!(userId && data.users && data.users[userId]);
+
+        const handleEmojiClick = () => {
+          // Update local message reactions
+          toggleReaction(emoji);
+
+          // Also update messages array if this is a team chat
+          if (chatType === "team" && setMessages) {
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id === message.id) {
+                  const updatedReactions = {
+                    ...msg.reactions,
+                    [emoji]: msg.reactions && msg.reactions[emoji]
+                      ? {
+                          count: reacted
+                            ? msg.reactions[emoji].count - 1
+                            : msg.reactions[emoji].count + 1,
+                          users: {
+                            ...msg.reactions[emoji].users,
+                            [userId]: reacted ? undefined : 1,
+                          },
+                        }
+                      : { count: 1, users: { [userId]: 1 } },
+                  };
+                  return { ...msg, reactions: updatedReactions };
+                }
+                return msg;
+              })
+            );
+          }
+        };
+
+        return (
+          <button
+            key={emoji}
+            onClick={handleEmojiClick}
+            className={`flex items-center gap-1 px-2 py-1 text-sm rounded-full shadow-sm ${
+              reacted ? "bg-gray-200" : "bg-gray-100"
+            }`}
+            title={
+              reacted
+                ? "You reacted — click to remove"
+                : "React — click to add"
+            }
+          >
+            <span>{emoji}</span>
+            <span className="text-xs">{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  )}
+</div>
+
 
       <div
         className={`flex items-center gap-2 text-xs text-gray-400 mt-1 ${

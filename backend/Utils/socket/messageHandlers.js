@@ -148,48 +148,74 @@ socket.on('deleteMessage', async ({ messageId }) => {
   }
 });
 
-  //  Reaction
- socket.on('reaction', async ({ messageId, userId, emoji }) => {
+ // Server-side: team chat reaction
+socket.on('reaction', async ({ messageId, userId, emoji }) => {
   try {
-    const message =
-      (await Chat.getMessageById(messageId)) ||
-      (await TeamMessage.getById(messageId));
+    if (!messageId || !userId || !emoji) return;
 
+    const message = await TeamMessage.getById(messageId);
     if (!message) return;
 
     let reactions = message.reactions || {};
 
     // Toggle reaction
-    if (!reactions[emoji]) reactions[emoji] = {};
-    if (reactions[emoji][userId]) delete reactions[emoji][userId];
-    else reactions[emoji][userId] = 1;
+    if (!reactions[emoji]) reactions[emoji] = { count: 0, users: {} };
+    const emojiData = reactions[emoji];
+    if (emojiData.users[userId]) delete emojiData.users[userId];
+    else emojiData.users[userId] = 1;
 
-    // Remove emoji key if no users left
-    if (Object.keys(reactions[emoji]).length === 0) delete reactions[emoji];
+    // Recalculate count
+    emojiData.count = Object.keys(emojiData.users).length;
+    if (emojiData.count === 0) delete reactions[emoji];
 
-    // Save in DB (encrypt internally)
-    if (message.receiver_id) {
-      await Chat.updateReactions(messageId, reactions);
-    } else if (message.team_id) {
-      await TeamMessage.updateReactions(messageId, reactions);
-    }
+    // Save updated reactions
+    await TeamMessage.updateReactions(messageId, reactions);
 
-    // Fetch updated message
-    const updatedMessage = message.receiver_id
-      ? await Chat.getMessageById(messageId)
-      : await TeamMessage.getById(messageId);
+    // Fetch updated message to send to frontend
+    const updatedMessage = await TeamMessage.getById(messageId);
 
-    // Emit full updated message
-    if (message.receiver_id) {
-      io.to(`user_${message.sender_id}`).emit('reaction', { message: updatedMessage });
-      io.to(`user_${message.receiver_id}`).emit('reaction', { message: updatedMessage });
-    } else if (message.team_id) {
-      io.to(`team_${message.team_id}`).emit('reaction', { message: updatedMessage });
-    }
+    // Emit to team room
+    io.to(`team_${message.team_id}`).emit('teamMessageUpdated', updatedMessage);
+    
   } catch (err) {
     console.error('Reaction error:', err);
   }
 });
+// Server-side: private chat reaction
+socket.on('privateReaction', async ({ messageId, userId, emoji }) => {
+  try {
+    if (!messageId || !userId || !emoji) return;
+
+    const message = await Chat.getMessageById(messageId);
+    if (!message) return;
+
+    let reactions = message.reactions || {};
+
+    // Toggle reaction
+    if (!reactions[emoji]) reactions[emoji] = { count: 0, users: {} };
+    const emojiData = reactions[emoji];
+    if (emojiData.users[userId]) delete emojiData.users[userId];
+    else emojiData.users[userId] = 1;
+
+    // Recalculate count
+    emojiData.count = Object.keys(emojiData.users).length;
+    if (emojiData.count === 0) delete reactions[emoji];
+
+    // Save updated reactions in DB
+    await Chat.updateReactions(messageId, reactions);
+
+    // Fetch updated message to send to frontend
+    const updatedMessage = await Chat.getMessageById(messageId);
+
+    // Emit to both sender and receiver
+    io.to(`user_${message.sender_id}`).emit('privateMessageUpdated', updatedMessage);
+    io.to(`user_${message.receiver_id}`).emit('privateMessageUpdated', updatedMessage);
+
+  } catch (err) {
+    console.error('Private reaction error:', err);
+  }
+});
+
 
   //  Typing indicators
   socket.on('typingStart', ({ teamId, receiverId }) => {

@@ -79,23 +79,12 @@ export default function TeamChat({
     });
 
     // ========= REACTION UPDATED =========
-    socket.on("teamReactionUpdated", (data) => {
-      if (data.teamId !== selectedTeam.id) return;
+ socket.on('teamMessageUpdated', (updatedMessage) => {
+    setMessages(prev =>
+      prev.map(msg => (msg.id === updatedMessage.id ? updatedMessage : msg))
+    );
+  });
 
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === data.messageId
-            ? {
-                ...m,
-                reactions: {
-                  ...(m.reactions || {}),
-                  [data.userId]: data.emoji,
-                },
-              }
-            : m
-        )
-      );
-    });
 
     return () => {
       socket.emit("leaveRoom", { teamId: selectedTeam.id });
@@ -410,67 +399,48 @@ const handleFileChange = (e) => {
     }
   };
   // --- Handle Reaction (Team) ---
-  const handleReaction = async (messageId, emoji) => {
-    if (!selectedTeam?.id || !token) return;
+ const handleReaction = async (messageId, emoji) => {
+  if (!selectedTeam?.id || !token) return;
 
-    try {
-      // Optimistic UI update
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId
-            ? {
-                ...m,
-                reactions: {
-                  ...(m.reactions || {}),
-                  [currentUser.id]: emoji,
-                },
-              }
-            : m
-        )
-      );
-
-      // Call API to save reaction
-      const res = await fetch(
-        `${URL}/api/teams/${selectedTeam.id}/messages/${messageId}/reactions`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ reactions: { [currentUser.id]: emoji } }),
-        }
-      );
-
-      if (!res.ok) {
-        console.error("Reaction API failed:", await res.text());
-        // Optionally revert optimistic update
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageId
-              ? {
-                  ...m,
-                  reactions: {
-                    ...(m.reactions || {}),
-                    [currentUser.id]: emoji,
-                  },
-                }
-              : m
-          )
-        );
-      } else {
-        // Emit via socket for real-time updates
-        socketRef.current?.emit("reactTeamMessage", {
-          messageId,
-          teamId: selectedTeam.id,
-          userId: currentUser.id,
-          emoji,
-        });
+  try {
+    const res = await fetch(
+      `${URL}/api/teams/${selectedTeam.id}/messages/${messageId}/reactions`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ emoji, userId: currentUser.id }),
       }
-    } catch (err) {
-      console.error("handleReaction error:", err);
+    );
+
+    if (!res.ok) {
+      console.error("Reaction API failed:", await res.text());
+      return;
     }
-  };
+
+    const updatedReactions = await res.json(); // Backend should return updated reactions object
+
+    // Optimistic UI
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId ? { ...m, reactions: updatedReactions } : m
+      )
+    );
+
+    // Emit updated reactions for real-time update
+    socketRef.current?.emit("teamMessageReaction", {
+      messageId,
+      teamId: selectedTeam.id,
+      reactions: updatedReactions,
+    });
+  } catch (err) {
+    console.error("handleReaction error:", err);
+  }
+};
+
+
 
   return (
     <div className="flex-1 flex flex-col h-full relative">

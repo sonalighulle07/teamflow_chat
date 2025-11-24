@@ -361,23 +361,73 @@ const deleteTeamMessage = async (req, res) => {
 
 
 // UPDATE reactions on team message
-const updateTeamMessageReactions = async (req, res) => {
-  const { teamId, messageId } = req.params;
-  const { reactions } = req.body; 
+const reactMessage = async (req, res) => {
   try {
-    await TeamMessage.updateReactions(messageId, reactions); 
-    const updatedMsg = await TeamMessage.getById(messageId);
-    req.io?.to(`team_${teamId}`).emit("messageReactionsUpdated", {
-      messageId,
-      reactions: updatedMsg.reactions,
-      teamId,
-    });
-    res.json({ success: true, reactions: updatedMsg.reactions });
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    const userId = req.user?.id;
+
+    if (!emoji || !userId) {
+      return res.status(400).json({ error: "Emoji and userId are required" });
+    }
+
+    // Fetch current reactions from DB (decrypt first if using encrypted_reactions)
+    const [rows] = await db.execute(
+      "SELECT reactions FROM team_messages WHERE id = ?",
+      [messageId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    let reactions = {};
+    try {
+      reactions = rows[0].reactions ? JSON.parse(rows[0].reactions) : {};
+      // If using encrypted_reactions:
+      // reactions = rows[0].encrypted_reactions ? JSON.parse(decrypt(rows[0].encrypted_reactions)) : {};
+    } catch (e) {
+      reactions = {};
+    }
+
+    // Ensure emoji key exists
+    if (!reactions[emoji]) {
+      reactions[emoji] = { count: 0, users: {} };
+    }
+
+    const emojiData = reactions[emoji];
+
+    // Toggle reaction: add or remove
+    if (emojiData.users[userId]) {
+      delete emojiData.users[userId]; 
+    } else {
+      emojiData.users[userId] = 1; 
+    }
+
+    // Update total count
+    emojiData.count = Object.values(emojiData.users).reduce((sum, c) => sum + c, 0);
+
+    // Save updated reactions (encrypt before saving if needed)
+    await db.execute(
+      "UPDATE team_messages SET reactions = ? WHERE id = ?",
+      [JSON.stringify(reactions), messageId]
+      // If using encryption:
+      // [encrypt(JSON.stringify(reactions)), messageId]
+    );
+
+    // Return updated reactions
+    res.json({ reactions });
+
+    // Emit real-time update
+    if (req.io) {
+      req.io.emit("reaction", { messageId, reactions });
+    }
   } catch (err) {
-    console.error("Failed to update reactions:", err);
-    res.status(500).json({ error: "Failed to update reactions" });
+    console.error("Failed to react to message:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
 
 
 // GET or CREATE meeting link for a team
@@ -452,7 +502,7 @@ module.exports = {
   sendTeamMessage,
   editTeamMessage,
   deleteTeamMessage,
-  updateTeamMessageReactions,
+  reactMessage,
   getTeamMeetingLink,
   createTeamAndSendInvites,
   getTeamsSortedByActivity 

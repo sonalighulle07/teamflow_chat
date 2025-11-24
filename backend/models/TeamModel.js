@@ -258,12 +258,12 @@ insert: async (
       "DELETE FROM team_messages WHERE id = ?",
       [messageId]
     );
+
     return result;
   },
 
   // Update reactions
   updateReactions: async (messageId, reactions) => {
-    console.log("Updating reactions for messageId:", messageId, "with reactions:", reactions);
     const encryptedReactions = encrypt(JSON.stringify(reactions));
     const [result] = await db.query(
       "UPDATE team_messages SET reactions = ? WHERE id = ?",
@@ -271,11 +271,11 @@ insert: async (
     );
     return result;
   },
-  
 };
 
 module.exports = {
   Team,
   TeamMember,
   TeamMessage,
+
 };

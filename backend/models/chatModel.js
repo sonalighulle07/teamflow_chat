@@ -1,9 +1,7 @@
 const db = require("../config/db");
 const { encrypt, decrypt } = require("../Utils/crypto");
 
-// ------------------------------
 // 🔹 Get all messages (decrypted)
-// ------------------------------
 const getAllMessages = async () => {
   const [rows] = await db.query("SELECT * FROM chats ORDER BY created_at ASC");
 
@@ -22,9 +20,7 @@ const getAllMessages = async () => {
   });
 };
 
-// ----------------------------------------------
 // 🔹 Get messages between two users (decrypted)
-// ----------------------------------------------
 const getMessagesBetweenUsers = async (user1, user2) => {
   const [rows] = await db.query(
     `SELECT * FROM chats
@@ -50,9 +46,8 @@ const getMessagesBetweenUsers = async (user1, user2) => {
   });
 };
 
-// -----------------------------
+
 // 🔹 Insert message (encrypted)
-// -----------------------------
 const insertMessage = async (
   senderId,
   receiverId,
@@ -102,9 +97,7 @@ const insertMessage = async (
   }
 };
 
-// ---------------------------------
 // 🔹 Get single message (decrypted)
-// ---------------------------------
 const getMessageById = async (messageId) => {
   const [rows] = await db.query("SELECT * FROM chats WHERE id = ?", [messageId]);
   if (!rows.length) return null;
@@ -125,9 +118,7 @@ const getMessageById = async (messageId) => {
   return { ...msg, text, file_name, reactions };
 };
 
-// ---------------------------------------------
 // 🔹 Update reactions (store encrypted JSON)
-// ---------------------------------------------
 const updateMessageReactions = async (messageId, emoji) => {
   const message = await getMessageById(messageId);
   if (!message) return null;
@@ -147,16 +138,14 @@ const updateMessageReactions = async (messageId, emoji) => {
   return updatedMessage;
 };
 
-// -----------------------------------
+
 // 🔹 Delete message (hard delete)
-// -----------------------------------
 const deleteMessage = async (messageId) => {
   await db.query("DELETE FROM chats WHERE id = ?", [messageId]);
 };
 
-// -----------------------------------------
+
 // 🔹 Update/edit text (re-encrypt on save)
-// -----------------------------------------
 const updateMessage = async (messageId, text) => {
   const encryptedText = encrypt(text);
   await db.query("UPDATE chats SET text = ?, edited = 1 WHERE id = ?", [
@@ -165,9 +154,7 @@ const updateMessage = async (messageId, text) => {
   ]);
 };
 
-// ---------------------------------------------------
 // 🔹 Directly update reactions JSON (encrypted form)
-// ---------------------------------------------------
 const updateReactions = async (messageId, reactions) => {
   await db.query("UPDATE chats SET reactions = ? WHERE id = ?", [
     encrypt(JSON.stringify(reactions)),

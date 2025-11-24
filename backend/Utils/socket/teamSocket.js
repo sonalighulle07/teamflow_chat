@@ -48,7 +48,6 @@ module.exports = (io, socket) => {
     io.to(`team_${msg.team_id}`).emit("teamMessageEdited", msg);
   });
 
-  
   // DELETE TEAM MESSAGE
   socket.on("deleteTeamMessage", ({ messageId, teamId }) => {
     io.to(`team_${teamId}`).emit("teamMessageDeleted", {
@@ -56,7 +55,6 @@ module.exports = (io, socket) => {
       teamId,
     });
   });
-
 
   // REACT TO TEAM MESSAGE
   socket.on("reactTeamMessage", ({ messageId, emoji, userId, teamId }) => {
