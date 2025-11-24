@@ -2,25 +2,39 @@
 import { useState, useEffect, useRef } from "react";
 import socket from "./socket";
 
+/**
+ * Key design decisions:
+ * - remoteStreamsMap (Map userId -> MediaStream) is the single source of truth
+ * - We NEVER add a remoteStreams entry with null/undefined stream
+ * - addUserToCall only notifies server (no local remote entry creation)
+ * - Peers are created when offers/offers are exchanged; stream is added when peer.ontrack fires
+ */
+
 export function useCall(userId, currentUsername) {
   console.log("🟢 useCall mounted for user:", userId);
 
   const [callType, setCallType] = useState(null);
-  const [callId, setCallId] = useState(null); // backend-generated call id
+  const [callId, setCallId] = useState(null);
   const [incoming, setIncoming] = useState(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [localStream, setLocalStream] = useState(null);
-  const [remoteStreamsMap, setRemoteStreamsMap] = useState(new Map()); // userId -> MediaStream
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const peerMap = useRef(new Map()); // userId -> RTCPeerConnection
   const [inCall, setInCall] = useState(false);
 
+  // remoteStreamsMap holds only real streams (no placeholders)
+  const [remoteStreamsMap, setRemoteStreamsMap] = useState(new Map()); // userId -> MediaStream
+
+  // helpers: convert map to array
+  const remoteStreams = Array.from(remoteStreamsMap.entries()).map(([userId, stream]) => ({ userId, stream }));
+
   // ------------------------------------------------------------------
-  // Helpers to manage remoteStreamsMap reactively
+  // Helpers to manage remoteStreamsMap reactively (only set when real stream)
   // ------------------------------------------------------------------
   const setRemoteStreamFor = (remoteUserId, stream) => {
+    if (!stream) return; // defensive: ignore falsy streams
     setRemoteStreamsMap((prev) => {
       const m = new Map(prev);
       m.set(String(remoteUserId), stream);
@@ -36,16 +50,16 @@ export function useCall(userId, currentUsername) {
     });
   };
 
-  // helper to close peer & remove stream
+  // close peer connection and remove stream
   const closePeerFor = (peerUserId) => {
     try {
       const p = peerMap.current.get(String(peerUserId));
       if (p) {
-        p.ontrack = null;
-        p.onicecandidate = null;
         try {
+          p.ontrack = null;
+          p.onicecandidate = null;
           p.close();
-        } catch {}
+        } catch (e) {}
       }
       peerMap.current.delete(String(peerUserId));
     } catch (e) {
@@ -54,43 +68,34 @@ export function useCall(userId, currentUsername) {
     removeRemoteStreamFor(peerUserId);
   };
 
-  // ------------------------------------------------------------------
-  // Create local media if not existing
-  // ------------------------------------------------------------------
-  const ensureLocalStream = async (wantVideo) => {
+  // Ensure local stream exists (create if needed)
+  const ensureLocalStream = async (wantVideo = false) => {
     if (localStream) {
-      // if existing but video requested and currently false, try to get video track
-      if (wantVideo && !localStream.getVideoTracks().length) {
+      // optionally attempt to add video track to existing stream if requested
+      if (wantVideo && (!localStream.getVideoTracks() || localStream.getVideoTracks().length === 0)) {
         try {
-          const vStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-          });
-          vStream.getVideoTracks().forEach((t) => localStream.addTrack(t));
+          const v = await navigator.mediaDevices.getUserMedia({ video: true });
+          v.getVideoTracks().forEach((t) => localStream.addTrack(t));
         } catch (e) {
-          console.warn("ensureLocalStream: could not add video", e);
+          console.warn("ensureLocalStream could not add video", e);
         }
       }
       return localStream;
     }
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: !!wantVideo,
-    });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: !!wantVideo });
     setLocalStream(stream);
     return stream;
   };
 
   // ------------------------------------------------------------------
-  // Socket bindings & handlers
+  // Socket bindings
   // ------------------------------------------------------------------
   useEffect(() => {
     if (!userId) return console.log("❌ No userId provided to useCall");
 
-    // ---------- INCOMING CALL (1:1 or add-user invite) ----------
+    // Normalize incoming payloads and set incoming state
     const handleIncomingCall = (payload) => {
-      console.log("📥 incomingCall", payload);
-
-      // Normalize payload for both 1:1 and add-user invites
+      // payload could be either normal 1:1 or add-user invite
       const normalized = {
         ...payload,
         isAddUser: payload.isAddUser === true,
@@ -99,234 +104,163 @@ export function useCall(userId, currentUsername) {
         invitedType: payload.type || payload.callType,
       };
 
+      console.log("📥 incomingCall normalized:", normalized);
       setIncoming(normalized);
       if (normalized.callId) setCallId(normalized.callId);
     };
 
-    // server notifies caller of created callId
     const handleCallCreated = ({ callId: newCallId }) => {
-      console.log("🆔 call-created", newCallId);
       if (newCallId) setCallId(newCallId);
     };
 
-    // Legacy: server's answerCall relays 'callAccepted' for 1:1 flows
-    const handleCallAccepted = async ({
-      answer,
-      from,
-      callId: answerCallId,
-    }) => {
-      console.log(
-        "📡 callAccepted (legacy) from",
-        from,
-        "callId:",
-        answerCallId
-      );
+    // legacy 1:1 'callAccepted' (server relays callee answer)
+    const handleCallAccepted = async ({ answer, from, callId: answerCallId }) => {
       if (answerCallId) setCallId(answerCallId);
-
       const peer = peerMap.current.get(String(from));
-      if (!peer) {
-        console.warn("No peer found for", from);
-        return;
-      }
-
+      if (!peer) return;
       try {
         await peer.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log("✅ Remote answer applied for", from);
-      } catch (err) {
-        console.error("Error applying remote answer:", err);
+        setInCall(true);
+      } catch (e) {
+        console.error("handleCallAccepted error", e);
       }
-
-      setInCall(true);
     };
 
-    // generic answer (relayed)
+    // generic relayed answer
     const handleAnswer = async ({ answer, from, callId: answerCallId }) => {
-      console.log("📡 answer (relayed) from", from, "callId:", answerCallId);
       if (answerCallId) setCallId(answerCallId);
       const peer = peerMap.current.get(String(from));
-      if (!peer) {
-        console.warn("answer for unknown peer", from);
-        return;
-      }
+      if (!peer) return;
       try {
         await peer.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log("✅ Remote answer applied for", from);
-      } catch (err) {
-        console.error("Error applying remote answer:", err);
+        setInCall(true);
+      } catch (e) {
+        console.error("handleAnswer error", e);
       }
-      setInCall(true);
     };
 
-    // incoming offer: we are the callee for this pair (create answer)
-    const handleOffer = async ({
-      offer,
-      from,
-      callId: offerCallId,
-      fromUsername,
-    }) => {
-      console.log("📩 offer from", from, "callId:", offerCallId);
+    // generic relayed offer (we are receiving offer => create answer)
+    const handleOffer = async ({ offer, from, callId: offerCallId, fromUsername }) => {
       try {
-        // ensure local stream exists (video if requested by callType is unknown here)
+        // ensure we have media (try video true to allow remote video)
         await ensureLocalStream(true);
 
-        // if already have a peer for this 'from', close it first
+        // close any previous peer for this user
         closePeerFor(from);
 
-        const peer = new RTCPeerConnection({
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-        });
+        const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
         peer.ontrack = (e) => {
+          // ONLY set remote stream when ontrack fires with actual stream (no placeholder)
           if (e.streams && e.streams[0]) {
-            console.log("📡 ontrack from", from);
             setRemoteStreamFor(from, e.streams[0]);
           }
         };
 
         peer.onicecandidate = (e) => {
           if (e.candidate) {
-            socket.emit("iceCandidate", {
-              to: from,
-              from: userId,
-              candidate: e.candidate,
-            });
+            socket.emit("iceCandidate", { to: from, from: userId, candidate: e.candidate });
           }
         };
 
-        // add local tracks
-        localStream?.getTracks()?.forEach((t) => peer.addTrack(t, localStream));
+        // add local tracks (if available)
+        if (localStream) {
+          try {
+            localStream.getTracks().forEach((t) => peer.addTrack(t, localStream));
+          } catch (e) {
+            console.warn("handleOffer addTrack error", e);
+          }
+        }
 
         peerMap.current.set(String(from), peer);
 
-        // set remote offer and answer
         await peer.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
 
-        // send answer back (use generic 'answer' relay)
-        socket.emit("answer", {
-          to: from,
-          answer,
-          from: userId,
-          fromUsername: currentUsername,
-          callId: offerCallId,
-        });
+        socket.emit("answer", { to: from, answer, from: userId, fromUsername: currentUsername, callId: offerCallId });
       } catch (err) {
         console.error("handleOffer error:", err);
       }
     };
 
-    // ICE candidates from remote peer
+    // ICE candidate handling
     const handleIceCandidate = ({ from, candidate }) => {
       const peer = peerMap.current.get(String(from));
-      if (!peer) {
-        console.warn("ICE for unknown peer", from);
-        return;
-      }
-      if (!candidate) return;
+      if (!peer) return;
       try {
+        if (!candidate) return;
         peer.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (e) {
         console.error("Error adding ICE candidate:", e);
       }
     };
 
-    // existing participant(s) created offer for new participant
-    const handleParticipantJoined = async ({
-      newUser,
-      callId: pCallId,
-      participants,
-    }) => {
-      // This event is received by EXISTING participants when someone joins.
-      // Existing participants should create an offer directed to the new user.
+    // When an existing participant is asked to create an offer for a newly-joined user
+    const handleParticipantJoined = async ({ newUser, callId: pCallId }) => {
+      if (!newUser || !newUser.userId) return;
+      const newUserId = String(newUser.userId);
+
       try {
-        if (!newUser || !newUser.userId) return;
-        const newUserId = String(newUser.userId);
-
-        console.log("🔔 participant-joined → create offer to", newUserId);
-
-        // ensure we have local stream
+        // ensure we have local stream (video allowed)
         await ensureLocalStream(true);
 
-        // close any existing peer entry to newUser
+        // close existing peer for newUser if any (avoid placeholders)
         closePeerFor(newUserId);
 
-        const peer = new RTCPeerConnection({
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-        });
+        const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
         peer.ontrack = (e) => {
           if (e.streams && e.streams[0]) {
-            console.log("📡 ontrack from", newUserId);
             setRemoteStreamFor(newUserId, e.streams[0]);
           }
         };
 
         peer.onicecandidate = (e) => {
           if (e.candidate) {
-            socket.emit("iceCandidate", {
-              to: newUserId,
-              from: userId,
-              candidate: e.candidate,
-            });
+            socket.emit("iceCandidate", { to: newUserId, from: userId, candidate: e.candidate });
           }
         };
 
         // add local tracks
-        localStream?.getTracks()?.forEach((t) => peer.addTrack(t, localStream));
+        if (localStream) {
+          localStream.getTracks().forEach((t) => peer.addTrack(t, localStream));
+        }
 
-        // save peer before creating offer
         peerMap.current.set(String(newUserId), peer);
 
         const offer = await peer.createOffer();
         await peer.setLocalDescription(offer);
 
-        // emit offer to new participant (server will relay)
-        socket.emit("offer", {
-          to: newUserId,
-          offer,
-          from: userId,
-          fromUsername: currentUsername,
-          callId: pCallId,
-        });
+        socket.emit("offer", { to: newUserId, offer, from: userId, fromUsername: currentUsername, callId: pCallId });
       } catch (e) {
-        console.error("handleParticipantJoined error:", e);
+        console.error("handleParticipantJoined error", e);
       }
     };
 
-    // user left call (cleanup)
+    // When someone leaves the call room
     const handleUserLeftCall = ({ userId: leftUserId } = {}) => {
-      console.log("userLeftCall", leftUserId);
       closePeerFor(leftUserId);
     };
 
-    const handleEndCall = (payload) => {
-      console.log("📴 endCall", payload);
+    const handleEndCall = () => {
       cleanup();
     };
 
     const handleCallCancelled = () => {
-      console.log("📴 callCancelled");
       cleanup();
     };
 
-    // invite / call events (for UI tiles)
-    const handleInviteRinging = ({
-      userId: invitedUserId,
-      username,
-      inviterId,
-      callId: incomingCallId,
-    } = {}) => {
-      // front-end UI will listen to "call-invite-ringing" to create tiles
-      if (incomingCallId && !callId) setCallId(incomingCallId);
+    // INVITE ringing for UI only — do NOT create placeholder remote streams here
+    const handleInviteRinging = ({ callId: evCallId } = {}) => {
+      if (evCallId && !callId) setCallId(evCallId);
     };
 
-    // Bind socket listeners
     socket.on("incomingCall", handleIncomingCall);
     socket.on("call-created", handleCallCreated);
-    socket.on("callAccepted", handleCallAccepted); // legacy 1:1
-    socket.on("answer", handleAnswer); // generic relayed answer
-    socket.on("offer", handleOffer); // generic relayed offer
+    socket.on("callAccepted", handleCallAccepted); // legacy
+    socket.on("answer", handleAnswer);
+    socket.on("offer", handleOffer);
     socket.on("iceCandidate", handleIceCandidate);
     socket.on("participant-joined", handleParticipantJoined);
     socket.on("userLeftCall", handleUserLeftCall);
@@ -347,11 +281,11 @@ export function useCall(userId, currentUsername) {
       socket.off("callCancelled", handleCallCancelled);
       socket.off("call-invite-ringing", handleInviteRinging);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, callId, localStream, currentUsername]);
 
   // ------------------------------------------------------------------
   // START a call (caller)
-  // remoteUser = { id, username } — single user to initiate 1:1 with
   // ------------------------------------------------------------------
   async function startCall(type, remoteUser) {
     if (!remoteUser) return console.warn("startCall missing remoteUser");
@@ -365,37 +299,27 @@ export function useCall(userId, currentUsername) {
       });
       setLocalStream(stream);
 
-      // create peer
-      const peer = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-      });
+      // create peer for the initial 1:1
+      const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
       peer.ontrack = (e) => {
-        console.log("📡 ontrack (caller) from", remoteUser.id, e.streams);
-        if (e.streams && e.streams[0])
+        if (e.streams && e.streams[0]) {
           setRemoteStreamFor(remoteUser.id, e.streams[0]);
+        }
       };
 
       peer.onicecandidate = (e) => {
         if (e.candidate) {
-          socket.emit("iceCandidate", {
-            to: remoteUser.id,
-            from: userId,
-            candidate: e.candidate,
-          });
+          socket.emit("iceCandidate", { to: remoteUser.id, from: userId, candidate: e.candidate });
         }
       };
 
-      // add local tracks
       stream.getTracks().forEach((t) => peer.addTrack(t, stream));
-
       peerMap.current.set(String(remoteUser.id), peer);
 
-      // offer
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
 
-      // emit callUser (server will create callId and notify callee)
       socket.emit("callUser", {
         from: userId,
         fromUsername: currentUsername,
@@ -403,6 +327,8 @@ export function useCall(userId, currentUsername) {
         offer,
         callType: type,
       });
+
+      // caller will receive call-created event and callee's incomingCall
     } catch (err) {
       console.error("startCall error:", err);
       cleanup();
@@ -410,16 +336,15 @@ export function useCall(userId, currentUsername) {
   }
 
   // ------------------------------------------------------------------
-  // ACCEPT an incoming call (callee)
+  // ACCEPT an incoming call
   // ------------------------------------------------------------------
   async function acceptCall() {
     if (!incoming) return console.warn("acceptCall: no incoming call");
 
     const isAddUser = incoming.isAddUser === true;
 
-    // For add-user invite: just set up local stream and join the call room.
-    // Existing participants will create offers to this new joiner via `participant-joined`.
     if (isAddUser) {
+      // join existing call room — do not create local remote placeholders
       try {
         setCallType(incoming.invitedType || incoming.type);
         setCallId(incoming.callId || callId);
@@ -427,14 +352,12 @@ export function useCall(userId, currentUsername) {
 
         await ensureLocalStream(incoming.invitedType === "video");
 
-        // emit join so server registers and notifies others
         socket.emit("call-invite-joined", {
           userId,
           username: currentUsername,
           callId: incoming.callId || callId,
         });
 
-        // clear the incoming invite UI
         setIncoming(null);
         return;
       } catch (err) {
@@ -444,7 +367,7 @@ export function useCall(userId, currentUsername) {
       }
     }
 
-    // Normal 1:1 flow (has offer)
+    // Normal 1:1 offer/answer flow
     setCallType(incoming.callType);
     setCallId(incoming.callId || callId);
     setInCall(true);
@@ -456,38 +379,27 @@ export function useCall(userId, currentUsername) {
       });
       setLocalStream(stream);
 
-      const peer = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-      });
+      const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
       peer.ontrack = (e) => {
-        console.log("📡 ontrack (callee) from", incoming.from, e.streams);
-        if (e.streams && e.streams[0])
+        if (e.streams && e.streams[0]) {
           setRemoteStreamFor(incoming.from, e.streams[0]);
+        }
       };
 
       peer.onicecandidate = (e) => {
         if (e.candidate) {
-          socket.emit("iceCandidate", {
-            to: incoming.from,
-            from: userId,
-            candidate: e.candidate,
-          });
+          socket.emit("iceCandidate", { to: incoming.from, from: userId, candidate: e.candidate });
         }
       };
 
       stream.getTracks().forEach((t) => peer.addTrack(t, stream));
-
       peerMap.current.set(String(incoming.from), peer);
 
-      // set remote (offer) then create answer
-      await peer.setRemoteDescription(
-        new RTCSessionDescription(incoming.offer)
-      );
+      await peer.setRemoteDescription(new RTCSessionDescription(incoming.offer));
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
 
-      // send answer back, include callId so server can attach user to call room
       socket.emit("answer", {
         to: incoming.from,
         answer,
@@ -496,12 +408,8 @@ export function useCall(userId, currentUsername) {
         callId: incoming.callId || callId,
       });
 
-      // notify server we're joined (so other participants can update tiles)
-      socket.emit("call-invite-joined", {
-        userId,
-        username: currentUsername,
-        callId: incoming.callId || callId,
-      });
+      // Now tell server we joined so other participants can create offers to us
+      socket.emit("call-invite-joined", { userId, username: currentUsername, callId: incoming.callId || callId });
 
       setIncoming(null);
     } catch (err) {
@@ -511,17 +419,16 @@ export function useCall(userId, currentUsername) {
   }
 
   // ------------------------------------------------------------------
-  // Add an existing user into the current call (inviter)
+  // Add user to call (inviter)
+  // IMPORTANT: do NOT create any placeholder remote entry here.
+  // Just notify server and let server trigger call-invite-ringing + participant-joined flows.
   // ------------------------------------------------------------------
   function addUserToCall(addedUserId, addedUsername) {
     if (!callId) {
-      console.warn(
-        "No callId set — cannot add user. Wait for server to create call."
-      );
+      console.warn("No callId set — cannot add user. Wait for server to create call.");
       return;
     }
 
-    // emit to server to ring + notify call room
     socket.emit("call-add-user", {
       addedUserId,
       addedUsername,
@@ -533,7 +440,7 @@ export function useCall(userId, currentUsername) {
   }
 
   // ------------------------------------------------------------------
-  // Cancel invite (caller-side)
+  // Cancel invite
   // ------------------------------------------------------------------
   function cancelInviteFor(addedUserId) {
     if (!callId) return;
@@ -546,17 +453,15 @@ export function useCall(userId, currentUsername) {
   function endCall() {
     if (callId) {
       socket.emit("endCall", { callId, from: userId });
-      // server will broadcast endCall to call room
     }
     cleanup();
   }
 
   // ------------------------------------------------------------------
-  // Cleanup peers + streams
+  // Cleanup
   // ------------------------------------------------------------------
   function cleanup() {
     console.log("🧹 cleanup");
-
     try {
       localStream?.getTracks()?.forEach((t) => t.stop());
     } catch (e) {
@@ -564,18 +469,17 @@ export function useCall(userId, currentUsername) {
     }
 
     try {
-      // stop all remote streams
       remoteStreamsMap?.forEach((s) => {
         try {
           s?.getTracks()?.forEach((t) => t.stop());
-        } catch {}
+        } catch (e) {}
       });
     } catch (e) {}
 
     peerMap.current.forEach((peer) => {
       try {
         peer.close();
-      } catch {}
+      } catch (e) {}
     });
     peerMap.current.clear();
 
@@ -589,7 +493,6 @@ export function useCall(userId, currentUsername) {
     setIsScreenSharing(false);
     setInCall(false);
   }
-
 
   // ---- Screen Share ----
   async function startScreenShare() {
@@ -661,7 +564,7 @@ export function useCall(userId, currentUsername) {
   }
 
   // ------------------------------------------------------------------
-  // Exposed values and functions
+  // Exposed API
   // ------------------------------------------------------------------
   return {
     callState: {
@@ -672,20 +575,13 @@ export function useCall(userId, currentUsername) {
       active: inCall,
     },
     localStream,
-    // convert map to array of streams (preserves order by map insertion)
-    remoteStreams: Array.from(remoteStreamsMap.entries()).map(
-      ([userId, stream]) => ({ userId, stream })
-    ),
+    remoteStreams, // array form of remoteStreamsMap
     startCall,
     acceptCall,
     rejectCall: () => {
       if (incoming) {
         if (incoming.isAddUser) {
-          // cancel add-user invite
-          socket.emit("call-invite-cancel", {
-            userId: userId,
-            callId: incoming.callId || callId,
-          });
+          socket.emit("call-invite-cancel", { userId: userId, callId: incoming.callId || callId });
         } else {
           socket.emit("cancelCall", { to: incoming.from, from: userId });
         }
@@ -716,6 +612,6 @@ export function useCall(userId, currentUsername) {
     setIsMaximized,
     inCall,
     startScreenShare,
-    stopScreenShare,
+    stopScreenShare
   };
 }

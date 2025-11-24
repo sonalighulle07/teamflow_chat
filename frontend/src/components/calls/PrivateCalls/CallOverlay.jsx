@@ -1,18 +1,7 @@
-// CallOverlay.jsx
+// CallOverlay.jsx (updated)
 import React, { useEffect, useRef, useState } from "react";
 import socket from "../hooks/socket";
 import { useSelector } from "react-redux";
-
-/*
-Props:
- - callId (optional) — provided by useCall.callState.callId
- - callType, localStream, remoteStreams (array of {userId, stream}),
- - onEndCall, onToggleMic, onToggleCam, onStartScreenShare, onStopScreenShare,
- - isScreenSharing, isMuted, isVideoEnabled, onMinimize, onMaximize, onClose,
- - isMaximized, inCall,
- - addUser (function) -> will call useCall.addUserToCall
- - cancelInvite (function) -> useCall.cancelInviteFor
-*/
 
 export default function CallOverlay({
   callId,
@@ -32,18 +21,16 @@ export default function CallOverlay({
   onClose,
   isMaximized,
   inCall,
-  addUser, // provided by useCall.addUserToCall
-  cancelInvite, // provided by useCall.cancelInviteFor
+  addUser,
+  cancelInvite,
 }) {
   const localVideoRef = useRef(null);
-  const remoteVideoRefs = useRef([]);
+  const remoteVideoRefs = useRef({}); // map userId -> element
 
   const userList = useSelector((state) => state.user.userList || []);
   const currentUser = useSelector((state) => state.user.currentUser);
 
   const [showUserList, setShowUserList] = useState(false);
-
-  // pendingInvites: array of { id: userId, username, status, timeoutId }
   const [pendingInvites, setPendingInvites] = useState([]);
 
   const statusColors = {
@@ -54,6 +41,18 @@ export default function CallOverlay({
     cancelled: "#d93025",
   };
 
+  // safe resolver for usernames (always prefer Redux data)
+  const resolveUsername = (uid) => {
+    if (!uid && uid !== 0) return "User";
+    const u = userList.find((x) => String(x.id) === String(uid));
+    return u?.username || `User ${uid}`;
+  };
+
+  // Helpers to check if a user already has a live stream
+  const hasLiveStream = (uid) => {
+    return remoteStreams.some((r) => String(r.userId) === String(uid) && r.stream && r.stream.getTracks && r.stream.getTracks().length > 0);
+  };
+
   // attach local stream
   useEffect(() => {
     if (localVideoRef.current && localStream) {
@@ -61,43 +60,54 @@ export default function CallOverlay({
     }
   }, [localStream]);
 
-  // attach remote streams into video refs
+  // attach remote streams into video refs keyed by userId (safely)
   useEffect(() => {
-    remoteVideoRefs.current = remoteVideoRefs.current.slice(0, remoteStreams.length);
+    remoteStreams.forEach((r) => {
+      if (!r || !r.stream) return;
+      if (!r.stream.getTracks || r.stream.getTracks().length === 0) return;
 
-    remoteStreams.forEach((r, idx) => {
-      const el = remoteVideoRefs.current[idx];
-      if (el && r?.stream && el.srcObject !== r.stream) {
-        el.srcObject = r.stream;
+      const key = String(r.userId);
+      const el = remoteVideoRefs.current[key];
+      if (el && el.srcObject !== r.stream) {
+        try {
+          el.srcObject = r.stream;
+        } catch (e) {
+          // some browsers may throw if autoplay restrictions block this — ignore
+        }
       }
     });
   }, [remoteStreams]);
 
   // helper: create invite tile (id = userId)
   const addInviteTile = (userId, username, status = "ringing", timeoutMs = 15000) => {
+    const idStr = String(userId);
+    // don't create invite if this user already has a live stream
+    if (hasLiveStream(idStr)) return;
+
     setPendingInvites((prev) => {
-      if (prev.some((p) => p.id === String(userId))) return prev;
+      if (prev.some((p) => p.id === idStr)) return prev;
 
       const timeoutId = setTimeout(() => {
-        // mark as no-answer then remove after short delay and notify server
-        setPendingInvites((prev2) => prev2.map((it) => (it.id === String(userId) ? { ...it, status: "no-answer" } : it)));
+        setPendingInvites((prev2) => prev2.map((it) => (it.id === idStr ? { ...it, status: "no-answer" } : it)));
         setTimeout(() => {
-          setPendingInvites((prev2) => prev2.filter((it) => it.id !== String(userId)));
-          socket.emit("call-invite-timeout-remove", { userId, callId });
+          setPendingInvites((prev2) => prev2.filter((it) => it.id !== idStr));
+          try {
+            socket.emit("call-invite-timeout-remove", { userId, callId });
+          } catch (e) {}
         }, 3000);
       }, timeoutMs);
 
-      return [...prev, { id: String(userId), username: username || "User", status, timeoutId }];
+      return [...prev, { id: idStr, username: username || "User", status, timeoutId }];
     });
   };
 
   const updateInviteStatus = (userId, status) => {
-    setPendingInvites((prev) => prev.map((p) => (p.id === String(userId) ? { ...p, status } : p)));
-    // clear timeouts for final statuses
+    const idStr = String(userId);
+    setPendingInvites((prev) => prev.map((p) => (p.id === idStr ? { ...p, status } : p)));
     if (["joined", "rejected", "cancelled", "no-answer"].includes(status)) {
       setPendingInvites((prev) => {
         prev.forEach((p) => {
-          if (p.id === String(userId) && p.timeoutId) {
+          if (p.id === idStr && p.timeoutId) {
             clearTimeout(p.timeoutId);
           }
         });
@@ -107,31 +117,29 @@ export default function CallOverlay({
   };
 
   const removeInviteTile = (userId) => {
+    const idStr = String(userId);
     setPendingInvites((prev) => {
-      prev.forEach((p) => p.id === String(userId) && p.timeoutId && clearTimeout(p.timeoutId));
-      return prev.filter((p) => p.id !== String(userId));
+      prev.forEach((p) => p.id === idStr && p.timeoutId && clearTimeout(p.timeoutId));
+      return prev.filter((p) => p.id !== idStr);
     });
   };
 
-  // when user clicks "Add" from popup
   const handleAddClick = (uid) => {
     const u = userList.find((x) => String(x.id) === String(uid));
-    
-    addInviteTile(uid, u?.username || "User", "ringing");
-    // notify server to add the user into this call room
+    const name = u?.username || `User ${uid}`;
 
+    // add UI tile (will be discarded if the user has a live stream)
+    addInviteTile(uid, name, "ringing");
 
     if (typeof addUser === "function" && callId) {
-      addUser(uid, u?.username || "User");
+      addUser(uid, name);
     } else {
-      // fallback emit for compatibility
-      socket.emit("call-add-user", { addedUserId: uid, addedUsername: u?.username || "User", inviterId: null, callId });
+      socket.emit("call-add-user", { addedUserId: uid, addedUsername: name, inviterId: null, callId });
     }
     setShowUserList(false);
   };
 
   const handleCancelInvite = (uid) => {
-    // cancel on UI and notify server
     removeInviteTile(uid);
     if (typeof cancelInvite === "function" && callId) {
       cancelInvite(uid);
@@ -140,59 +148,81 @@ export default function CallOverlay({
     }
   };
 
-  // ------------------------------------------------------------------
-  // Socket listeners - only respond to events matching this callId
-  // ------------------------------------------------------------------
+  // Socket listeners for invite lifecycle (UI only)
   useEffect(() => {
     if (!callId) return;
 
-    const onInviteRinging = ({ userId: invitedId, username, inviterId, callId: evCallId }) => {
+    // server payloads can differ; normalize carefully and prefer Redux username
+    const onInviteRinging = (payload = {}) => {
+      // payload might be { userId } or { addedUserId } or full participant object
+      const invitedId = payload.userId || payload.addedUserId || (payload.participant && payload.participant.userId);
+      if (!invitedId) return;
+      const evCallId = payload.callId || payload.call_id || payload.callId;
       if (evCallId !== callId) return;
-      // create a tile for everyone in call
-      addInviteTile(invitedId, username, "ringing");
+
+      const name = resolveUsername(invitedId);
+      addInviteTile(invitedId, name, "ringing");
     };
 
-    const onInviteCancel = ({ userId: invitedId, callId: evCallId }) => {
-      if (evCallId !== callId) return;
+    const onInviteCancel = (payload = {}) => {
+      const invitedId = payload.userId || payload.addedUserId;
+      const evCallId = payload.callId || payload.call_id;
+      if (!invitedId || evCallId !== callId) return;
       updateInviteStatus(invitedId, "cancelled");
       setTimeout(() => removeInviteTile(invitedId), 2000);
     };
 
-    const onInviteTimeout = ({ userId: invitedId, callId: evCallId }) => {
-      if (evCallId !== callId) return;
+    const onInviteTimeout = (payload = {}) => {
+      const invitedId = payload.userId || payload.addedUserId;
+      const evCallId = payload.callId || payload.call_id;
+      if (!invitedId || evCallId !== callId) return;
       updateInviteStatus(invitedId, "no-answer");
       setTimeout(() => removeInviteTile(invitedId), 2500);
     };
 
-    const onInviteTimeoutRemove = ({ userId: invitedId, callId: evCallId }) => {
-      if (evCallId !== callId) return;
+    const onInviteTimeoutRemove = (payload = {}) => {
+      const invitedId = payload.userId || payload.addedUserId;
+      const evCallId = payload.callId || payload.call_id;
+      if (!invitedId || evCallId !== callId) return;
       removeInviteTile(invitedId);
     };
 
-    const onInviteJoined = ({ userId: joinedId, username, callId: evCallId }) => {
-      // some server variants send keys differently; handle both shapes
-      const id = joinedId || (typeof userId !== "undefined" ? userId : null);
-      if (evCallId !== callId) return;
-      updateInviteStatus(id || joinedId || userId, "joined");
-      setTimeout(() => removeInviteTile(id || joinedId || userId), 1500);
+    const onInviteJoined = (payload = {}) => {
+      // payload may be { userId, username, callId } or nested shapes
+      const joinedId = payload.userId || payload.user_id || (payload.newUser && payload.newUser.userId);
+      const evCallId = payload.callId || payload.call_id;
+      if (!joinedId || evCallId !== callId) return;
+
+      // If user already has a live stream, ensure we don't show invite tile
+      if (hasLiveStream(joinedId)) {
+        removeInviteTile(joinedId);
+        return;
+      }
+
+      updateInviteStatus(joinedId, "joined");
+      setTimeout(() => removeInviteTile(joinedId), 1500);
     };
 
-    // Also some server emits 'call-user-joined' or 'call-invite-joined'
-    const onCallUserJoined = (payload) => {
-      const evCallId = payload.callId || payload.call_id || null;
-      const id = payload.userId || payload.user_id || payload.userId;
-      if (!evCallId || evCallId !== callId) return;
+    const onCallUserJoined = (payload = {}) => {
+      const evCallId = payload.callId || payload.call_id;
+      const id = payload.userId || payload.user_id || (payload.newUser && payload.newUser.userId);
+      if (!id || evCallId !== callId) return;
+
+      if (hasLiveStream(id)) {
+        removeInviteTile(id);
+        return;
+      }
+
       updateInviteStatus(id, "joined");
       setTimeout(() => removeInviteTile(id), 1500);
     };
 
-    // Attach listeners
     socket.on("call-invite-ringing", onInviteRinging);
     socket.on("call-invite-cancel", onInviteCancel);
     socket.on("call-invite-timeout", onInviteTimeout);
     socket.on("call-invite-timeout-remove", onInviteTimeoutRemove);
     socket.on("call-invite-joined", onInviteJoined);
-    socket.on("call-user-joined", onCallUserJoined); // alternative
+    socket.on("call-user-joined", onCallUserJoined);
 
     return () => {
       socket.off("call-invite-ringing", onInviteRinging);
@@ -202,19 +232,10 @@ export default function CallOverlay({
       socket.off("call-invite-joined", onInviteJoined);
       socket.off("call-user-joined", onCallUserJoined);
     };
-  }, [callId, userList]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callId, userList, remoteStreams]);
 
-  // ------------------------------------------------------------------
-  // Render helpers
-  // ------------------------------------------------------------------
-  const remoteStreamsUsernames = remoteStreams.map((r) => {
-    const u = userList.find((x) => String(x.id) === String(r.userId));
-    return u?.username || `User ${r.userId}`;
-  });
-
-  // ------------------------------------------------------------------
-  // UI
-  // ------------------------------------------------------------------
+  // UI pieces
   return (
     <div
       style={{
@@ -234,7 +255,7 @@ export default function CallOverlay({
         zIndex: 2000,
       }}
     >
-      {/* Top Bar */}
+      {/* Top bar */}
       <div
         style={{
           height: 42,
@@ -264,7 +285,7 @@ export default function CallOverlay({
         </div>
       </div>
 
-      {/* User list popup */}
+      {/* Add user popup */}
       {showUserList && (
         <div style={{ position: "absolute", top: 50, right: 12, width: 220, background: "#2b2b2b", padding: 10, borderRadius: 8, zIndex: 4000 }}>
           <div style={{ color: "#fff", fontWeight: 600 }}>Add user</div>
@@ -282,43 +303,63 @@ export default function CallOverlay({
         </div>
       )}
 
-      {/* Grid: Pending invites + remote streams */}
+      {/* Grid container: pending invites and remote streams separated (display:contents prevents reserved empty cells) */}
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8, padding: 8, background: "#000" }}>
-        {/* pending invites */}
-        {pendingInvites.map((p) => (
-          <div key={p.id} style={{ background: "#121212", border: "1px solid #333", padding: 10, borderRadius: 8, color: "#fff", textAlign: "center" }}>
-            <div style={{ fontWeight: 700 }}>{p.username}</div>
-            <div style={{ marginTop: 8, color: statusColors[p.status] }}>
-              {p.status === "ringing" && "📞 Ringing…"}
-              {p.status === "rejected" && "❌ Rejected"}
-              {p.status === "no-answer" && "👋 Buddy didn’t join"}
-              {p.status === "joined" && "🟢 Joined"}
-              {p.status === "cancelled" && "🚫 Cancelled"}
-            </div>
+        <div style={{ display: "contents" }}>
+          {/* pending invites (render first) */}
+          {pendingInvites.map((p) => (
+            <div key={p.id} style={{ background: "#121212", border: "1px solid #333", padding: 10, borderRadius: 8, color: "#fff", textAlign: "center" }}>
+              <div style={{ fontWeight: 700 }}>{p.username}</div>
+              <div style={{ marginTop: 8, color: statusColors[p.status] }}>
+                {p.status === "ringing" && "📞 Ringing…"}
+                {p.status === "rejected" && "❌ Rejected"}
+                {p.status === "no-answer" && "👋 Buddy didn’t join"}
+                {p.status === "joined" && "🟢 Joined"}
+                {p.status === "cancelled" && "🚫 Cancelled"}
+              </div>
 
-            {p.status === "ringing" && (
-              <button onClick={() => handleCancelInvite(p.id)} style={{ marginTop: 10, padding: "6px 10px", background: "#d93025", borderRadius: 6, color: "#fff" }}>
-                Cancel
-              </button>
-            )}
-          </div>
-        ))}
-
-        {/* remote streams */}
-        {remoteStreams.map((r, idx) => (
-          <div key={r.userId} style={{ position: "relative", background: "#000", borderRadius: 8, overflow: "hidden" }}>
-            <video ref={(el) => (remoteVideoRefs.current[idx] = el)} autoPlay playsInline style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            <div style={{ position: "absolute", bottom: 6, left: 6, background: "rgba(0,0,0,0.6)", padding: "4px 8px", borderRadius: 6, color: "#fff", fontSize: 12 }}>
-              {remoteStreamsUsernames[idx] || `User ${r.userId}`}
+              {p.status === "ringing" && (
+                <button onClick={() => handleCancelInvite(p.id)} style={{ marginTop: 10, padding: "6px 10px", background: "#d93025", borderRadius: 6, color: "#fff" }}>
+                  Cancel
+                </button>
+              )}
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+
+        <div style={{ display: "contents" }}>
+          {/* remote streams: only render when stream exists and has tracks */}
+          {remoteStreams
+            .filter((r) => r?.stream && r.stream.getTracks && r.stream.getTracks().length > 0)
+            .map((r) => {
+              const key = String(r.userId);
+              return (
+                <div key={key} style={{ position: "relative", background: "#000", borderRadius: 8, overflow: "hidden" }}>
+                  <video
+                    ref={(el) => {
+                      // only set ref when element exists and stream exists
+                      if (el && r.stream && r.stream.getTracks && r.stream.getTracks().length > 0) {
+                        remoteVideoRefs.current[key] = el;
+                        try {
+                          if (el.srcObject !== r.stream) el.srcObject = r.stream;
+                        } catch (e) {}
+                      }
+                    }}
+                    autoPlay
+                    playsInline
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                  <div style={{ position: "absolute", bottom: 6, left: 6, background: "rgba(0,0,0,0.6)", padding: "4px 8px", borderRadius: 6, color: "#fff", fontSize: 12 }}>
+                    {resolveUsername(r.userId)}
+                  </div>
+                </div>
+              );
+            })}
+        </div>
       </div>
 
       {/* local small preview */}
-      {callType === "video" && (
-        <video ref={localVideoRef} muted autoPlay playsInline style={{ width: 120, height: 90, position: "absolute", bottom: 90, right: 20, borderRadius: 8, border: "2px solid #fff" }} />
-      )}
+      {callType === "video" && <video ref={ localVideoRef } muted autoPlay playsInline style={{ width: 120, height: 90, position: "absolute", bottom: 90, right: 20, borderRadius: 8, border: "2px solid #fff" }} />}
 
       {/* controls */}
       <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 12, background: "rgba(0,0,0,0.6)", padding: "8px 12px", borderRadius: 30 }}>
