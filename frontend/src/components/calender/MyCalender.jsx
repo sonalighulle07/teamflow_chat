@@ -181,7 +181,6 @@ export default function MyCalendar() {
  
   useEffect(() => {
     fetchEvents();
- 
     //  Listen to Socket.IO updates
     socket.on("eventCreated", fetchEvents);
     socket.on("eventUpdated", fetchEvents);
@@ -231,7 +230,6 @@ export default function MyCalendar() {
       }
       setShowModal(false);
       setSelectedEvent(null);
-      //  No need to manually setEvents, fetchEvents will update via Socket.IO
     } catch (err) {
       console.error(err);
       alert("Failed to save event.");
@@ -244,7 +242,6 @@ export default function MyCalendar() {
       await axios.delete(`${URL}/${event.id}`);
       setShowModal(false);
       setSelectedEvent(null);
-      //  fetchEvents will be triggered by Socket.IO
     } catch (err) {
       console.error(err);
       alert("Failed to delete event.");

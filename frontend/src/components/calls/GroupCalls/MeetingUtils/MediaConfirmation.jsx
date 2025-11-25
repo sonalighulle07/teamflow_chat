@@ -15,6 +15,7 @@ const MediaConfirmation = ({ userId, currentUser }) => {
   
   
   console.log("param credentials:",credentials)
+  
   const code = credentials?.split("-")[2] || null;
   console.log("Room Code:", code);
 
