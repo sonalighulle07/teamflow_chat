@@ -116,8 +116,6 @@ module.exports = function callHandlers(io, socket) {
 
       try {
         // if caller already has callId on socket (rare), use it, otherwise create a new call
-        let callId = socket.callId;
-        if (!callId) {
           callId = createCallRoom(
             {
               userId: String(from),
@@ -128,7 +126,7 @@ module.exports = function callHandlers(io, socket) {
           );
           // store callId on caller socket so subsequent adds use it
           socket.callId = callId;
-        }
+          console.log("New call id after creation: ",callId)
 
         // Make caller join the call room (so caller sees call events)
         joinCallRoom(callId, from, fromUsername);
@@ -179,6 +177,8 @@ module.exports = function callHandlers(io, socket) {
       socket.callId = callId;
     }
 
+    console.log("Call Room has : ", activeCalls.get(callId));
+
     // relay the answer to the peer (use mapping)
     const targetSocketId = getSocketForUser(to);
     const payload = { answer, from, fromUsername, callId };
@@ -200,37 +200,72 @@ module.exports = function callHandlers(io, socket) {
     log(`cancelCall ${from} -> ${to} (callId=${callId})`);
   });
 
-  socket.on("endCall", ({ to, from, fromUsername, callId } = {}) => {
-    if (callId) {
-      // broadcast to whole call room
-      io.to(callId).emit("endCall", { from, fromUsername, callId });
+socket.on("endCall", ({ from, fromUsername, callId } = {}) => {
+  console.log("Inside end call....");
 
-      // remove sockets from that room and delete the call
-      try {
-        io.in(callId).socketsLeave(callId);
-      } catch (e) {
-        log("socketsLeave error:", e);
-      }
-      activeCalls.delete(callId);
-      log(`endCall: call ${callId} ended by ${from}`);
-    } else {
-      // fallback: direct end to 'to' user
-      const targetSocketId = getSocketForUser(to);
-      if (targetSocketId)
-        io.to(targetSocketId).emit("endCall", {
-          from,
-          fromUsername,
-          callId: null,
-        });
-      else
-        io.to(`user_${to}`).emit("endCall", {
-          from,
-          fromUsername,
-          callId: null,
-        });
-      log(`endCall: direct end from ${from} to ${to}`);
+  if (!callId || !activeCalls.has(callId)) {
+    console.log("Call not found");
+    return;
+  }
+
+  const call = activeCalls.get(callId);
+  const participants = call.participants; // THIS IS A MAP
+
+  console.log("active rooms while end-call: ", activeCalls);
+
+  // remove user from participants (MAP)
+  if (participants.has(String(from))) {
+    participants.delete(String(from));
+  }
+
+  const remainingCount = participants.size;
+  console.log("remainingCount :", remainingCount);
+  console.log("Remaining members:", Array.from(participants.keys()));
+
+  // -----------------------------------------------------
+  // If only 1 user remains → end entire call
+  // -----------------------------------------------------
+  if (remainingCount <= 1) {
+    io.to(callId).emit("endCall", {
+      from,
+      fromUsername,
+      callId,
+    });
+
+    try {
+      io.in(callId).socketsLeave(callId);
+    } catch (e) {
+      console.log("socketsLeave error:", e);
     }
+
+    activeCalls.delete(callId);
+    return;
+  }
+
+  // -----------------------------------------------------
+  // More than 2 users → only remove the leaving user
+  // -----------------------------------------------------
+  console.log("More than 2 users → only removing leaving user");
+  console.log("ledt user from backend:",from,fromUsername)
+
+  io.to(callId).emit("user-left-call", {
+    userId: from,
+    username: fromUsername,
+    callId,
   });
+
+  const socketId = getSocketForUser(from);
+  if (socketId) {
+    try {
+      io.sockets.sockets.get(socketId)?.leave(callId);
+    } catch (err) {
+      console.log("Error removing user from room:", err);
+    }
+  }
+
+  // update call
+  activeCalls.set(callId, call);
+});
 
   // ============================================================
   //             ADD USER TO EXISTING CALL (MULTI-USER)
@@ -246,7 +281,7 @@ module.exports = function callHandlers(io, socket) {
       type,
     } = {}) => {
       if (!addedUserId || !callId) {
-        log("call-add-user missing params", { addedUserId, callId });
+        console.log("call-add-user missing params", { addedUserId, callId });
         return;
       }
 

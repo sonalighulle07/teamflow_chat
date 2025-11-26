@@ -134,7 +134,7 @@ export default function CallOverlay({
     if (typeof addUser === "function" && callId) {
       addUser(uid, name);
     } else {
-      socket.emit("call-add-user", { addedUserId: uid, addedUsername: name, inviterId: null, callId });
+      socket.emit("call-add-user", { addedUserId: uid, addedUsername: name, inviterId: currentUser.id, callId });
     }
     setShowUserList(false);
   };
@@ -187,7 +187,7 @@ export default function CallOverlay({
       removeInviteTile(invitedId);
     };
 
-    const onInviteJoined = (payload = {}) => {
+  const onInviteJoined = (payload = {}) => {
       // payload may be { userId, username, callId } or nested shapes
       const joinedId = payload.userId || payload.user_id || (payload.newUser && payload.newUser.userId);
       const evCallId = payload.callId || payload.call_id;
@@ -266,7 +266,7 @@ export default function CallOverlay({
           padding: "0 12px",
           color: "#fff",
         }}
-      >
+       >
         <div>{callType === "video" ? "Call (Video)" : "Call (Audio)"}</div>
 
         <div style={{ display: "flex", gap: 10 }}>

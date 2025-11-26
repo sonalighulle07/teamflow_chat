@@ -11,6 +11,7 @@ import socket from "./socket";
  */
 
 export function useCall(userId, currentUsername) {
+
   console.log("🟢 useCall mounted for user:", userId);
 
   const [callType, setCallType] = useState(null);
@@ -30,9 +31,9 @@ export function useCall(userId, currentUsername) {
   // helpers: convert map to array
   const remoteStreams = Array.from(remoteStreamsMap.entries()).map(([userId, stream]) => ({ userId, stream }));
 
-  // ------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Helpers to manage remoteStreamsMap reactively (only set when real stream)
-  // ------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   const setRemoteStreamFor = (remoteUserId, stream) => {
     if (!stream) return; // defensive: ignore falsy streams
     setRemoteStreamsMap((prev) => {
@@ -95,7 +96,7 @@ export function useCall(userId, currentUsername) {
 
     // Normalize incoming payloads and set incoming state
     const handleIncomingCall = (payload) => {
-      // payload could be either normal 1:1 or add-user invite
+    // payload could be either normal 1:1 or add-user invite
       const normalized = {
         ...payload,
         isAddUser: payload.isAddUser === true,
@@ -198,6 +199,7 @@ export function useCall(userId, currentUsername) {
 
     // When an existing participant is asked to create an offer for a newly-joined user
     const handleParticipantJoined = async ({ newUser, callId: pCallId }) => {
+
       if (!newUser || !newUser.userId) return;
       const newUserId = String(newUser.userId);
 
@@ -233,17 +235,25 @@ export function useCall(userId, currentUsername) {
         await peer.setLocalDescription(offer);
 
         socket.emit("offer", { to: newUserId, offer, from: userId, fromUsername: currentUsername, callId: pCallId });
+
+        window.dispatchEvent(
+        new CustomEvent("user-joined-toast", { detail: { message: `${newUser.username === currentUsername ? "You" : newUser.username} Joined the call` } })
+    );
       } catch (e) {
         console.error("handleParticipantJoined error", e);
       }
     };
 
     // When someone leaves the call room
-    const handleUserLeftCall = ({ userId: leftUserId } = {}) => {
+    const handleUserLeftCall = ({ userId: leftUserId, username:leftUsername } = {}) => {
       closePeerFor(leftUserId);
+      window.dispatchEvent(
+      new CustomEvent("user-left-toast", { detail: { message: `${leftUsername === currentUsername ? "You" : leftUsername} left the call` } })
+    );
     };
 
     const handleEndCall = () => {
+      setCallId(null);
       cleanup();
     };
 
@@ -263,7 +273,7 @@ export function useCall(userId, currentUsername) {
     socket.on("offer", handleOffer);
     socket.on("iceCandidate", handleIceCandidate);
     socket.on("participant-joined", handleParticipantJoined);
-    socket.on("userLeftCall", handleUserLeftCall);
+    socket.on("user-left-call", handleUserLeftCall);
     socket.on("endCall", handleEndCall);
     socket.on("callCancelled", handleCallCancelled);
     socket.on("call-invite-ringing", handleInviteRinging);
@@ -300,7 +310,7 @@ export function useCall(userId, currentUsername) {
       setLocalStream(stream);
 
       // create peer for the initial 1:1
-      const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      const peer = new RTCPeerConnection({ iceServers : [{ urls: "stun:stun.l.google.com:19302" }] });
 
       peer.ontrack = (e) => {
         if (e.streams && e.streams[0]) {
@@ -439,6 +449,7 @@ export function useCall(userId, currentUsername) {
     });
   }
 
+
   // ------------------------------------------------------------------
   // Cancel invite
   // ------------------------------------------------------------------
@@ -452,8 +463,9 @@ export function useCall(userId, currentUsername) {
   // ------------------------------------------------------------------
   function endCall() {
     if (callId) {
-      socket.emit("endCall", { callId, from: userId });
+      socket.emit("endCall", { callId, from: userId, fromUsername: currentUsername } );
     }
+    setCallId(null);
     cleanup();
   }
 
@@ -481,6 +493,7 @@ export function useCall(userId, currentUsername) {
         peer.close();
       } catch (e) {}
     });
+
     peerMap.current.clear();
 
     setLocalStream(null);
@@ -492,6 +505,7 @@ export function useCall(userId, currentUsername) {
     setIsVideoEnabled(true);
     setIsScreenSharing(false);
     setInCall(false);
+
   }
 
   // ---- Screen Share ----
@@ -567,6 +581,7 @@ export function useCall(userId, currentUsername) {
   // Exposed API
   // ------------------------------------------------------------------
   return {
+
     callState: {
       callId,
       incoming,
@@ -613,5 +628,6 @@ export function useCall(userId, currentUsername) {
     inCall,
     startScreenShare,
     stopScreenShare
+    
   };
 }

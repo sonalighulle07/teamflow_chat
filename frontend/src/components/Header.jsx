@@ -26,6 +26,10 @@ export default function Header({
 
   const [hasJoinedMeeting, setHasJoinedMeeting] = useState(false);
 
+  const [showToast, setShowToast] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
+  
+
   const searchInputRef = useRef(null);
   const { selectedUser, activeNav } = useSelector((state) => state.user);
   const username = activeUser?.username || "Guest";
@@ -141,6 +145,29 @@ socket.emit(
   useEffect(() => {
     if (showSearch && searchInputRef.current) searchInputRef.current.focus();
   }, [showSearch]);
+
+
+
+    // --------------------------------------------------------
+    // TOAST SYSTEM
+    // --------------------------------------------------------
+    useEffect(() => {
+      const handler = (e) => {
+        setToastMsg(e.detail?.message || "");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      };
+  
+      window.addEventListener("user-left-toast", handler);
+      window.addEventListener("user-joined-toast",handler);
+      return () =>{ 
+        window.removeEventListener("user-left-toast", handler);
+        window.removeEventListener("user-joined-toast",handler);
+      }
+      
+    }, []);
+
+
 
   // ----------------- Logout -----------------
   const logout = () => {
@@ -288,6 +315,16 @@ socket.emit(
             </div>
           )}
         </div>
+
+          <div>
+            {/* TOAST */}
+    {showToast && (
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-purple-600 text-white rounded shadow-lg z-[3000]">
+        {toastMsg}
+      </div>
+    )}
+          </div>
+
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
