@@ -14,131 +14,271 @@ export function useMeeting(userId, roomCode, teamId = null) {
   const peerMap = useRef(new Map());
   const hasJoinedRef = useRef(false);
   const localStreamRef = useRef(null);
+  
+// ------------------------------------------
+// JOIN MEETING (revamped)
+// ------------------------------------------
+async function joinMeeting({ micEnabled = true, camEnabled = true } = {}) {
+  if (hasJoinedRef.current) return;
 
-  // JOIN MEETING
-  async function joinMeeting({ micEnabled = true, camEnabled = true } = {}) {
-    if (hasJoinedRef.current) return;
+  console.log("Join meeting called with micEnabled:", micEnabled, "camEnabled:", camEnabled);
 
-    console.log("Join meeting called with micEnabled:", micEnabled, "camEnabled:", camEnabled);
-
-    const sessionKey = `joined_${roomCode}_${userId}`;
-    if (sessionStorage.getItem(sessionKey)) {
-      hasJoinedRef.current = true;
-      return;
-    }
+  const sessionKey = `joined_${roomCode}_${userId}`;
+  if (sessionStorage.getItem(sessionKey)) {
     hasJoinedRef.current = true;
-    sessionStorage.setItem(sessionKey, "true");
+    return;
+  }
+  hasJoinedRef.current = true;
+  sessionStorage.setItem(sessionKey, "true");
 
-   
-    // Get media
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      stream.getAudioTracks().forEach((t) => (t.enabled = !!micEnabled));
-      stream.getVideoTracks().forEach((t) => (t.enabled = !!camEnabled));
-    } catch (err) {
-      console.error("Failed to get user media:", err);
-      stream = new MediaStream();
-    }
-
-    // Clone it
-    const clonedStream = new MediaStream(stream.getTracks());
-    setPreviewStream(clonedStream);
-    updateLocalStream(clonedStream);
-
-    setIsMuted(!micEnabled);
-    setIsVideoEnabled(camEnabled);
-
-    // Re-attach tracks to existing peers
-    peerMap.current.forEach((peer) => {
-      try {
-        clonedStream.getTracks().forEach((t) => peer.addTrack(t, clonedStream));
-      } catch (e) {}
-    });
-
-    // SOCKET HANDLERS
-    socket.off("existingUsers").on("existingUsers", ({ users }) => {
-      users.forEach(({ userId: rId, username }) => {
-        userRefs.current.set(rId, username);
-        if (!peerMap.current.has(rId)) createPeer(rId, true);
-      });
-    });
-
-    socket.off("userJoined").on("userJoined", ({ userId: rId, username }) => {
-      userRefs.current.set(rId, username);
-      if (!peerMap.current.has(rId)) createPeer(rId, true);
-
-      window.dispatchEvent(
-        new CustomEvent("meeting-toast", {
-          detail: { message: `${username} joined the meeting` },
-        })
-      );
-    });
- 
-    socket.off("offer").on("offer", async ({ from, offer }) => {
-      let peer = peerMap.current.get(from);
-      if (!peer) peer = createPeer(from, false);
-
-      try {
-        await peer.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peer.createAnswer();
-        await peer.setLocalDescription(answer);
-        socket.emit("answer", { to: from, answer: peer.localDescription });
-      } catch (err) {
-        console.error("Offer handling failed:", err);
-      }
-    });
-
-    socket.off("answer").on("answer", async ({ from, answer }) => {
-      const peer = peerMap.current.get(from);
-      if (!peer) return;
-
-      try {
-        await peer.setRemoteDescription(new RTCSessionDescription(answer));
-      } catch (err) {
-        console.error("Setting answer failed:", err);
-      }
-    });
-
-    socket.off("iceCandidate").on("iceCandidate", async ({ from, candidate }) => {
-      const peer = peerMap.current.get(from);
-      if (peer && candidate) {
-        try {
-          await peer.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (err) {
-          console.warn("addIceCandidate failed:", err);
-        }
-      }
-    });
-
-    socket.off("userLeft").on("userLeft", ({ userId: rId, username }) => {
-      userRefs.current.delete(rId);
-      const peer = peerMap.current.get(rId);
-      if (peer) peer.close();
-      peerMap.current.delete(rId);
-
-      setPeers((prev) => {
-        const updated = new Map(prev);
-        updated.delete(rId);
-        return updated;
-      });
-
-      window.dispatchEvent(
-        new CustomEvent("meeting-toast", {
-          detail: { message: `${username} left the meeting` },
-        })
-      );
-    });
-
-    // Emit joinRoom
-    const user = JSON.parse(sessionStorage.getItem("chatUser") || "{}");
-    socket.emit("joinRoom", {
-      userId,
-      username: user.username || "Unknown User",
-      roomCode,
-    });
+  // ---------- GET MEDIA ----------
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    stream.getAudioTracks().forEach((t) => (t.enabled = !!micEnabled));
+    stream.getVideoTracks().forEach((t) => (t.enabled = !!camEnabled));
+  } catch (err) {
+    console.error("Failed to get user media:", err);
+    stream = new MediaStream();
   }
 
+  // ---------- CLONE STREAM (use clones to avoid moving tracks) ----------
+  const clonedStream = new MediaStream();
+  stream.getTracks().forEach((t) => {
+    try {
+      clonedStream.addTrack(t.clone());
+    } catch (e) {
+      // fallback: add original if clone unsupported
+      clonedStream.addTrack(t);
+    }
+  });
+
+  // preview and UI state
+  try { setPreviewStream(clonedStream); } catch (e) { /* ignore */ }
+  updateLocalStream(clonedStream); // your app-specific updater
+  localStreamRef.current = clonedStream;
+
+  setIsMuted(!micEnabled);
+  setIsVideoEnabled(camEnabled);
+
+  // ---------- Re-attach tracks to existing peers (reconnect case) ----------
+  // Add any missing senders and renegotiate
+  peerMap.current.forEach(async (peer) => {
+    try {
+      const existingTrackIds = new Set(peer.getSenders().map((s) => s.track && s.track.id));
+      clonedStream.getTracks().forEach((t) => {
+        if (!existingTrackIds.has(t.id)) {
+          try { peer.addTrack(t, clonedStream); } catch (e) { /* ignore */ }
+        }
+      });
+
+      // renegotiate if we added any tracks (simple heuristic: sender count > 0)
+      if (peer.signalingState !== "closed") {
+        try {
+          const offer = await peer.createOffer();
+          await peer.setLocalDescription(offer);
+          // remote id is stored as a custom property on the RTCPeerConnection wrapper if you have one;
+          // if you store raw peer in peerMap, we need a mapping from peer => remoteId. For simplicity,
+          // assume peer.remoteId exists when you set it in createPeer. If not, skip renegotiate.
+          if (peer.remoteId) {
+            socket.emit("offer", { to: peer.remoteId, offer: peer.localDescription || offer });
+          }
+        } catch (e) {
+          // ignore renegotiation errors
+        }
+      }
+    } catch (e) { /* per-peer safe-guard */ }
+  });
+
+  // ---------- SOCKET HANDLERS ----------
+  // pending queue in case of races
+  const pending = [];
+
+  socket.off("existingUsers").on("existingUsers", (payload) => {
+    // support both shapes: payload = [{...}] or payload = { users: [...] }
+    const users = Array.isArray(payload) ? payload : payload?.users || [];
+    console.log("🔥 existingUsers:", users);
+
+    users.forEach(({ userId: rId, username }) => {
+      userRefs.current.set(rId, username);
+
+      if (localStreamRef.current && !peerMap.current.has(rId)) {
+        createPeer(rId, true);
+      } else if (!peerMap.current.has(rId)) {
+        pending.push({ id: rId, initiator: true });
+      }
+    });
+
+    // process pending immediately if possible
+    while (localStreamRef.current && pending.length) {
+      const p = pending.shift();
+      if (!peerMap.current.has(p.id)) createPeer(p.id, p.initiator);
+    }
+  });
+
+  socket.off("userJoined").on("userJoined", ({ userId: rId, username }) => {
+    userRefs.current.set(rId, username);
+
+    if (localStreamRef.current && !peerMap.current.has(rId)) {
+      createPeer(rId, true);
+    } else if (!peerMap.current.has(rId)) {
+      pending.push({ id: rId, initiator: true });
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("meeting-toast", { detail: { message: `${username} joined the meeting` } })
+    );
+  });
+
+  socket.off("offer").on("offer", async ({ from, offer }) => {
+    let peer = peerMap.current.get(from);
+    if (!peer) {
+      peer = createPeer(from, false);
+    }
+
+    try {
+      await peer.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      socket.emit("answer", { to: from, answer: peer.localDescription || answer });
+    } catch (err) {
+      console.error("Offer handling failed:", err);
+    }
+  });
+
+  socket.off("answer").on("answer", async ({ from, answer }) => {
+    const peer = peerMap.current.get(from);
+    if (!peer) return;
+    try {
+      await peer.setRemoteDescription(new RTCSessionDescription(answer));
+    } catch (err) {
+      console.error("Setting answer failed:", err);
+    }
+  });
+
+  socket.off("iceCandidate").on("iceCandidate", async ({ from, candidate }) => {
+    const peer = peerMap.current.get(from);
+    if (peer && candidate) {
+      try {
+        await peer.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.warn("addIceCandidate failed:", err);
+      }
+    }
+  });
+
+  socket.off("userLeft").on("userLeft", ({ userId: rId, username }) => {
+    userRefs.current.delete(rId);
+    const peer = peerMap.current.get(rId);
+    if (peer) peer.close();
+    peerMap.current.delete(rId);
+
+    setPeers((prev) => {
+      const updated = new Map(prev);
+      updated.delete(rId);
+      return updated;
+    });
+
+    window.dispatchEvent(
+      new CustomEvent("meeting-toast", { detail: { message: `${username} left the meeting` } })
+    );
+  });
+
+  // ---------- EMIT JOIN ----------
+  const user = JSON.parse(sessionStorage.getItem("chatUser") || "{}");
+  socket.emit("joinRoom", {
+    userId,
+    username: user.username || "Unknown User",
+    roomCode,
+  });
+}
+
+// ------------------------------------------
+// PEER CREATION (revamped safe version)
+// ------------------------------------------
+function createPeer(remoteId, initiator = false) {
+  if (peerMap.current.has(remoteId)) return peerMap.current.get(remoteId);
+
+  const peer = new RTCPeerConnection({
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+  });
+
+  // keep a back-reference so we can renegotiate if needed
+  try { peer.remoteId = remoteId; } catch (e) { /* ignore */ }
+
+  // Attach local tracks immediately (if available)
+  if (localStreamRef.current) {
+    try {
+      localStreamRef.current.getTracks().forEach((track) => {
+        try { peer.addTrack(track, localStreamRef.current); } catch (e) { /* ignore per-track */ }
+      });
+    } catch (e) { console.warn("addTrack immediate failed:", e); }
+  }
+
+  // ICE candidate -> relay to server
+  peer.onicecandidate = (e) => {
+    if (e.candidate) {
+      socket.emit("iceCandidate", { to: remoteId, candidate: e.candidate });
+    }
+  };
+
+  // Remote track
+  peer.ontrack = (e) => {
+    const remoteStream = e.streams && e.streams[0];
+    if (!remoteStream) return;
+    setPeers((prev) => {
+      const copy = new Map(prev);
+      copy.set(remoteId, remoteStream);
+      return copy;
+    });
+  };
+
+  // connection state cleanup
+  peer.onconnectionstatechange = () => {
+    if (["failed", "closed", "disconnected"].includes(peer.connectionState)) {
+      try { peer.close(); } catch (e) { /* ignore */ }
+      peerMap.current.delete(remoteId);
+      setPeers((prev) => {
+        const updated = new Map(prev);
+        updated.delete(remoteId);
+        return updated;
+      });
+    }
+  };
+
+  peerMap.current.set(remoteId, peer);
+
+  // If initiator → create offer (small timeout so addTrack takes effect)
+  if (initiator) {
+    (async () => {
+      try {
+        // short delay to ensure tracks attached to pc
+        await new Promise((res) => setTimeout(res, 30));
+
+        // quick sanity: ensure senders exist (tracks were added)
+        const senderCount = peer.getSenders().filter((s) => s.track).length;
+        if (senderCount === 0 && localStreamRef.current) {
+          // try add tracks again
+          try {
+            localStreamRef.current.getTracks().forEach((t) => peer.addTrack(t, localStreamRef.current));
+          } catch (e) { /* ignore */ }
+        }
+
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+
+        socket.emit("offer", { to: remoteId, offer: peer.localDescription || offer });
+      } catch (err) {
+        console.error("Failed creating/sending offer", err);
+      }
+    })();
+  }
+
+  return peer;
+}
+
+
+  // ------------------------------------------
   // LEAVE MEETING
   function leaveMeeting() {
     if (!hasJoinedRef.current) return;
@@ -176,71 +316,8 @@ export function useMeeting(userId, roomCode, teamId = null) {
     setLocalStream(s);
   };
 
-  // PEER CREATION
-  function createPeer(remoteId, initiator = false) {
-    if (peerMap.current.has(remoteId)) return peerMap.current.get(remoteId);
-
-    const peer = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    });
-
-    // Attach local tracks if already present
-    if (localStreamRef.current) {
-      try {
-        localStreamRef.current.getTracks().forEach((track) =>
-          peer.addTrack(track, localStreamRef.current)
-        );
-      } catch (err) {
-        console.warn("addTrack immediate failed:", err);
-      }
-    }
-
-    peer.onicecandidate = (e) => {
-      if (e.candidate) {
-        socket.emit("iceCandidate", { to: remoteId, candidate: e.candidate });
-      }
-    };
-
-    peer.ontrack = (e) => {
-      const remoteStream = e.streams[0];
-      if (remoteStream) {
-        setPeers((prev) => {
-          const copy = new Map(prev);
-          copy.set(remoteId, remoteStream);
-          return copy;
-        });
-      }
-    };
-
-    peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "failed" || peer.connectionState === "closed") {
-        peer.close();
-        peerMap.current.delete(remoteId);
-        setPeers((prev) => {
-          const copy = new Map(prev);
-          copy.delete(remoteId);
-          return copy;
-        });
-      }
-    };
-
-    peerMap.current.set(remoteId, peer);
-    // If initiator → create offer immediately
-    if (initiator) {
-      (async () => {
-        try {
-          const offer = await peer.createOffer();
-          await peer.setLocalDescription(offer);
-          socket.emit("offer", { to: remoteId, offer: peer.localDescription });
-        } catch (err) {
-          console.error("Failed creating/sending offer", err);
-        }
-      })();
-    }
-
-    return peer;
-  }
-
+ 
+  // ------------------------------------------
   // CAMERA TOGGLE
   const toggleCam = async () => {
     if (!localStreamRef.current) return;

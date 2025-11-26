@@ -226,9 +226,9 @@ function AppRoutes({
                 />
               )}
               {/* Ongoing call overlay */}
-              {call.inCall && (
+              {call.callState.type && (
                 <CallOverlay
-                  socket={socket}
+                  callId={call.callState.callId}
                   callType={call.callState.type}
                   localStream={call.localStream}
                   remoteStreams={call.remoteStreams}
@@ -245,6 +245,8 @@ function AppRoutes({
                   onClose={call.endCall}
                   isMaximized={call.isMaximized}
                   inCall={call.inCall}
+                  addUser={call.addUserToCall} // ✅ FIXED
+                  cancelInvite={call.cancelInviteFor} // ✅ FIXED
                 />
               )}
               <ToastContainer
@@ -289,7 +291,9 @@ function App() {
         console.log("🔌 Connecting socket...");
         connectSocket(userId);
       }
-      //  register user socket
+
+
+      // 🔥 Important: register user socket
       socket.emit("register", { userId: String(userId) });
     }
   }, [isAuthenticated, userId]);
