@@ -549,7 +549,7 @@ const handleFileChange = (e) => {
   <div className="relative mb-1 p-1 border rounded-md bg-gray-100 flex items-center justify-between">
     <div className="flex items-center gap-2 overflow-hidden">
       {previewUrl && selectedFile.type.startsWith("image/") && (
-        <img src={previewUrl} className="max-h-40 rounded-md" />
+        <img src={previewUrl} className="max-h-10 rounded-md" />
       )}
       {previewUrl && selectedFile.type.startsWith("video/") && (
         <video src={previewUrl} className="max-h-40 rounded-md" controls />
@@ -581,7 +581,7 @@ const handleFileChange = (e) => {
   </div>
 )}
 
-  <div className="flex items-center gap-2 relative bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
+  <div className="flex items-center gap-2 relative  bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
     <input
   type="text"
   placeholder={

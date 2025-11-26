@@ -4,28 +4,13 @@ import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-toastify";
 import CryptoJS from "crypto-js";
 import axios from "axios";
-
 import { URL as API_URL } from "../config";
-
 import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
 export default function Message({
-  message,
-  isOwn,
-  selectedUser,
-  searchQuery,
-  onReact,
-  onDelete,
-  onEdit,
-  onForward,
-  chatType,
-  teamId,
-  socket,
-  setMessages, // <-- add here
-  token,
+  message,isOwn,selectedUser,searchQuery,onReact,onDelete,onEdit,onForward,chatType,teamId,socket,setMessages, token,
 }) {
   // ---- AES Decrypt (same key as backend) ----
   const KEY = "12345678901234567890123456789012"; // 32-byte key
-
   function safeDecrypt(text) {
     if (!text || typeof text !== "string" || !text.includes(":"))
       return text || "";
@@ -44,7 +29,6 @@ export default function Message({
           padding: CryptoJS.pad.Pkcs7,
         }
       );
-
       const result = decrypted.toString(CryptoJS.enc.Utf8);
       return result || text;
     } catch (err) {
@@ -54,39 +38,19 @@ export default function Message({
   }
 
   // ---- Normalize reactions into consistent shape ----
-  const normalizeReactions = (raw) => {
-    if (!raw) return {};
+  const normalizeReactions = (reactions = {}) => {
+  const normalized = {};
+  for (let emoji in reactions) {
+    normalized[emoji] = reactions[emoji].count || 0;
+  }
+  return normalized;
+};
+useEffect(() => {
+  if (message.reactions) {
+    setReactedEmojis(normalizeReactions(message.reactions));
+  }
+}, [message.reactions]);
 
-    let parsed = raw;
-    if (typeof parsed === "string") {
-      try {
-        parsed = JSON.parse(parsed);
-      } catch {
-        return {};
-      }
-    }
-
-    const out = {};
-    Object.entries(parsed).forEach(([emoji, val]) => {
-      if (val == null) out[emoji] = { count: 0, users: {} };
-      else if (typeof val === "number") out[emoji] = { count: val, users: {} };
-      else if (typeof val === "object") {
-        if ("count" in val) {
-          const users =
-            val.users && typeof val.users === "object" ? val.users : {};
-          out[emoji] = {
-            count: Number(val.count || Object.keys(users).length || 0),
-            users,
-          };
-        } else {
-          const users = val;
-          out[emoji] = { count: Object.keys(users).length, users };
-        }
-      } else out[emoji] = { count: 0, users: {} };
-    });
-
-    return out;
-  };
 
   // ---- state ----
   const currentUser = JSON.parse(sessionStorage.getItem("chatUser") || "null");
@@ -137,83 +101,106 @@ export default function Message({
   }, [message.id, message.reactions]);
 
   // ---- Sync with socket events ----
-  useEffect(() => {
-    if (!socket) return;
+ useEffect(() => {
+  if (!socket) return;
 
-    // Listen for updates to this specific message
-    const handleMessageEdited = (updatedMsg) => {
-      if (updatedMsg.id === message.id) {
-        setEditedText(safeDecrypt(updatedMsg.text));
-        setEditPreview(
-          updatedMsg.file_url
-            ? getFileUrl(safeDecrypt(updatedMsg.file_url))
-            : null
-        );
-      }
-    };
+  // --- 1) This message edited only (local update) ---
+  const handleMessageEdited = (updatedMsg) => {
+    if (updatedMsg.id === message.id) {
+      setEditedText(safeDecrypt(updatedMsg.text));
+      setEditPreview(
+        updatedMsg.file_url
+          ? getFileUrl(safeDecrypt(updatedMsg.file_url))
+          : null
+      );
+    }
+  };
 
-    // Listen for general message updates (all messages in the chat)
-    const handleGlobalMessageEdited = (updatedMsg) => {
-      if (setMessages) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
-        );
-      }
-    };
+  // --- 2) Update messages state (global update) ---
+  const handleGlobalMessageEdited = (updatedMsg) => {
+    if (setMessages) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
+      );
+    }
+  };
 
-    // Listen for reactions
-    const handleReactionEvent = ({ messageId, reactions }) => {
-      if (messageId !== message.id) return;
-      try {
-        let decrypted = safeDecrypt(reactions);
-        try {
-          decrypted = JSON.parse(decrypted);
-        } catch {}
-        setReactedEmojis(normalizeReactions(decrypted));
-      } catch (err) {
-        console.error("Socket reaction decrypt error:", err);
-        setReactedEmojis(normalizeReactions(reactions));
-      }
-    };
-socket.on('teamMessageUpdated', (updatedMessage) => {
-  // Update the messages state
-  setMessages(prevMessages =>
-    prevMessages.map(msg =>
-      msg.id === updatedMessage.id ? updatedMessage : msg
-    )
-  );
+  // --- 3) Reaction updates ---
+ const handleReactionEvent = ({ messageId, reactions }) => {
+  if (messageId !== message.id) return;
 
-  // Update reactedEmojis if this message is open
-  if (selectedMessage?.id === updatedMessage.id) {
-    const reactions = updatedMessage.reactions || {};
-    const normalized = {};
-    for (let emoji in reactions) normalized[emoji] = reactions[emoji].count;
-    setReactedEmojis(normalized);
+  try {
+    let decrypted = safeDecrypt(reactions);
+    try {
+      decrypted = JSON.parse(decrypted);
+    } catch {}
+
+    // Update local reaction UI
+    setReactedEmojis(normalizeReactions(decrypted));
+console.log("Fetched DB reaction:", message.reactions);
+
+    // 👍 UPDATE parent messages
+    if (setMessages) {
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === messageId
+            ? { ...m, reactions }   // store encrypted reactions from DB/socket
+            : m
+        )
+      );
+    }
+  } catch (err) {
+    setReactedEmojis(normalizeReactions(reactions));
   }
-});
+};
+  // Register listeners
+  socket.on("messageEdited", handleMessageEdited);
+  socket.on("messageEdited", handleGlobalMessageEdited);
+  // Cleanup listeners
+  return () => {
+    socket.off("messageEdited", handleMessageEdited);
+    socket.off("messageEdited", handleGlobalMessageEdited);
+  };
 
+}, [socket, message.id]);
+useEffect(() => {
+  if (!socket) return;
 
+  const handleTeamUpdate = (updatedMsg) => {
+    if (updatedMsg.id !== message.id) return;
 
-    socket.on("reaction", handleReactionEvent);
+    setReactedEmojis(normalizeReactions(updatedMsg.reactions));
 
-    return () => {
-    
-      socket.off("reaction", handleReactionEvent);
-    };
-  }, [socket, message.id]);
-socket.on("messageEdited", (updatedMsg) => {
-  if (updatedMsg.id === message.id) {
-    setEditedText(safeDecrypt(updatedMsg.text));
-    setEditPreview(
-      updatedMsg.file_url ? getFileUrl(safeDecrypt(updatedMsg.file_url)) : null
-    );
-  }
-  if (setMessages) {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
-    );
-  }
-});
+    if (setMessages) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === updatedMsg.id ? { ...m, reactions: updatedMsg.reactions } : m
+        )
+      );
+    }
+  };
+
+  const handlePrivateUpdate = (updatedMsg) => {
+    if (updatedMsg.id !== message.id) return;
+
+    setReactedEmojis(normalizeReactions(updatedMsg.reactions));
+
+    if (setMessages) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === updatedMsg.id ? { ...m, reactions: updatedMsg.reactions } : m
+        )
+      );
+    }
+  };
+  socket.on("teamMessageUpdated", handleTeamUpdate);
+  socket.on("privateMessageUpdated", handlePrivateUpdate);
+
+  return () => {
+    socket.off("teamMessageUpdated", handleTeamUpdate);
+    socket.off("privateMessageUpdated", handlePrivateUpdate);
+  };
+}, [socket, message.id]);
 
   // ---- hover handlers ----
   const handleMouseEnter = () => {
@@ -243,10 +230,13 @@ const handleEditClick = (msg, e) => {
   });
   setIsEditing(true);
 };
-
-
   // ---- media helpers ----
-  const getFileUrl = (url) => (url?.startsWith("http") ? url : `${URL}${url}`);
+ const getFileUrl = (url) => {
+  if (!url) return null;
+  const clean = safeDecrypt(url)?.trim();
+  return clean.startsWith("http") ? clean : `${API_URL}${clean}`;
+};
+
   const handleDoubleClick = () => {
     setIsFullscreen(true);
     setZoom(1);
@@ -271,62 +261,18 @@ const handleEditClick = (msg, e) => {
   };
   const userId = currentUser?.id;
 
-  const toggleReaction = (emoji) => {
-  // 1️⃣ Update local reacted emojis state
-  setReactedEmojis((prev) => {
-    const prevData = prev[emoji] || { count: 0, users: {} };
-    const usersMap = { ...prevData.users };
-    const alreadyReacted = userId && usersMap[userId];
+const toggleReaction = (emoji) => {
+  if (!userId) return;
 
-    if (alreadyReacted) delete usersMap[userId];
-    else if (userId) usersMap[userId] = 1;
+  const sendEvent =
+    message.team_id ? "reaction" : "privateReaction";
 
-    return {
-      ...prev,
-      [emoji]: { count: Object.keys(usersMap).length, users: usersMap },
-    };
+  socket.emit(sendEvent, {
+    messageId: message.id,
+    userId,
+    emoji,
   });
-
-  // 2️⃣ Update messages state separately (outside the updater)
-  if (setMessages) {
-    setMessages((msgs) =>
-      msgs.map((msg) => {
-        if (msg.id !== message.id) return msg;
-
-        // Update the reactions for this message
-        const prevEmojiData = msg.reactions || {};
-        const usersMap = { ...((prevEmojiData[emoji] || {}).users || {}) };
-        const alreadyReacted = userId && usersMap[userId];
-
-        if (alreadyReacted) delete usersMap[userId];
-        else if (userId) usersMap[userId] = 1;
-
-        return {
-          ...msg,
-          reactions: {
-            ...prevEmojiData,
-            [emoji]: { count: Object.keys(usersMap).length, users: usersMap },
-          },
-        };
-      })
-    );
-  }
-
-  // 3️⃣ Emit socket event
-  if (socket) {
-    socket.emit("react", {
-      messageId: message.id,
-      userId,
-      emoji,
-    });
-  }
-
-  // 4️⃣ Call callback
-  if (typeof onReact === "function") onReact(message.id, emoji);
 };
-
-
-
   const handlePickerEmoji = (emojiObject) => {
     const e = emojiObject?.emoji;
     if (!e) return;
@@ -358,7 +304,6 @@ const handleEditClick = (msg, e) => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
       setMessages(res.data);
     } catch (error) {
       console.error("Failed to fetch messages:", error);
@@ -416,13 +361,10 @@ const handleEditClick = (msg, e) => {
   file_url: res.data.file_url,
   file_type: res.data.file_type,
 });
-
-
   // Refresh messages
   if (chatType === "team") fetchTeamMessages();
   else fetchMessages();
 }
-
     } catch (err) {
       console.error("Failed to update message:", err);
     }
@@ -564,169 +506,174 @@ const handleEditClick = (msg, e) => {
   };
 
   const renderContent = () => {
-    // ✅ now safely call decryption functions
-    const decryptedFileUrl = safeDecrypt(message.file_url);
-    const fileUrl = getFileUrl(decryptedFileUrl);
-    const fileName = safeDecrypt(message.file_name);
-    const decryptedText = safeDecrypt(message.text);
+  const decryptedFileUrl = safeDecrypt(message.file_url || "");
+  const fileUrl = decryptedFileUrl ? getFileUrl(decryptedFileUrl) : null;
 
-    // ✅ your existing rendering logic
-    switch (message.type) {
-      case "image":
-        if (!fileUrl) return null;
-        return (
-          <div className="relative inline-block">
-            <img
-              src={fileUrl}
-              alt="Sent"
-              className="max-w-[250px] rounded-lg shadow-md cursor-pointer hover:scale-105 transition-transform"
-              onDoubleClick={handleDoubleClick}
-            />
+  const fileName = safeDecrypt(message.file_name || "");
+  const decryptedText = safeDecrypt(message.text || "");
 
-            <MediaMenu fileUrl={fileUrl} fileName={fileName} />
-            {isFullscreen && (
-              <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-                <img
-                  src={fileUrl}
-                  alt="Fullscreen"
-                  className="max-h-full max-w-full rounded-lg shadow-lg transition-transform"
-                  style={{ transform: `scale(${zoom})` }}
-                />{" "}
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 bg-black  bg-opacity-50 px-4 py-2 rounded-full">
-                  <button
-                    className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
-                    onClick={handleZoomOut}
-                  >
-                    −
-                  </button>
-                  <button
-                    className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
-                    onClick={handleZoomIn}
-                  >
-                    +
-                  </button>
-                  <button
-                    className="text-white text-xl font-bold px-3 py-1 hover:text-red-500"
-                    onClick={handleCloseFullscreen}
-                  >
-                    ✕
-                  </button>
-                </div>
+  // If message type requires file but fileUrl missing → do nothing
+  const noFile = !fileUrl && ["image", "video", "audio", "file", "application"].includes(message.type);
+  if (noFile) return null;
+  switch (message.type) {
+    // ---------------------- IMAGE ----------------------
+    case "image":
+      return (
+        <div className="relative inline-block">
+
+          <img
+            src={fileUrl}
+            alt={fileName || "Image"}
+            className="max-w-[250px] rounded-lg shadow-md cursor-pointer hover:scale-105 transition-transform"
+            loading="lazy"
+            onDoubleClick={handleDoubleClick}
+            onError={(e) => (e.target.src = "/placeholder.png")}
+          />
+
+          <MediaMenu fileUrl={fileUrl} fileName={fileName} />
+
+          {isFullscreen && (
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
+              <img
+                src={fileUrl}
+                alt="Fullscreen"
+                className="max-h-full max-w-full rounded-lg transition-transform"
+                style={{ transform: `scale(${zoom})` }}
+                onError={(e) => (e.target.src = "/placeholder.png")}
+              />
+
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 bg-black/50 px-4 py-2 rounded-full">
+                <button
+                  className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
+                  onClick={handleZoomOut}
+                >
+                  −
+                </button>
+
+                <button
+                  className="text-white text-xl font-bold px-3 py-1 hover:text-purple-400"
+                  onClick={handleZoomIn}
+                >
+                  +
+                </button>
+
+                <button
+                  className="text-white text-xl font-bold px-3 py-1 hover:text-red-500"
+                  onClick={handleCloseFullscreen}
+                >
+                  ✕
+                </button>
               </div>
-            )}
-          </div>
-        );
-
-      case "video":
-        if (!fileUrl) return null;
-        return (
-          <div className="relative inline-block">
-            <video
-              src={fileUrl}
-              className="max-w-xs rounded-lg shadow-md cursor-pointer"
-              controls
-              muted
-            />
-            <MediaMenu fileUrl={fileUrl} fileName={fileName} />
-          </div>
-        );
-
-      case "audio":
-        if (!fileUrl) return null;
-        return (
-          <div className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs">
-            {/* Audio icon */}
-            <span className="text-base text-gray-800">🎵</span>
-
-            {/* File name */}
-            <span className="flex-1 mx-3  max-w-xs text-black truncate">
-              {fileName || "Audio File"}
-            </span>
-
-            {/* Audio element */}
-            <audio
-              ref={audioRef}
-              src={fileUrl}
-              className="hidden"
-              onEnded={() => setIsPlaying(false)}
-              controls={false}
-            />
-
-            {/* Controls */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={togglePlay}
-                className="p-1  text-purple-700  rounded-full hover:bg-purple-200 transition"
-              >
-                {isPlaying ? (
-                  <FaPause className="w-3 h-3" />
-                ) : (
-                  <FaPlay className="w-3 h-3" />
-                )}
-              </button>
-              <button
-                onClick={toggleMute}
-                className="p-1 text-purple-700 rounded-full hover:bg-purple-200 transition"
-              >
-                {isMuted ? (
-                  <FaVolumeMute className="w-4 h-4" />
-                ) : (
-                  <FaVolumeUp className="w-4 h-4" />
-                )}
-              </button>
             </div>
+          )}
+        </div>
+      );
+    // ---------------------- VIDEO ----------------------
+    case "video":
+      return (
+        <div className="relative inline-block">
+          <video
+            src={fileUrl}
+            className="max-w-xs rounded-lg shadow-md bg-black"
+            controls
+          />
+          <MediaMenu fileUrl={fileUrl} fileName={fileName} />
+        </div>
+      );
 
-            {/* Media menu */}
-            <MediaMenu fileUrl={fileUrl} fileName={fileName} />
+    // ---------------------- AUDIO ----------------------
+    case "audio":
+      return (
+        <div className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs">
+
+          <span className="text-base text-gray-800">🎵</span>
+
+          <span className="flex-1 mx-3 max-w-xs text-black truncate">
+            {fileName || "Audio File"}
+          </span>
+
+          <audio
+            ref={audioRef}
+            src={fileUrl}
+            className="hidden"
+            onEnded={() => setIsPlaying(false)}
+            controls={false}
+          />
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={togglePlay}
+              className="p-1 text-purple-700 rounded-full hover:bg-purple-200 transition"
+            >
+              {isPlaying ? <FaPause className="w-3 h-3" /> : <FaPlay className="w-3 h-3" />}
+            </button>
+
+            <button
+              onClick={toggleMute}
+              className="p-1 text-purple-700 rounded-full hover:bg-purple-200 transition"
+            >
+              {isMuted ? <FaVolumeMute className="w-4 h-4" /> : <FaVolumeUp className="w-4 h-4" />}
+            </button>
           </div>
-        );
-      case "file":
-      case "application":
-        if (!fileUrl) return null;
-        const fileExt = fileName?.split(".").pop()?.toLowerCase();
-        const getFileIcon = () => {
-          if (fileExt === "pdf") return "📕";
-          if (["doc", "docx"].includes(fileExt)) return "📘";
-          if (["xls", "xlsx"].includes(fileExt)) return "📊";
-          return "📄";
-        };
-        return (
-          <div className="relative inline-block">
-            <div className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs">
-              <span className="text-2xl">{getFileIcon()}</span>
-              <span className="truncate">{fileName}</span>
+
+          <MediaMenu fileUrl={fileUrl} fileName={fileName} />
+        </div>
+      );
+
+    // ---------------------- FILE / APPLICATION ----------------------
+    case "file":
+    case "application":
+      const fileExt = fileName?.split(".").pop()?.toLowerCase();
+
+      const fileIcon =
+        fileExt === "pdf"
+          ? "📕"
+          : ["doc", "docx"].includes(fileExt)
+          ? "📘"
+          : ["xls", "xlsx"].includes(fileExt)
+          ? "📊"
+          : "📄";
+
+      return (
+        <div className="relative inline-block">
+          <a
+            href={fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs hover:bg-purple-50 transition"
+          >
+            <span className="text-2xl">{fileIcon}</span>
+            <span className="truncate">{fileName}</span>
+          </a>
+
+          <MediaMenu fileUrl={fileUrl} fileName={fileName} />
+        </div>
+      );
+
+    // ---------------------- TEXT (DEFAULT) ----------------------
+    default:
+      return (
+        <div>
+          {message.forwarded_from && (
+            <span className="text-[11px] italic text-gray-800">Forwarded</span>
+          )}
+
+          {message.metadata?.type === "meeting-invite" ? (
+            <div className="mt-1">
+              {renderMeetingInvite(decryptedText, message.metadata)}
             </div>
-            <MediaMenu fileUrl={fileUrl} fileName={fileName} />
-          </div>
-        );
-
-      default:
-        return (
-          <div>
-            {message.forwarded_from && (
-              <span className="text-[11px] italic text-gray-800">
-                Forwarded
-              </span>
-            )}
-            {message.metadata?.type === "meeting-invite" ? (
-              <div className="mt-1">
-                {renderMeetingInvite(decryptedText, message.metadata)}
-              </div>
-            ) : (
-              <p className="break-words">
-                {highlightText(decryptedText || "")}
-                {message.edited === 1 && (
-                  <span className="text-[12px] text-gray-800 ml-1">
-                    (Edited)
-                  </span>
-                )}
-              </p>
-            )}
-          </div>
-        );
-    }
-  };
-
+          ) : (
+            <p className="break-words">
+              {highlightText(decryptedText || "")}
+              {message.edited === 1 && (
+                <span className="text-[12px] text-gray-800 ml-1">(Edited)</span>
+              )}
+            </p>
+          )}
+        </div>
+      );
+  }
+};
   const bubbleClasses = isOwn
     ? "bg-purple-600 text-white self-end rounded-tr-none"
     : "bg-gray-200 text-gray-900 self-start rounded-tl-none";
@@ -864,74 +811,23 @@ const handleEditClick = (msg, e) => {
           </div>
         )}
       </div>
-
       {/* Reactions below bubble */}
       <div className="mt-1">
   {Object.keys(reactedEmojis).length > 0 && (
-    <div className="flex flex-wrap gap-1">
-      {Object.entries(reactedEmojis).map(([emoji, data]) => {
-        const count =
-          typeof data.count === "number"
-            ? data.count
-            : Object.keys(data.users || {}).length;
-        if (count === 0) return null;
-
-        const reacted = !!(userId && data.users && data.users[userId]);
-
-        const handleEmojiClick = () => {
-          // Update local message reactions
-          toggleReaction(emoji);
-
-          // Also update messages array if this is a team chat
-          if (chatType === "team" && setMessages) {
-            setMessages((prev) =>
-              prev.map((msg) => {
-                if (msg.id === message.id) {
-                  const updatedReactions = {
-                    ...msg.reactions,
-                    [emoji]: msg.reactions && msg.reactions[emoji]
-                      ? {
-                          count: reacted
-                            ? msg.reactions[emoji].count - 1
-                            : msg.reactions[emoji].count + 1,
-                          users: {
-                            ...msg.reactions[emoji].users,
-                            [userId]: reacted ? undefined : 1,
-                          },
-                        }
-                      : { count: 1, users: { [userId]: 1 } },
-                  };
-                  return { ...msg, reactions: updatedReactions };
-                }
-                return msg;
-              })
-            );
-          }
-        };
-
-        return (
-          <button
-            key={emoji}
-            onClick={handleEmojiClick}
-            className={`flex items-center gap-1 px-2 py-1 text-sm rounded-full shadow-sm ${
-              reacted ? "bg-gray-200" : "bg-gray-100"
-            }`}
-            title={
-              reacted
-                ? "You reacted — click to remove"
-                : "React — click to add"
-            }
-          >
-            <span>{emoji}</span>
-            <span className="text-xs">{count}</span>
-          </button>
-        );
-      })}
-    </div>
-  )}
+  <div className="flex flex-wrap gap-1 mt-1">
+    {Object.entries(reactedEmojis).map(([emoji, count]) =>
+      count > 0 ? (
+        <span
+          key={emoji}
+          className="px-2 py-1 bg-gray-100 rounded-full text-sm"
+        >
+          {emoji} {count}
+        </span>
+      ) : null
+    )}
+  </div>
+)}
 </div>
-
-
       <div
         className={`flex items-center gap-2 text-xs text-gray-400 mt-1 ${
           isOwn ? "self-end" : "self-start"
@@ -1076,4 +972,4 @@ const handleEditClick = (msg, e) => {
       )}
     </div>
   );
-}
+} 

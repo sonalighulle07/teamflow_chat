@@ -1,4 +1,3 @@
-
 const { Team, TeamMember, TeamMessage } = require("../models/TeamModel");
 const db = require("../config/db");
 const meetServ = require("./services/groupMeetings");
@@ -6,7 +5,6 @@ const TeamInvite = require("../models/TeamInvite");
 const path = require("path");
 const User = require("../models/User");
 const { sendPushNotification } = require("../Utils/pushService");
-
 
 const createTeam = async (req, res) => {
   const { name, created_by, members = [] } = req.body;
@@ -27,7 +25,6 @@ const createTeam = async (req, res) => {
         }
       }
     }
-
     //  Meeting creation
     await meetServ.getOrCreateMeetingCode(teamId);
 
@@ -39,7 +36,6 @@ const createTeam = async (req, res) => {
 };
 
 // Send Invites
-// -----------------------
 const sendTeamInvites = async (req, res) => {
   const { teamId, members, teamName } = req.body;
   const createdBy = req.user.id;
@@ -64,9 +60,7 @@ const sendTeamInvites = async (req, res) => {
   }
 };
 
-
 // Get Pending Invites
-// -----------------------
 const getPendingInvites = async (req, res) => {
   try {
     const invites = await TeamInvite.getPendingForUser(req.user.id);
@@ -77,17 +71,13 @@ const getPendingInvites = async (req, res) => {
   }
 };
 
-
 // Respond to Invite
 const respondToInvite = async (req, res) => {
   const { inviteId, action } = req.body;
   const userId = req.user.id;
 
   try {
-    // Update status
     await TeamInvite.respond(inviteId, action);
-
-    // If accepted, add user to team
     const [rows] = await db.query("SELECT team_id FROM team_invites WHERE id=?", [inviteId]);
     const invite = rows[0];
 
@@ -102,7 +92,6 @@ const respondToInvite = async (req, res) => {
   }
 };
 
-
 const getAllTeams = async (req, res) => {
   try {
     const [teams] = await Team.getAll();
@@ -114,7 +103,6 @@ const getAllTeams = async (req, res) => {
 };
 
 // GET teams for a user
-
 const getUserTeams = async (req, res) => {
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: "Missing userId in query" });
@@ -127,7 +115,6 @@ const getUserTeams = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch teams" });
   }
 };
-
 
 // GET single team by ID
 const getTeamById = async (req, res) => {
@@ -185,11 +172,10 @@ const addTeamMember = async (req, res) => {
   }
 };
 
-
 // GET members of a team
 const getTeamMembers = async (req, res) => {
   const { teamId } = req.params;
-  console.log("getTeamMembers called with team ID:", teamId);
+  // console.log("getTeamMembers called with team ID:", teamId);
   try {
     const members = await TeamMember.getMembers(teamId);
     res.json(members);
@@ -198,7 +184,6 @@ const getTeamMembers = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch team members" });
   }
 };
-
 
 // GET team messages
 const getTeamMessages = async (req, res) => {
@@ -240,7 +225,6 @@ const sendTeamMessage = async (req, res) => {
       else msgType = "file";
     }
 
-    // Insert message into DB
     const result = await TeamMessage.insert(
       senderId,
       teamId,
@@ -250,7 +234,6 @@ const sendTeamMessage = async (req, res) => {
       fileName,
     
     );
-
     const newMessage = {
       id: result.insertId,
       team_id: teamId,
@@ -299,7 +282,6 @@ const sendTeamMessage = async (req, res) => {
   }
 };
 
-
 // EDIT team message
 const editTeamMessage = async (req, res) => {
   const { teamId, messageId } = req.params;
@@ -338,8 +320,6 @@ const editTeamMessage = async (req, res) => {
     res.status(500).json({ error: "Failed to edit team message" });
   }
 };
-;
-
 
 // DELETE team message
 const deleteTeamMessage = async (req, res) => {
@@ -428,8 +408,6 @@ const reactMessage = async (req, res) => {
   }
 };
 
-
-
 // GET or CREATE meeting link for a team
 const getTeamMeetingLink = async (req, res) => {
   const { teamId } = req.params;
@@ -456,7 +434,6 @@ const getTeamMeetingLink = async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch/create meeting link" });
   }
 };
-
 
 const createTeamAndSendInvites = async (teamName, selectedUserIds, currentUserId) => {
 

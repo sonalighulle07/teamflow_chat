@@ -95,7 +95,7 @@ socket.on("joinRoom", ({ userId, username, roomCode }, callback) => {
 
 socket.on("checkJoined", ({ roomCode, userId }, callback) => {
 
-  console.log("Check joined called with:",{roomCode,userId});
+  // console.log("Check joined called with:",{roomCode,userId});
   const joined =
     activeRooms.has(roomCode) && activeRooms.get(roomCode).has(String(userId));
 
