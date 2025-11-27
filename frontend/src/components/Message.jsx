@@ -9,6 +9,7 @@ import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
 export default function Message({
   message,isOwn,selectedUser,searchQuery,onReact,onDelete,onEdit,onForward,chatType,teamId,socket,setMessages, token,
 }) {
+  
   // ---- AES Decrypt (same key as backend) ----
   const KEY = "12345678901234567890123456789012"; // 32-byte key
   function safeDecrypt(text) {

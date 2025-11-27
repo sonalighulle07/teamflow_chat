@@ -27,7 +27,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://192.168.1.25:5173"],
+    origin: ["http://localhost:5173", "http://192.168.1.28:5173"],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -35,7 +35,7 @@ const io = new Server(server, {
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:5173", "http://192.168.1.25:5173"],
+  origin: ["http://localhost:5173", "http://192.168.1.28:5173"],
   credentials: true,
 }));
 app.use(express.json());
