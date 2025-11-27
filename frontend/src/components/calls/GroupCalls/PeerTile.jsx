@@ -36,7 +36,7 @@ export default function PeerTile({
     };
 
     // Initial check
-    checkVideo();
+    checkVideo()
 
     // Listen for any track state changes
     const tracks = stream.getVideoTracks();
