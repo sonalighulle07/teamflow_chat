@@ -9,10 +9,14 @@ const Team = {
   },
 
   // Get a single team by ID
-  getById: async (id) => {
-    const [rows] = await db.query("SELECT * FROM teams WHERE id = ?", [id]);
-    return rows.length ? rows[0] : null;
-  },
+ getById: async (id) => {
+  const [rows] = await db.query(
+    "SELECT id, name, created_by FROM teams WHERE id = ?",
+    [id]
+  );
+  return rows.length ? rows[0] : null;
+},
+
 
   // Create a new team and return its ID
   create: async (name, created_by) => {

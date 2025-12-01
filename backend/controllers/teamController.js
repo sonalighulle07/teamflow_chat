@@ -34,6 +34,49 @@ const createTeam = async (req, res) => {
     res.status(500).json({ error: "Failed to create team" });
   }
 };
+const renameTeam = async (req, res) => {
+  const { teamId } = req.params;
+  const { name } = req.body;
+  const userId = req.user.id;
+
+  if (!name) return res.status(400).json({ error: "Team name required" });
+
+  try {
+    // Check user role
+    const [rows] = await db.query(
+      "SELECT role FROM team_members WHERE team_id=? AND user_id=?",
+      [teamId, userId]
+    );
+
+    if (!rows.length || !["owner", "admin"].includes(rows[0].role)) {
+      return res.status(403).json({ error: "Not allowed" });
+    }
+
+    await db.query("UPDATE teams SET name=? WHERE id=?", [name, teamId]);
+
+    res.json({ success: true, name });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Rename failed" });
+  }
+};
+const deleteTeam = async (req, res) => {
+  const { teamId } = req.params;
+
+  try {
+    // 1. Delete team_members first
+    await db.query("DELETE FROM team_members WHERE team_id = ?", [teamId]);
+
+    // 2. Delete team
+    await db.query("DELETE FROM teams WHERE id = ?", [teamId]);
+
+    res.json({ success: true, message: "Team deleted" });
+  } catch (err) {
+    console.error("Delete team error:", err);
+    res.status(500).json({ error: "Failed to delete team" });
+  }
+};
+
 
 // Send Invites
 const sendTeamInvites = async (req, res) => {
@@ -116,19 +159,7 @@ const getUserTeams = async (req, res) => {
   }
 };
 
-// GET single team by ID
-const getTeamById = async (req, res) => {
-  console.log("getTeamById called with params:", req.params);
-  const { teamId } = req.params;
-  try {
-    const [team] = await Team.getById(teamId);
-    if (!team.length) return res.status(404).json({ error: "Team not found" });
-    res.json(team[0]);
-  } catch (err) {
-    console.error("Failed to fetch team:", err);
-    res.status(500).json({ error: "Failed to fetch team" });
-  }
-};
+
 
 // UPDATE a team
 const updateTeam = async (req, res) => {
@@ -144,18 +175,26 @@ const updateTeam = async (req, res) => {
     res.status(500).json({ error: "Failed to update team" });
   }
 };
-
-// DELETE a team
-const deleteTeam = async (req, res) => {
+const getTeamById = async (req, res) => {
   const { teamId } = req.params;
+
   try {
-    await Team.delete(teamId);
-    res.json({ success: true });
+    const team = await Team.getById(teamId);  // <-- correct, no []
+
+    if (!team) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+
+    res.json(team);  // send full team object with created_by
   } catch (err) {
-    console.error("Failed to delete team:", err);
-    res.status(500).json({ error: "Failed to delete team" });
+    console.error("Failed to fetch team:", err);
+    res.status(500).json({ error: "Failed to fetch team" });
   }
 };
+
+
+
+
 
 // ADD member to a team
 const addTeamMember = async (req, res) => {
@@ -229,7 +268,7 @@ const removeMember = async (req, res) => {
     console.error("removeMember failed:", err);
     res.status(500).json({ error: "Failed to remove member" });
   }
-};
+}; 
 
 // GET team messages
 const getTeamMessages = async (req, res) => {
@@ -584,7 +623,9 @@ module.exports = {
   createTeamAndSendInvites,
   getTeamsSortedByActivity ,
   addTeamMembers,
-  removeMember
+  removeMember,
+  renameTeam,
+
 };
 
 

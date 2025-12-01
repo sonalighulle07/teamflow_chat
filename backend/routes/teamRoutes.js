@@ -26,7 +26,8 @@ const {
   respondToInvite,
   sendTeamInvites,
   getTeamsSortedByActivity,
-  removeMember
+  removeMember,
+  renameTeam
 } = require("../controllers/teamController");
 
 /* ----------------------------------------
@@ -92,6 +93,8 @@ router.get("/:teamId/members", authenticateToken, checkTeamMember, getTeamMember
 // POST or DELETE method; choose what matches your app
 // Remove single member (correct route)
 router.delete("/:teamId/members/:memberId", authenticateToken, removeMember);
+router.put("/:teamId/rename", authenticateToken, renameTeam);
+
 
 
 
