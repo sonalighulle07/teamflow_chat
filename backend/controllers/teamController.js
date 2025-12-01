@@ -7,33 +7,47 @@ const User = require("../models/User");
 const { sendPushNotification } = require("../Utils/pushService");
 
 const createTeam = async (req, res) => {
-  const { name, created_by, members = [] } = req.body;
+const { name, created_by, members = [] } = req.body;
 
-  if (!name || !created_by)
-    return res.status(400).json({ error: "Name and created_by are required" });
+if (!name || !created_by) {
+return res.status(400).json({ error: "Name and created_by are required" });
+}
 
-  try {
-    // Create team
-    const teamId = await Team.create(name, created_by);
-    await TeamMember.add(teamId, created_by, "owner");
+try {
+// 1️⃣ Get creator's organization
+const [orgRow] = await db.query(
+"SELECT organization_id FROM users WHERE id = ?",
+[created_by]
+);
 
-    // 3 Add optional members
-    if (members.length > 0) {
-      for (const userId of members) {
-        if (userId !== created_by) {
-          await TeamInvite.create(teamId, userId, created_by);
-        }
-      }
-    }
-    //  Meeting creation
-    await meetServ.getOrCreateMeetingCode(teamId);
 
-    res.json({ id: teamId, name, created_by });
-  } catch (err) {
-    console.error(" createTeam failed:", err);
-    res.status(500).json({ error: "Failed to create team" });
+const orgId = orgRow[0]?.organization_id;
+if (!orgId) {
+  return res.status(400).json({ error: "User has no organization" });
+}
+
+// 2️⃣ Create team with organization_id
+const teamId = await Team.create(name, created_by, orgId);
+
+// 3️⃣ Add creator as owner
+await TeamMember.add(teamId, created_by, "owner");
+
+// 4️⃣ Add optional invited members
+for (const userId of members) {
+  if (userId !== created_by) {
+    await TeamInvite.create(teamId, userId, created_by);
   }
+}
+
+res.json({ id: teamId, name, created_by, organization_id: orgId });
+
+
+} catch (err) {
+console.error("createTeam failed:", err);
+res.status(500).json({ error: "Failed to create team" });
+}
 };
+
 const renameTeam = async (req, res) => {
   const { teamId } = req.params;
   const { name } = req.body;
@@ -147,17 +161,29 @@ const getAllTeams = async (req, res) => {
 
 // GET teams for a user
 const getUserTeams = async (req, res) => {
-  const userId = req.query.userId;
-  if (!userId) return res.status(400).json({ error: "Missing userId in query" });
+const userId = req.query.userId;
+if (!userId) {
+return res.status(400).json({ error: "Missing userId in query" });
+}
 
-  try {
-    const teams = await Team.getByUser(userId); // remove extra destructuring
-    res.json(teams);
-  } catch (err) {
-    console.error("Failed to fetch user teams:", err);
-    res.status(500).json({ error: "Failed to fetch teams" });
-  }
+try {
+const [teams] = await db.query(
+`SELECT t.*
+       FROM teams t
+       JOIN team_members tm ON tm.team_id = t.id
+       JOIN users u ON u.organization_id = t.organization_id
+       WHERE tm.user_id = ?
+       AND u.id = ?`,
+[userId, userId]
+);
+res.json(teams);
+
+} catch (err) {
+console.error("Failed to fetch user teams:", err);
+res.status(500).json({ error: "Failed to fetch teams" });
+}
 };
+
 
 
 

@@ -19,16 +19,14 @@ const Team = {
 
 
   // Create a new team and return its ID
-  create: async (name, created_by) => {
-    const [result] = await db.query(
-      "INSERT INTO teams (name, created_by) VALUES (?, ?)",
-      [name, created_by]
-    );
-    if (!result.insertId) {
-      throw new Error("Team creation failed: insertId missing");
-    }
-    return result.insertId; 
-  },
+ create: async (name, created_by, organization_id) => {
+  const [result] = await db.query(
+    "INSERT INTO teams (name, created_by, organization_id) VALUES (?, ?, ?)",
+    [name, created_by, organization_id]
+  );
+  return result.insertId;
+},
+
 
   // Update team name
   update: async (id, name) => {
@@ -49,16 +47,17 @@ const Team = {
   },
 
   // Get all teams a user belongs to
-  getByUser: async (user_id) => {
-    const [rows] = await db.query(
-      `SELECT t.id, t.name, t.created_by
-       FROM teams t
-       JOIN team_members tm ON t.id = tm.team_id
-       WHERE tm.user_id = ?`,
-      [user_id]
-    );
-    return rows;
-  },
+  getByUser: async (user_id, organization_id) => {
+  const [rows] = await db.query(
+    `SELECT t.* 
+     FROM teams t
+     JOIN team_members tm ON tm.team_id = t.id
+     WHERE tm.user_id = ? AND t.organization_id = ?`,
+    [user_id, organization_id]
+  );
+  return rows;
+},
+
    getTeamsWithLastMessage: async (userId) => {
     const [rows] = await db.query(
       `
