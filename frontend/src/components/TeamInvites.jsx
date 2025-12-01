@@ -43,7 +43,10 @@ export default function TeamInvites({ socket, show, setShow }) {
         setInvites(pendingInvites);
 
         // Open modal only if there are pending invites from others
-        if (pendingInvites.length > 0) setShow(true);
+   if (pendingInvites.length > 0) {
+  setTimeout(() => setShow(true), 0);
+}
+
       } catch (err) {
         if (err.name !== "CanceledError") {
           console.error("❌ Failed to fetch invites:", err);

@@ -51,6 +51,8 @@ function AppRoutes({
   const [searchQuery, setSearchQuery] = useState("");
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
+  const [teamToEdit, setTeamToEdit] = useState(null);
+
   const location = useLocation();
 
   const handleOpenForwardModal = (message) => {
@@ -167,7 +169,8 @@ function AppRoutes({
                         team={selectedTeam}
                         currentUser={currentUser}
                         searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery} // <-- add this
+                        setSearchQuery={setSearchQuery}
+                        setTeamToEdit={setTeamToEdit}
                       />
                     </div>
                   )}
@@ -199,6 +202,7 @@ function AppRoutes({
                       showModal={showModal}
                       setShowModal={setShowModal}
                       socket={socket}
+                      existingTeam={teamToEdit}
                     />
                   )}
                 </div>
@@ -292,12 +296,10 @@ function App() {
         connectSocket(userId);
       }
 
-
       // 🔥 Important: register user socket
       socket.emit("register", { userId: String(userId) });
     }
   }, [isAuthenticated, userId]);
-
 
   useEffect(() => {
     if (isAuthenticated && !currentUser) {

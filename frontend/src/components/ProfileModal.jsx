@@ -19,6 +19,8 @@ export default function ProfileModal({
   if (!user) return null;
   const [loading, setLoading] = useState(false)
   const [showRegister, setShowRegister] = useState(false);
+  const navigate = useNavigate();
+
   const [preview, setPreview] = useState(() => {
   if (!user) return null;
   const stored = localStorage.getItem(`profileImage_${user.id}`);

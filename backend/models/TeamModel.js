@@ -122,6 +122,16 @@ WHERE t.id = ?;
   );
   return rows;
 },
+  // Get role of a user inside a team
+  getRole: async (team_id, user_id) => {
+    const [rows] = await db.query(
+      "SELECT role FROM team_members WHERE team_id = ? AND user_id = ?",
+      [team_id, user_id]
+    );
+
+    return rows.length ? rows[0].role : null;
+  },
+
 
 };
 
@@ -145,6 +155,7 @@ const TeamChat = {
     );
     return rows;
   },
+  
 };
 
 // Insert team message (all fields encrypted)
@@ -271,6 +282,22 @@ insert: async (
     );
     return result;
   },
+  // Fetch complete team chat history (decrypted)
+fetchTeamChat: async (teamId) => {
+  const [rows] = await db.query(
+    "SELECT * FROM team_messages WHERE team_id = ? ORDER BY created_at ASC",
+    [teamId]
+  );
+
+  return rows.map(msg => ({
+    ...msg,
+    text: msg.text ? decrypt(msg.text) : "",
+    file_url: msg.file_url ? decrypt(msg.file_url) : null,
+    file_name: msg.file_name ? decrypt(msg.file_name) : null,
+    reactions: msg.reactions ? JSON.parse(decrypt(msg.reactions)) : {},
+  }));
+},
+
 };
 
 module.exports = {

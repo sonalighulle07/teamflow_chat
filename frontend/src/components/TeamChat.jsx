@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-
 import Picker from "emoji-picker-react";
 import { PaperClipIcon } from "@heroicons/react/24/outline";
 import Message from "./Message";
@@ -18,6 +17,7 @@ export default function TeamChat({
 }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
@@ -51,17 +51,16 @@ export default function TeamChat({
     socketRef.current = socket;
 
     // Register user & join room
-    socket.emit("register", { userId: currentUser.id });
-    socket.emit("joinRoom", { teamId: selectedTeam.id });
-    socketRef.current = socket;
+    socketRef.current.emit("register", { userId: currentUser.id });
+  socketRef.current.emit("joinTeam", { teamId: selectedTeam.id }); // <-- was 
+  // joinRoom
 
-    // ========= REAL-TIME TEAM MESSAGE =========
-    socket.on("teamMessage", (msg) => {
-      if (msg.team_id === selectedTeam.id) {
-        setMessages((prev) => [...prev, msg]);
-      }
-    });
-
+  // ========= REAL-TIME TEAM MESSAGE =========
+  socketRef.current.on("teamMessage", (msg) => {
+    if (msg.team_id === selectedTeam.id) {
+      setMessages((prev) => [...prev, msg]);
+    }
+  });
     // ========= MESSAGE EDITED =========
     socket.on("teamMessageEdited", (msg) => {
       if (msg.team_id !== selectedTeam.id) return;

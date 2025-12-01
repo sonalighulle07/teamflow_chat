@@ -184,6 +184,52 @@ const getTeamMembers = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch team members" });
   }
 };
+const removeMember = async (req, res) => {
+  const { teamId, memberId } = req.params;
+  const currentUserId = req.user.id;
+
+  try {
+    // 1. Verify team exists and owner
+    const [teamRows] = await db.query("SELECT created_by AS owner_id FROM teams WHERE id = ?", [teamId]);
+    const team = teamRows[0];
+    if (!team) return res.status(404).json({ error: "Team not found" });
+
+    // Only owner (or admin if you prefer) can remove — change check if admin allowed
+    if (team.owner_id !== currentUserId) {
+      return res.status(403).json({ error: "Only owner can remove members" });
+    }
+
+    // Prevent owner from removing themself (optional)
+    if (parseInt(memberId) === parseInt(team.owner_id)) {
+      return res.status(400).json({ error: "Owner cannot be removed" });
+    }
+
+    // 2. Delete member from team_members
+    const [deleteRes] = await db.query(
+      "DELETE FROM team_members WHERE team_id = ? AND user_id = ?",
+      [teamId, memberId]
+    );
+
+    if (deleteRes.affectedRows === 0) {
+      return res.status(400).json({ error: "User not found in team" });
+    }
+
+    // 3. Optionally delete pending invites for that user/team
+    await db.query("DELETE FROM team_invites WHERE team_id = ? AND user_id = ?", [teamId, memberId]).catch(() => {});
+
+    // 4. Emit socket events
+    // Notify removed user personally, so their UI removes the team
+    req.io?.to(`user_${memberId}`).emit("removedFromTeam", { teamId });
+
+    // Broadcast to team room that member removed (so other members update UI)
+    req.io?.to(`team_${teamId}`).emit("memberRemoved", { teamId, memberId });
+
+    return res.json({ success: true, memberId, teamId });
+  } catch (err) {
+    console.error("removeMember failed:", err);
+    res.status(500).json({ error: "Failed to remove member" });
+  }
+};
 
 // GET team messages
 const getTeamMessages = async (req, res) => {
@@ -462,7 +508,61 @@ const getTeamsSortedByActivity = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch teams" });
   }
 };
+const addTeamMembers = async (req, res) => {
+  const { teamId } = req.params;
+  const { members = [] } = req.body;
+  const currentUserId = req.user.id;
 
+  if (!members.length) {
+    return res.status(400).json({ error: "No members provided" });
+  }
+
+  try {
+    // 🚨 0. PERMISSION CHECK — only owner/admin can add new members
+    const userRole = await TeamMember.getRole(teamId, currentUserId);
+
+    if (userRole !== "owner" && userRole !== "admin") {
+      return res.status(403).json({ error: "Only admin can add members" });
+    }
+
+    // 1. get existing members
+    const existing = await TeamMember.getMembers(teamId);
+    const existingRows = Array.isArray(existing[0]) ? existing[0] : existing;
+    const existingIds = existingRows.map((m) => m.user_id);
+
+    // 2. filter new
+    const toInvite = members.filter((id) => !existingIds.includes(id));
+
+    if (!toInvite.length) {
+      return res.json({ message: "No new members to invite" });
+    }
+
+    // 3. get team name safely
+    const teamRes = await Team.getById(teamId);
+    const teamRows = Array.isArray(teamRes[0]) ? teamRes[0] : teamRes;
+    const teamName =
+      Array.isArray(teamRows) && teamRows.length > 0
+        ? teamRows[0].name
+        : "Team";
+
+    // 4. send invites
+    for (const uid of toInvite) {
+      await TeamInvite.create(teamId, uid, currentUserId);
+
+      req.io?.to(`user_${uid}`).emit("teamInviteReceived", {
+        id: Date.now(),
+        teamId,
+        team_name: teamName,
+        invited_by_name: req.user.username,
+      });
+    }
+
+    return res.json({ success: true, invited: toInvite });
+  } catch (err) {
+    console.error("addTeamMembers failed:", err);
+    return res.status(500).json({ error: "Failed to add members" });
+  }
+};
 module.exports = {
    sendTeamInvites,
   getPendingInvites,
@@ -482,7 +582,9 @@ module.exports = {
   reactMessage,
   getTeamMeetingLink,
   createTeamAndSendInvites,
-  getTeamsSortedByActivity 
+  getTeamsSortedByActivity ,
+  addTeamMembers,
+  removeMember
 };
 
 
