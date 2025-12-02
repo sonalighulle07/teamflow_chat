@@ -97,7 +97,7 @@ export default function TeamChat({ currentUser }) {
 
     return () => {
       socket.emit("leaveRoom", { teamId: selectedTeam.id });
-      socket.disconnect();
+      // socket.disconnect();
     };
   }, [selectedTeam, currentUser]);
 

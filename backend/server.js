@@ -4,7 +4,7 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
-  
+
 // Routes
 const meetingRoutes = require("./routes/meetingRoutes");
 const authRoutes = require("./routes/authRoutes");
@@ -22,6 +22,7 @@ const callHandlers = require("./Utils/socket/callHandlers");
 const messageHandlers = require("./Utils/socket/messageHandlers");
 const eventHandlers = require("./Utils/socket/eventHandlers");
 const sidebarSocket = require("./Utils/socket/sidebarSocket");
+const meetingHandlers = require("./Utils/socket/meetingHandlers");
 
 const app = express();
 const server = http.createServer(app);
@@ -32,6 +33,12 @@ const io = new Server(server, {
     credentials: true,
   },
 });
+
+// GLOBAL — Supports multiple sockets per user
+// Map<userId => Set(socketIds)>
+const connectedSockets = new Map(); 
+
+const log = (...args) => console.log("[SERVER]", ...args);
 
 // Middleware
 app.use(cors({
@@ -52,27 +59,68 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chats", chatRoutes);
-
 app.use("/api/subscribe", notificationRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/teams", teamRoutes);
 app.use("/api/events", eventRoutes);
-
 app.use("/api/tasks", taskRoutes);
 app.use("/api/organizations", organizationRoutes);
 
-// Socket.io
+// SOCKET.IO
 io.on("connection", (socket) => {
 
-  console.log("Socket connected: Server.js", socket.id);
+  console.log("Socket connected:", socket.id);
 
+  const addSocketForUser = (userId, socketId) => {
+    if (!connectedSockets.has(userId)) {
+      connectedSockets.set(userId, new Set());
+    }
+    connectedSockets.get(userId).add(socketId);
 
+    log(`Added socket ${socketId} for user ${userId}`);
+  };
+
+  const removeSocketForUser = (userId, socketId) => {
+    const set = connectedSockets.get(userId);
+    if (!set) return;
+
+    set.delete(socketId);
+    log(`Removed socket ${socketId} for user ${userId}`);
+
+    if (set.size === 0) {
+      connectedSockets.delete(userId);
+      log(`All sockets removed for user ${userId} → deleted mapping`);
+    }
+  };
+
+  // ---------------- REGISTER USER ----------------
+  socket.on("register", ({ userId } = {}) => {
+    if (!userId) return;
+
+    userId = String(userId);
+    socket.userId = userId;
+
+    socket.join(`user_${userId}`);
+    addSocketForUser(userId, socket.id);
+
+    log(`Registered user ${userId} (socket: ${socket.id})`);
+  });
+
+  // ---------------- DISCONNECT ----------------
+  socket.on("disconnect", () => {
+    const { userId } = socket;
+    if (!userId) return;
+
+    removeSocketForUser(userId, socket.id);
+  });
+
+  // Attach handlers
   messageHandlers(io, socket);
-  callHandlers(io, socket);
+  callHandlers(io, socket, connectedSockets);
   eventHandlers(io, socket);
   teamSocket(io, socket);
-
-  sidebarSocket(io,socket);
+  meetingHandlers(io, socket, connectedSockets);
+  sidebarSocket(io, socket);
 });
 
 // Start server

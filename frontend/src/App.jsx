@@ -87,6 +87,9 @@ function AppRoutes({
         element={<Register onRegister={handleAuthSuccess} />}
       />
 
+ 
+    {/* Lazy loaded block */}
+
       {/* Prejoin media page */}
       <Route
         path="/prejoin/:credentials"
@@ -106,6 +109,10 @@ function AppRoutes({
           </ProtectedRoute>
         }
       />
+
+{/*  Lazy loaded block  */}
+
+
 
       {/* Main App */}
       <Route
@@ -131,13 +138,13 @@ function AppRoutes({
 
               <div className="flex flex-1 overflow-hidden w-full">
                 {/* Sidebar */}
-                <div className="w-72 min-w-[250px] border-r border-gray-200 overflow-y-auto">
+                
                   <Sidebar
                     setShowModal={setShowModal}
                     activeNav={activeNav}
                     onCommunitiesClick={onCommunitiesClick}
                   />
-                </div>
+                
 
                 {/* Main content */}
                 <div className="flex-1 flex flex-col overflow-hidden w-full">

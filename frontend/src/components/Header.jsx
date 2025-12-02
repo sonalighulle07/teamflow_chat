@@ -10,7 +10,6 @@ import axios from "axios";
 import socket from "./calls/hooks/socket";
 import { FaUsers } from "react-icons/fa";
 
-
 export default function Header({
   activeUser,
   onStartCall,
@@ -28,7 +27,6 @@ export default function Header({
 
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
-  
 
   const searchInputRef = useRef(null);
   const { selectedUser, activeNav } = useSelector((state) => state.user);
@@ -71,7 +69,6 @@ export default function Header({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showSearch, searchQuery]);
 
-
   // Hide dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -83,54 +80,72 @@ export default function Header({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ----------------- Poll Active Meeting & Check Joined -----------------
-  useEffect(() => {
-    if (!selectedTeam || !token) return;
+// ----------------- Poll Active Meeting & Check Joined -----------------
+useEffect(() => {
+  if (!selectedTeam || !token) return;
+
+  const fetchActiveMeeting = async () => {
+    try {
+      const res = await axios.get(
+        `${URL}/api/teams/team/${selectedTeam.id}/active`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!res.data.active) {
+        setActiveMeeting(null);
+        setHasJoinedMeeting(false);
+        return;
+      }
+
+      // Meeting exists
+      const meeting = res.data.meeting;
+      setActiveMeeting(meeting);
+
+      // Extract room code
+      const parts = meeting.meeting_code.split("-");
+      const roomCode = parts.slice(2).join("-");
+      console.log("Room Code:", roomCode);
+
+      // Ask server if this user has joined
+      socket.emit("header-checkJoined", {
+        roomCode,
+        userId: String(activeUser.id),
+        requesterSocketId: socket.id,   // ONLY SEND THE ID
+      });
+
+    } catch (err) {
+      console.error("Failed to check active meeting:", err);
+    }
+  };
+
+  // FIRST CALL
+  fetchActiveMeeting();
+
+  // POLL EVERY 10 SECONDS
+  const interval = setInterval(fetchActiveMeeting, 10000);
+
+  return () => clearInterval(interval);
+
+}, [selectedTeam, token, activeUser.id]);
 
 
-    const fetchActiveMeeting = async () => {
-      try {
-        const res = await axios.get(
-          `${URL}/api/teams/team/${selectedTeam.id}/active`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        if (res.data.active) {
-          setActiveMeeting(res.data.meeting);
-
-
-          console.log("Active meeting data:",res.data)
-
-          const roomCode = res.data.meeting.meeting_code?.split("-")[2] || null;
-          console.log("Room code:",roomCode)
-
-          // Ask server if user has joined this meeting
-socket.emit(
-  "checkJoined",
-  {
-    roomCode: roomCode,   // <-- Use roomCode consistently
-    userId: String(activeUser.id),
-  },
-  ({ joined }) => {       // <-- FIX callback destructuring
+// ---------------- LISTENER (REGISTER ONCE) ----------------
+// Wee need this listner(checkJoined response as there are multiple sockets connecting from different tabs )
+// and backend will emit only to socket of meetingRoom tab so  we have sent the socketId from above header-checkJoined and needs a reciever here
+// to update hasJoinedStatus
+useEffect(() => {
+  const handleCheckJoined = ({ joined }) => {
     console.log("Check joined res:", joined);
     setHasJoinedMeeting(joined);
-  }
-);
+  };
 
+  socket.on("checkJoinedResponse", handleCheckJoined);
 
-        } else {
-          setActiveMeeting(null);
-          setHasJoinedMeeting(false);
-        }
-      } catch (err) {
-        console.error("Failed to check active meeting:", err);
-      }
-    };
+  return () => {
+    socket.off("checkJoinedResponse", handleCheckJoined);
+  };
+}, []);
 
-    fetchActiveMeeting();
-    const interval = setInterval(fetchActiveMeeting, 10000);
-    return () => clearInterval(interval);
-  }, [selectedTeam, token, activeUser.id]);
 
   // ----------------- Profile Image -----------------
   useEffect(() => {
@@ -146,28 +161,23 @@ socket.emit(
     if (showSearch && searchInputRef.current) searchInputRef.current.focus();
   }, [showSearch]);
 
+  // --------------------------------------------------------
+  // TOAST SYSTEM
+  // --------------------------------------------------------
+  useEffect(() => {
+    const handler = (e) => {
+      setToastMsg(e.detail?.message || "");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    };
 
-
-    // --------------------------------------------------------
-    // TOAST SYSTEM
-    // --------------------------------------------------------
-    useEffect(() => {
-      const handler = (e) => {
-        setToastMsg(e.detail?.message || "");
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
-      };
-  
-      window.addEventListener("user-left-toast", handler);
-      window.addEventListener("user-joined-toast",handler);
-      return () =>{ 
-        window.removeEventListener("user-left-toast", handler);
-        window.removeEventListener("user-joined-toast",handler);
-      }
-      
-    }, []);
-
-
+    window.addEventListener("user-left-toast", handler);
+    window.addEventListener("user-joined-toast", handler);
+    return () => {
+      window.removeEventListener("user-left-toast", handler);
+      window.removeEventListener("user-joined-toast", handler);
+    };
+  }, []);
 
   // ----------------- Logout -----------------
   const logout = () => {
@@ -210,7 +220,7 @@ socket.emit(
 
       const { active, meeting } = response.data;
 
-      console.log("Active meeting data:",response.data);
+      console.log("Active meeting data:", response.data);
 
       if (active && meeting?.meeting_code === activeMeeting.meeting_code) {
         window.open(
@@ -316,20 +326,17 @@ socket.emit(
           )}
         </div>
 
-          <div>
-            {/* TOAST */}
-    {showToast && (
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-purple-600 text-white rounded shadow-lg z-[3000]">
-        {toastMsg}
-      </div>
-    )}
-          </div>
-
+        <div>
+          {/* TOAST */}
+          {showToast && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-purple-600 text-white rounded shadow-lg z-[3000]">
+              {toastMsg}
+            </div>
+          )}
+        </div>
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
-
-
           {isChatVisible && renderMeetingButton()}
           {/* 👥 Group Members Button */}
 
@@ -501,6 +508,3 @@ socket.emit(
     </>
   );
 }
-
-
-

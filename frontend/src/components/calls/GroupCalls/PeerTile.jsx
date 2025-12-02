@@ -99,7 +99,7 @@ export default function PeerTile({
         }
         bg-gray-900 hover:border-blue-400 cursor-pointer`}
       onDoubleClick={onDoubleClick}
-    >
+      >
       <video
         ref={videoRef}
         autoPlay

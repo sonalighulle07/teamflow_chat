@@ -24,11 +24,9 @@ import { URL } from "../config";
 
 export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   const dispatch = useDispatch();
-
   const { currentUser, userList, selectedUser, loading, error, activeNav } =
     useSelector((state) => state.user);
   const { teamList, selectedTeam } = useSelector((state) => state.team);
-
   const token = sessionStorage.getItem("chatToken");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,13 +38,11 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   // -----------------------
   useEffect(() => {
     if (!currentUser?.organization_id) return;
-
     if (activeNav === "Chat") {
       dispatch(fetchUsers());
       const interval = setInterval(() => dispatch(fetchUsers()), 5000);
       return () => clearInterval(interval);
     }
-
     if (activeNav === "Communities") {
       dispatch(fetchTeams());
       const interval = setInterval(() => dispatch(fetchTeams()), 5000);
@@ -55,7 +51,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   }, [activeNav, currentUser, dispatch]);
 
   // -----------------------
-  // Fetch last messages for users
+  // Fetch last messages
   // -----------------------
   const fetchLastMessages = async (userId) => {
     try {
@@ -72,9 +68,6 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
     }
   };
 
-  // -----------------------
-  // Fetch last messages for teams
-  // -----------------------
   const fetchLastTeamMessages = async (userId) => {
     try {
       const res = await axios.get(`${URL}/api/teams/user/${userId}/sorted`, {
@@ -93,7 +86,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   };
 
   // -----------------------
-  // Load saved last messages from localStorage
+  // Load saved last messages
   // -----------------------
   useEffect(() => {
     const saved = localStorage.getItem("lastMessages");
@@ -115,7 +108,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   }, [currentUser?.id]);
 
   // -----------------------
-  // Real-time updates for user messages
+  // Real-time updates
   // -----------------------
   useEffect(() => {
     if (!socket || !currentUser) return;
@@ -138,8 +131,9 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
     return () => socket.off("privateMessage");
   }, [socket, currentUser]);
 
+
   // -----------------------
-  // Handle selection
+  // Selection handlers
   // -----------------------
   const handleSelectUser = (user) => {
     dispatch(setSelectedUser(user));
@@ -154,7 +148,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   };
 
   // -----------------------
-  // Filtered and sorted lists
+  // Filtered lists
   // -----------------------
   const filteredUsers = useMemo(() => {
     if (!searchQuery) return userList;
@@ -164,22 +158,21 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   }, [userList, searchQuery]);
 
   const filteredTeams = useMemo(() => {
-    let list = [...teamList]; // ✅ make a copy
+    let list = [...teamList];
     if (searchQuery) {
       list = list.filter((t) =>
         t.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-
     list.sort((a, b) => {
       const aTime = lastTeamMessages[a.id] || new Date(a.created_at);
       const bTime = lastTeamMessages[b.id] || new Date(b.created_at);
-      return bTime - aTime; // newest first
+      return bTime - aTime;
     });
-
     return list;
   }, [teamList, searchQuery, lastTeamMessages]);
 
+  
   // -----------------------
   // Sidebar nav items
   // -----------------------
@@ -192,7 +185,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   ];
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       {/* Sidebar navigation */}
       <div className="flex flex-col justify-between w-20 min-w-[5rem] bg-slate-200 shadow-md px-4 py-6 flex-shrink-0">
         <div className="flex flex-col items-center gap-6">
@@ -232,12 +225,10 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
         </div>
       </div>
 
-      {/* Panel */}
-      {(activeNav === "Chat" ||
-        activeNav === "Communities" ||
-        activeNav === "Tasks") && (
-        <div className="flex-1 bg-gray-100 border-l border-gray-300 flex flex-col overflow-hidden">
-          {/* Search Input */}
+      {/* Panel (only Chat or Communities) */}
+      {["Chat", "Communities"].includes(activeNav) && (
+        <div className="w-68 min-w-[250px] bg-gray-100 border-l border-gray-300 flex flex-col overflow-hidden">
+          {/* Search input */}
           <div className="p-2">
             <div className="relative">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm" />
@@ -261,7 +252,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
             )}
           </div>
 
-          {/* User/Team List */}
+          {/* User/Team list */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {error && <p className="p-4 text-sm text-red-500">{error}</p>}
             {!loading && !error && (
