@@ -2,10 +2,9 @@ const fs = require('fs').promises;
 const pool = require('../config/db');
 const User = require('../models/User');
 
-// ✅ Get all organizations
+//  Get all organizations
 exports.getOrganizations = async (req, res) => {
   try {
-    // Make sure your User model actually has this function or query directly from DB
     const [orgs] = await pool.query('SELECT id, name FROM organizations ORDER BY name');
     res.status(200).json(orgs);
   } catch (err) {
@@ -14,7 +13,7 @@ exports.getOrganizations = async (req, res) => {
   }
 };
 
-// ✅ Register new user
+//  Register new user
 exports.registerUser = async (req, res) => {
   try {
     const { full_name, email, contact, username, password, organization_id } = req.body;
@@ -22,8 +21,6 @@ exports.registerUser = async (req, res) => {
     if (!organization_id) {
       return res.status(400).json({ success: false, message: "Organization is required" });
     }
-
-    // Make sure your User.create handles password hashing
     const userId = await User.create({
       full_name,
       email,
@@ -44,10 +41,10 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-// ✅ Get all users
+// Get all users
 exports.getUsers = async (req, res) => {
   try {
-    const { organization_id } = req.query; // get orgId from query params
+    const { organization_id } = req.query; 
 
     let users;
     if (organization_id) {
@@ -67,7 +64,7 @@ exports.getUsers = async (req, res) => {
   }
 };
 
-// ✅ Update user avatar
+//  Update user avatar
 exports.updateAvatar = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -92,7 +89,7 @@ exports.updateAvatar = async (req, res) => {
   }
 };
 
-// ✅ Remove avatar permanently
+//  Remove avatar permanently
 exports.removeAvatar = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -120,7 +117,7 @@ exports.removeAvatar = async (req, res) => {
   }
 };
 
-// ✅ Delete user account
+//  Delete user account
 exports.deleteAccount = async (req, res) => {
   try {
     const { userId } = req.body;

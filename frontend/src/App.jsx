@@ -7,7 +7,8 @@ import {
   useLocation,
 } from "react-router-dom";
 import { connectSocket } from "../src/components/calls/hooks/socket";
-
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
 import Login from "./components/Login";
@@ -45,11 +46,12 @@ function AppRoutes({
   const [teamMessages, setTeamMessages] = useState([]);
   const { activeNav } = useSelector((state) => state.user);
   const [showTeamInvites, setShowTeamInvites] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState(null); // ✅ local state for selected team
+  const [selectedTeam, setSelectedTeam] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
+  const [teamToEdit, setTeamToEdit] = useState(null);
 
   const location = useLocation();
 
@@ -174,6 +176,8 @@ function AppRoutes({
                         team={selectedTeam}
                         currentUser={currentUser}
                         searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        setTeamToEdit={setTeamToEdit}
                       />
                     </div>
                   )}
@@ -205,6 +209,7 @@ function AppRoutes({
                       showModal={showModal}
                       setShowModal={setShowModal}
                       socket={socket}
+                      existingTeam={teamToEdit}
                     />
                   )}
                 </div>
@@ -231,7 +236,6 @@ function AppRoutes({
                   onReject={call.rejectCall}
                 />
               )}
-
               {/* Ongoing call overlay */}
               {call.callState.type && (
                 <CallOverlay
@@ -256,6 +260,16 @@ function AppRoutes({
                   cancelInvite={call.cancelInviteFor} // ✅ FIXED
                 />
               )}
+              <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                pauseOnHover
+                draggable
+                theme="colored"
+              />
             </div>
           )
         }
@@ -277,7 +291,7 @@ function App() {
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").then((reg) => {
-        console.log("✅ Service Worker registered:", reg);
+        console.log("Service Worker registered:", reg);
       });
     }
   }, []);
@@ -294,14 +308,12 @@ function App() {
     }
   }, [isAuthenticated, userId]);
 
-  // Redux rehydrate
   useEffect(() => {
     if (isAuthenticated && !currentUser) {
       dispatch(rehydrateUser());
     }
   }, [isAuthenticated, currentUser, dispatch]);
 
-  // Push subscription
   useEffect(() => {
     async function subscribeUser() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -310,28 +322,24 @@ function App() {
         const reg = await navigator.serviceWorker.ready;
         const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
         if (!vapidKey) {
-          console.error("❌ VAPID key missing");
+          console.error(" VAPID key missing");
           return;
         }
-
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(vapidKey),
         });
-
         const user = JSON.parse(sessionStorage.getItem("chatUser"));
         await fetch("http://localhost:3000/api/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: user.id, subscription: sub }),
         });
-
-        console.log("✅ Push subscription sent to backend");
+        console.log(" Push subscription sent to backend");
       } catch (err) {
         console.error("Push subscription failed:", err);
       }
     }
-
     if (isAuthenticated && userId) {
       subscribeUser();
     }

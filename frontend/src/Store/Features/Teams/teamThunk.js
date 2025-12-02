@@ -53,7 +53,7 @@ export const fetchTeamMembers = createAsyncThunk(
 export const fetchTeamsSorted = (userId) => async (dispatch) => {
   try {
     const { data } = await axios.get(`${URL}/teams/user/${userId}/sorted`);
-    dispatch(setTeamList(data)); // reuse existing Redux action
+    dispatch(setTeamList(data)); 
   } catch (err) {
     console.error("Failed to fetch sorted teams:", err);
   }

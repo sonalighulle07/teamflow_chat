@@ -1,7 +1,6 @@
 const { TeamMember } = require("../models/TeamModel");
  
 async function teamAuthMiddleware(req, res, next) {
-
   const userId = req.user?.id;
   const teamId = req.params.teamId;
  

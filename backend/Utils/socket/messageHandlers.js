@@ -2,9 +2,8 @@ const Chat = require('../../models/chatModel');
 const { TeamMessage } = require('../../models/TeamModel');
 const { encrypt: encryptText, decrypt: decryptText } = require('../../Utils/crypto');
 
-
 module.exports = (io, socket) => {
-  // ✅ Register user
+  //  Register user
   socket.on('register', ({ userId }) => {
     if (!userId) return;
     socket.userId = userId;
@@ -12,7 +11,7 @@ module.exports = (io, socket) => {
     console.log(`User registered: ${userId}`);
   });
 
-  // ✅ Join team room & send decrypted chat history
+  //  Join team room & send decrypted chat history
   socket.on('joinTeam', async ({ teamId }) => {
     if (!teamId) return;
 
@@ -63,7 +62,7 @@ module.exports = (io, socket) => {
     }
   });
 
-  // ✅ Team message
+  //  Team message
   socket.on('teamMessage', async (msg) => {
     try {
       const { senderId, teamId, text, fileUrl, type, fileName, metadata } = msg;
@@ -89,8 +88,7 @@ module.exports = (io, socket) => {
       console.error('Team message error:', err);
     }
   });
-
-  // ✅ Delete message
+ 
  // Delete message
 socket.on('deleteMessage', async ({ messageId }) => {
   try {
@@ -119,81 +117,107 @@ socket.on('deleteMessage', async ({ messageId }) => {
 });
 
 
-  // ✅ Edit message
+  //  Edit message
   socket.on('editMessage', async ({ id, text }) => {
-    try {
-      const message =
-        (await Chat.getMessageById(id)) || (await TeamMessage.getById(id));
-      if (!message) return;
-
-      if (message.receiver_id) {
-        await Chat.updateMessage(id, text); // Chat handles encryption
-        const updated = await Chat.getMessageById(id);
-        updated.text = decryptText(updated.text);
-
-        io.to(`user_${message.sender_id}`).emit('messageEdited', updated);
-        io.to(`user_${message.receiver_id}`).emit('messageEdited', updated);
-      } else if (message.team_id) {
-        await TeamMessage.updateText(id, text); // TeamMessage handles encryption
-        const updated = await TeamMessage.getById(id);
-        updated.text = decryptText(updated.text);
-        updated.metadata = updated.metadata
-          ? JSON.parse(decryptText(updated.metadata))
-          : null;
-
-        io.to(`team_${message.team_id}`).emit('messageEdited', updated);
-      }
-    } catch (err) {
-      console.error('Edit message error:', err);
-    }
-  });
-
-  // ✅ Reaction
- socket.on('reaction', async ({ messageId, userId, emoji }) => {
   try {
     const message =
-      (await Chat.getMessageById(messageId)) ||
-      (await TeamMessage.getById(messageId));
+      (await Chat.getMessageById(id)) || (await TeamMessage.getById(id));
+    if (!message) return;
 
+    let updated;
+
+    if (message.receiver_id) {
+      await Chat.updateMessage(id, text); 
+      updated = await Chat.getMessageById(id);
+      updated.text = decryptText(updated.text);
+      updated.metadata = updated.metadata ? JSON.parse(decryptText(updated.metadata)) : null;
+
+      // Emit updated message in real-time
+      io.to(`user_${message.sender_id}`).emit('messageEdited', updated);
+      io.to(`user_${message.receiver_id}`).emit('messageEdited', updated);
+    } else if (message.team_id) {
+      await TeamMessage.updateText(id, text); 
+      updated = await TeamMessage.getById(id);
+      updated.text = decryptText(updated.text);
+      updated.metadata = updated.metadata ? JSON.parse(decryptText(updated.metadata)) : null;
+
+      io.to(`team_${message.team_id}`).emit('messageEdited', updated);
+    }
+  } catch (err) {
+    console.error('Edit message error:', err);
+  }
+});
+
+ // Server-side: team chat reaction
+socket.on('reaction', async ({ messageId, userId, emoji }) => {
+  try {
+    if (!messageId || !userId || !emoji) return;
+
+    const message = await TeamMessage.getById(messageId);
     if (!message) return;
 
     let reactions = message.reactions || {};
 
     // Toggle reaction
-    if (!reactions[emoji]) reactions[emoji] = {};
-    if (reactions[emoji][userId]) delete reactions[emoji][userId];
-    else reactions[emoji][userId] = 1;
+    if (!reactions[emoji]) reactions[emoji] = { count: 0, users: {} };
+    const emojiData = reactions[emoji];
+    if (emojiData.users[userId]) delete emojiData.users[userId];
+    else emojiData.users[userId] = 1;
 
-    // Remove emoji key if no users left
-    if (Object.keys(reactions[emoji]).length === 0) delete reactions[emoji];
+    // Recalculate count
+    emojiData.count = Object.keys(emojiData.users).length;
+    if (emojiData.count === 0) delete reactions[emoji];
 
-    // Save in DB (encrypt internally)
-    if (message.receiver_id) {
-      await Chat.updateReactions(messageId, reactions);
-    } else if (message.team_id) {
-      await TeamMessage.updateReactions(messageId, reactions);
-    }
+    // Save updated reactions
+    await TeamMessage.updateReactions(messageId, reactions);
 
-    // Fetch updated message
-    const updatedMessage = message.receiver_id
-      ? await Chat.getMessageById(messageId)
-      : await TeamMessage.getById(messageId);
+    // Fetch updated message to send to frontend
+    const updatedMessage = await TeamMessage.getById(messageId);
 
-    // Emit full updated message
-    if (message.receiver_id) {
-      io.to(`user_${message.sender_id}`).emit('reaction', { message: updatedMessage });
-      io.to(`user_${message.receiver_id}`).emit('reaction', { message: updatedMessage });
-    } else if (message.team_id) {
-      io.to(`team_${message.team_id}`).emit('reaction', { message: updatedMessage });
-    }
+    // Emit to team room
+    io.to(`team_${message.team_id}`).emit('teamMessageUpdated', updatedMessage);
+    
   } catch (err) {
     console.error('Reaction error:', err);
   }
 });
+// Server-side: private chat reaction
+socket.on('privateReaction', async ({ messageId, userId, emoji }) => {
+  try {
+    if (!messageId || !userId || !emoji) return;
+
+    const message = await Chat.getMessageById(messageId);
+    if (!message) return;
+
+    let reactions = message.reactions || {};
+
+    // Toggle reaction
+    if (!reactions[emoji]) reactions[emoji] = { count: 0, users: {} };
+    const emojiData = reactions[emoji];
+    if (emojiData.users[userId]) delete emojiData.users[userId];
+    else emojiData.users[userId] = 1;
+
+    // Recalculate count
+    emojiData.count = Object.keys(emojiData.users).length;
+    if (emojiData.count === 0) delete reactions[emoji];
+
+    // Save updated reactions in DB
+    await Chat.updateReactions(messageId, reactions);
+
+    // Fetch updated message to send to frontend
+    const updatedMessage = await Chat.getMessageById(messageId);
+
+    // Emit to both sender and receiver
+    io.to(`user_${message.sender_id}`).emit('privateMessageUpdated', updatedMessage);
+    io.to(`user_${message.receiver_id}`).emit('privateMessageUpdated', updatedMessage);
+
+  } catch (err) {
+    console.error('Private reaction error:', err);
+  }
+});
 
 
-
-  // ✅ Typing indicators
+  //  Typing indicators
   socket.on('typingStart', ({ teamId, receiverId }) => {
     if (teamId) socket.to(`team_${teamId}`).emit('userTyping', { userId: socket.userId });
     else if (receiverId) socket.to(`user_${receiverId}`).emit('userTyping', { userId: socket.userId });
@@ -204,7 +228,7 @@ socket.on('deleteMessage', async ({ messageId }) => {
     else if (receiverId) socket.to(`user_${receiverId}`).emit('userStoppedTyping', { userId: socket.userId });
   });
 
-  // ✅ Read receipts
+  //  Read receipts
   socket.on('messageRead', async ({ messageId }) => {
     try {
       const message =

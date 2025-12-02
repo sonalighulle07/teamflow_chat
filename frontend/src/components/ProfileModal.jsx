@@ -17,24 +17,25 @@ export default function ProfileModal({
   setProfileImage,
 }) {
   if (!user) return null;
-
+  const [loading, setLoading] = useState(false)
   const [showRegister, setShowRegister] = useState(false);
-  const [preview, setPreview] = useState(() => {
-    return (
-      localStorage.getItem("profileImage") ||
-      (user.profile_image ? `${URL}${user.profile_image}` : null)
-    );
-  });
-
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  useEffect(() => {
-    // Use a user-specific key for localStorage
-    const stored = localStorage.getItem(`profileImage_${user.id}`);
-    if (stored) setPreview(stored);
-    else if (user.profile_image) setPreview(`${URL}${user.profile_image}`);
-    else setPreview(null);
-  }, [user.id, user.profile_image]);
+
+  const [preview, setPreview] = useState(() => {
+  if (!user) return null;
+  const stored = localStorage.getItem(`profileImage_${user.id}`);
+  return stored || (user.profile_image ? `${URL}${user.profile_image}` : null);
+});
+
+useEffect(() => {
+  if (!user) return setPreview(null);
+
+  const stored = localStorage.getItem(`profileImage_${user.id}`);
+  if (stored) setPreview(stored);
+  else if (user.profile_image) setPreview(`${URL}${user.profile_image}`);
+  else setPreview(null);
+}, [user?.id, user?.profile_image]);
+
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -52,14 +53,15 @@ export default function ProfileModal({
 
       const data = await res.json();
 
-      if (!data.error && data.profile_image) {
-        const newPath = `${URL}${data.profile_image}`;
-        setPreview(newPath);
-
-        // Save in user-specific localStorage key
-        setProfileImage?.(newPath);
-        localStorage.setItem(`profileImage_${user.id}`, newPath);
-      } else {
+     if (!data.error && data.profile_image) {
+  const newPath = `${URL}${data.profile_image}`;
+  setPreview(newPath);
+  // Update parent Header state
+  setProfileImage?.(newPath);
+  // Save in localStorage
+  localStorage.setItem(`profileImage_${user.id}`, newPath);
+}
+ else {
         alert(data.message || "Failed to upload image");
       }
     } catch (err) {
@@ -109,11 +111,11 @@ export default function ProfileModal({
       const data = await res.json();
 
       if (data.success) {
-        // ⭐ 1. Clear ALL storage completely
+        //  1. Clear ALL storage completely
         sessionStorage.clear();
         localStorage.clear();
 
-        // ⭐ 2. Clear Redux user & auth state
+        //  2. Clear Redux user & auth state
         if (window.store) {
           window.store.dispatch({ type: "user/setCurrentUser", payload: null });
           window.store.dispatch({
@@ -122,11 +124,11 @@ export default function ProfileModal({
           });
         }
 
-        // ⭐ 3. Reset preview image
+        //  3. Reset preview image
         setPreview(null);
         setProfileImage?.(null);
 
-        // ⭐ 4. FORCE logout navigation (fresh reload)
+        //  4. FORCE logout navigation (fresh reload)
         window.location.href = "/register";
 
         return;

@@ -9,15 +9,12 @@ export default function Login({ onLogin }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { loading } = useSelector((state) => state.user);
-
   const [toastMsg, setToastMsg] = useState("");
   const [toastColor, setToastColor] = useState("bg-red-500");
   const [showToast, setShowToast] = useState(false);
-
   const [showPassword, setShowPassword] = useState(false);
   const [usernameValue, setUsernameValue] = useState("");
   const [passwordValue, setPasswordValue] = useState("");
-
   const [usernameError, setUsernameError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 

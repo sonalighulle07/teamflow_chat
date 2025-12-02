@@ -1,4 +1,3 @@
-
 const { Team, TeamMember, TeamMessage } = require("../models/TeamModel");
 const db = require("../config/db");
 const meetServ = require("./services/groupMeetings");
@@ -7,43 +6,93 @@ const path = require("path");
 const User = require("../models/User");
 const { sendPushNotification } = require("../Utils/pushService");
 
-
 const createTeam = async (req, res) => {
-  const { name, created_by, members = [] } = req.body;
+const { name, created_by, members = [] } = req.body;
 
-  if (!name || !created_by)
-    return res.status(400).json({ error: "Name and created_by are required" });
+if (!name || !created_by) {
+return res.status(400).json({ error: "Name and created_by are required" });
+}
+
+try {
+// 1️⃣ Get creator's organization
+const [orgRow] = await db.query(
+"SELECT organization_id FROM users WHERE id = ?",
+[created_by]
+);
+
+
+const orgId = orgRow[0]?.organization_id;
+if (!orgId) {
+  return res.status(400).json({ error: "User has no organization" });
+}
+
+// 2️⃣ Create team with organization_id
+const teamId = await Team.create(name, created_by, orgId);
+
+// 3️⃣ Add creator as owner
+await TeamMember.add(teamId, created_by, "owner");
+
+// 4️⃣ Add optional invited members
+for (const userId of members) {
+  if (userId !== created_by) {
+    await TeamInvite.create(teamId, userId, created_by);
+  }
+}
+
+res.json({ id: teamId, name, created_by, organization_id: orgId });
+
+
+} catch (err) {
+console.error("createTeam failed:", err);
+res.status(500).json({ error: "Failed to create team" });
+}
+};
+
+const renameTeam = async (req, res) => {
+  const { teamId } = req.params;
+  const { name } = req.body;
+  const userId = req.user.id;
+
+  if (!name) return res.status(400).json({ error: "Team name required" });
 
   try {
-    // 1️⃣ Create team
-    const teamId = await Team.create(name, created_by);
-    console.log("✅ Team created:", teamId);
+    // Check user role
+    const [rows] = await db.query(
+      "SELECT role FROM team_members WHERE team_id=? AND user_id=?",
+      [teamId, userId]
+    );
 
-    // 2️⃣ Add creator as member
-    await TeamMember.add(teamId, created_by, "owner");
-
-    // 3️⃣ Add optional members
-    if (members.length > 0) {
-      for (const userId of members) {
-        if (userId !== created_by) {
-          await TeamInvite.create(teamId, userId, created_by);
-        }
-      }
+    if (!rows.length || !["owner", "admin"].includes(rows[0].role)) {
+      return res.status(403).json({ error: "Not allowed" });
     }
 
-    // 4️⃣ Meeting creation
-    await meetServ.getOrCreateMeetingCode(teamId);
+    await db.query("UPDATE teams SET name=? WHERE id=?", [name, teamId]);
 
-    res.json({ id: teamId, name, created_by });
+    res.json({ success: true, name });
   } catch (err) {
-    console.error("❌ createTeam failed:", err);
-    res.status(500).json({ error: "Failed to create team" });
+    console.error(err);
+    res.status(500).json({ error: "Rename failed" });
+  }
+};
+const deleteTeam = async (req, res) => {
+  const { teamId } = req.params;
+
+  try {
+    // 1. Delete team_members first
+    await db.query("DELETE FROM team_members WHERE team_id = ?", [teamId]);
+
+    // 2. Delete team
+    await db.query("DELETE FROM teams WHERE id = ?", [teamId]);
+
+    res.json({ success: true, message: "Team deleted" });
+  } catch (err) {
+    console.error("Delete team error:", err);
+    res.status(500).json({ error: "Failed to delete team" });
   }
 };
 
-// -----------------------
+
 // Send Invites
-// -----------------------
 const sendTeamInvites = async (req, res) => {
   const { teamId, members, teamName } = req.body;
   const createdBy = req.user.id;
@@ -63,36 +112,29 @@ const sendTeamInvites = async (req, res) => {
     }
     res.json({ message: "Invites sent successfully" });
   } catch (err) {
-    console.error("❌ sendTeamInvites:", err);
+    console.error(" sendTeamInvites:", err);
     res.status(500).json({ error: "Failed to send invites" });
   }
 };
 
-// -----------------------
 // Get Pending Invites
-// -----------------------
 const getPendingInvites = async (req, res) => {
   try {
     const invites = await TeamInvite.getPendingForUser(req.user.id);
     res.json(invites);
   } catch (err) {
-    console.error("❌ getPendingInvites:", err);
+    console.error(" getPendingInvites:", err);
     res.status(500).json({ error: "Failed to fetch invites" });
   }
 };
 
-// -----------------------
 // Respond to Invite
-// -----------------------
 const respondToInvite = async (req, res) => {
   const { inviteId, action } = req.body;
   const userId = req.user.id;
 
   try {
-    // Update status
     await TeamInvite.respond(inviteId, action);
-
-    // If accepted, add user to team
     const [rows] = await db.query("SELECT team_id FROM team_invites WHERE id=?", [inviteId]);
     const invite = rows[0];
 
@@ -102,11 +144,10 @@ const respondToInvite = async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    console.error("❌ respondToInvite:", err);
+    console.error(" respondToInvite:", err);
     res.status(500).json({ error: "Failed to respond to invite" });
   }
 };
-
 
 const getAllTeams = async (req, res) => {
   try {
@@ -118,45 +159,35 @@ const getAllTeams = async (req, res) => {
   }
 };
 
-// -----------------------
 // GET teams for a user
-// -----------------------
 const getUserTeams = async (req, res) => {
-  const userId = req.query.userId;
-  if (!userId) return res.status(400).json({ error: "Missing userId in query" });
+const userId = req.query.userId;
+if (!userId) {
+return res.status(400).json({ error: "Missing userId in query" });
+}
 
-  try {
-    const teams = await Team.getByUser(userId); // remove extra destructuring
-    res.json(teams);
-  } catch (err) {
-    console.error("Failed to fetch user teams:", err);
-    res.status(500).json({ error: "Failed to fetch teams" });
-  }
-};
+try {
+const [teams] = await db.query(
+`SELECT t.*
+       FROM teams t
+       JOIN team_members tm ON tm.team_id = t.id
+       JOIN users u ON u.organization_id = t.organization_id
+       WHERE tm.user_id = ?
+       AND u.id = ?`,
+[userId, userId]
+);
+res.json(teams);
 
-
-// -----------------------
-// GET single team by ID
-// -----------------------
-const getTeamById = async (req, res) => {
-  console.log("getTeamById called with params:", req.params);
-  const { teamId } = req.params;
-  try {
-    const [team] = await Team.getById(teamId);
-    if (!team.length) return res.status(404).json({ error: "Team not found" });
-    res.json(team[0]);
-  } catch (err) {
-    console.error("Failed to fetch team:", err);
-    res.status(500).json({ error: "Failed to fetch team" });
-  }
+} catch (err) {
+console.error("Failed to fetch user teams:", err);
+res.status(500).json({ error: "Failed to fetch teams" });
+}
 };
 
 
 
 
-// -----------------------
 // UPDATE a team
-// -----------------------
 const updateTeam = async (req, res) => {
   const { teamId } = req.params;
   const { name } = req.body;
@@ -170,24 +201,28 @@ const updateTeam = async (req, res) => {
     res.status(500).json({ error: "Failed to update team" });
   }
 };
-
-// -----------------------
-// DELETE a team
-// -----------------------
-const deleteTeam = async (req, res) => {
+const getTeamById = async (req, res) => {
   const { teamId } = req.params;
+
   try {
-    await Team.delete(teamId);
-    res.json({ success: true });
+    const team = await Team.getById(teamId);  // <-- correct, no []
+
+    if (!team) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+
+    res.json(team);  // send full team object with created_by
   } catch (err) {
-    console.error("Failed to delete team:", err);
-    res.status(500).json({ error: "Failed to delete team" });
+    console.error("Failed to fetch team:", err);
+    res.status(500).json({ error: "Failed to fetch team" });
   }
 };
 
-// -----------------------
+
+
+
+
 // ADD member to a team
-// -----------------------
 const addTeamMember = async (req, res) => {
   const { teamId } = req.params;
   const { user_id } = req.body;
@@ -202,12 +237,10 @@ const addTeamMember = async (req, res) => {
   }
 };
 
-// -----------------------
 // GET members of a team
-// -----------------------
 const getTeamMembers = async (req, res) => {
   const { teamId } = req.params;
-  console.log("getTeamMembers called with team ID:", teamId);
+  // console.log("getTeamMembers called with team ID:", teamId);
   try {
     const members = await TeamMember.getMembers(teamId);
     res.json(members);
@@ -216,10 +249,54 @@ const getTeamMembers = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch team members" });
   }
 };
+const removeMember = async (req, res) => {
+  const { teamId, memberId } = req.params;
+  const currentUserId = req.user.id;
 
-// -----------------------
+  try {
+    // 1. Verify team exists and owner
+    const [teamRows] = await db.query("SELECT created_by AS owner_id FROM teams WHERE id = ?", [teamId]);
+    const team = teamRows[0];
+    if (!team) return res.status(404).json({ error: "Team not found" });
+
+    // Only owner (or admin if you prefer) can remove — change check if admin allowed
+    if (team.owner_id !== currentUserId) {
+      return res.status(403).json({ error: "Only owner can remove members" });
+    }
+
+    // Prevent owner from removing themself (optional)
+    if (parseInt(memberId) === parseInt(team.owner_id)) {
+      return res.status(400).json({ error: "Owner cannot be removed" });
+    }
+
+    // 2. Delete member from team_members
+    const [deleteRes] = await db.query(
+      "DELETE FROM team_members WHERE team_id = ? AND user_id = ?",
+      [teamId, memberId]
+    );
+
+    if (deleteRes.affectedRows === 0) {
+      return res.status(400).json({ error: "User not found in team" });
+    }
+
+    // 3. Optionally delete pending invites for that user/team
+    await db.query("DELETE FROM team_invites WHERE team_id = ? AND user_id = ?", [teamId, memberId]).catch(() => {});
+
+    // 4. Emit socket events
+    // Notify removed user personally, so their UI removes the team
+    req.io?.to(`user_${memberId}`).emit("removedFromTeam", { teamId });
+
+    // Broadcast to team room that member removed (so other members update UI)
+    req.io?.to(`team_${teamId}`).emit("memberRemoved", { teamId, memberId });
+
+    return res.json({ success: true, memberId, teamId });
+  } catch (err) {
+    console.error("removeMember failed:", err);
+    res.status(500).json({ error: "Failed to remove member" });
+  }
+}; 
+
 // GET team messages
-
 const getTeamMessages = async (req, res) => {
   const { teamId } = req.params;
   try {
@@ -230,6 +307,7 @@ const getTeamMessages = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch messages" });
   }
 };
+
 const sendTeamMessage = async (req, res) => {
   const teamId = req.params.teamId;
   console.log("sendTeamMessage called for teamId:", teamId);
@@ -258,7 +336,6 @@ const sendTeamMessage = async (req, res) => {
       else msgType = "file";
     }
 
-    // Insert message into DB
     const result = await TeamMessage.insert(
       senderId,
       teamId,
@@ -268,7 +345,6 @@ const sendTeamMessage = async (req, res) => {
       fileName,
     
     );
-
     const newMessage = {
       id: result.insertId,
       team_id: teamId,
@@ -284,16 +360,14 @@ const sendTeamMessage = async (req, res) => {
     if (req.io) {
       req.io.to(`team_${teamId}`).emit("teamMessage", newMessage);
     }
-
-    // Push notifications to team members
     try {
       const sender = await User.findById(senderId);
-      const teamMembers = await TeamMember.getMembers(teamId); // ⬅️ implement this in your Team model
+      const teamMembers = await TeamMember.getMembers(teamId); 
 
       console.log("Team members for notifications:", teamMembers);
 
       for (const member of teamMembers) {
-        if (member.user_id === senderId) continue; // skip sender
+        if (member.user_id === senderId) continue; 
 
         const subscription = await User.getPushSubscription(member.user_id);
         if (subscription) {
@@ -318,7 +392,7 @@ const sendTeamMessage = async (req, res) => {
     res.status(500).json({ error: "Failed to send message" });
   }
 };
-// -----------------------
+
 // EDIT team message
 const editTeamMessage = async (req, res) => {
   const { teamId, messageId } = req.params;
@@ -353,16 +427,12 @@ const editTeamMessage = async (req, res) => {
 
     res.json({ success: true, message: updatedMsg });
   } catch (err) {
-    console.error("❌ Failed to edit team message:", err);
+    console.error(" Failed to edit team message:", err);
     res.status(500).json({ error: "Failed to edit team message" });
   }
 };
-;
 
-// -----------------------
 // DELETE team message
-// -----------------------
-// deleteTeamMessage
 const deleteTeamMessage = async (req, res) => {
   const { teamId, messageId } = req.params;
   try {
@@ -380,36 +450,81 @@ const deleteTeamMessage = async (req, res) => {
   }
 };
 
-// -----------------------
+
 // UPDATE reactions on team message
-// -----------------------
-// updateTeamMessageReactions
-const updateTeamMessageReactions = async (req, res) => {
-  const { teamId, messageId } = req.params;
-  const { reactions } = req.body; // expect object
+const reactMessage = async (req, res) => {
   try {
-    await TeamMessage.updateReactions(messageId, reactions); // model encrypts
-    const updatedMsg = await TeamMessage.getById(messageId);
-    req.io?.to(`team_${teamId}`).emit("messageReactionsUpdated", {
-      messageId,
-      reactions: updatedMsg.reactions,
-      teamId,
-    });
-    res.json({ success: true, reactions: updatedMsg.reactions });
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    const userId = req.user?.id;
+
+    if (!emoji || !userId) {
+      return res.status(400).json({ error: "Emoji and userId are required" });
+    }
+
+    // Fetch current reactions from DB (decrypt first if using encrypted_reactions)
+    const [rows] = await db.execute(
+      "SELECT reactions FROM team_messages WHERE id = ?",
+      [messageId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    let reactions = {};
+    try {
+      reactions = rows[0].reactions ? JSON.parse(rows[0].reactions) : {};
+      // If using encrypted_reactions:
+      // reactions = rows[0].encrypted_reactions ? JSON.parse(decrypt(rows[0].encrypted_reactions)) : {};
+    } catch (e) {
+      reactions = {};
+    }
+
+    // Ensure emoji key exists
+    if (!reactions[emoji]) {
+      reactions[emoji] = { count: 0, users: {} };
+    }
+
+    const emojiData = reactions[emoji];
+
+    // Toggle reaction: add or remove
+    if (emojiData.users[userId]) {
+      delete emojiData.users[userId]; 
+    } else {
+      emojiData.users[userId] = 1; 
+    }
+
+    // Update total count
+    emojiData.count = Object.values(emojiData.users).reduce((sum, c) => sum + c, 0);
+
+    // Save updated reactions (encrypt before saving if needed)
+    await db.execute(
+      "UPDATE team_messages SET reactions = ? WHERE id = ?",
+      [JSON.stringify(reactions), messageId]
+      // If using encryption:
+      // [encrypt(JSON.stringify(reactions)), messageId]
+    );
+
+    // Return updated reactions
+    res.json({ reactions });
+
+    // Emit real-time update
+    if (req.io) {
+      req.io.emit("reaction", { messageId, reactions });
+    }
   } catch (err) {
-    console.error("Failed to update reactions:", err);
-    res.status(500).json({ error: "Failed to update reactions" });
+    console.error("Failed to react to message:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
-// -----------------------
 // GET or CREATE meeting link for a team
-// -----------------------
 const getTeamMeetingLink = async (req, res) => {
   const { teamId } = req.params;
-  const userId = req.user?.id || null; // ✅ get user from auth middleware
+  const userId = req.user?.id || null; 
 
-  console.log("📡 getTeamMeetingLink called with:", { teamId, userId });
+  console.log(" getTeamMeetingLink called with:", { teamId, userId });
 
   if (!teamId) {
     return res.status(400).json({ error: "teamId is required" });
@@ -419,56 +534,98 @@ const getTeamMeetingLink = async (req, res) => {
     console.log("calling service");
     const { meetingCode, status } = await meetServ.getOrCreateMeetingCode(teamId, userId);
 
-    console.log("✅ Meeting code fetched/created:", meetingCode);
+    console.log(" Meeting code fetched/created:", meetingCode);
 
     const baseUrl = process.env.APP_URL || "http://localhost:5173";
     const meetingUrl = `${baseUrl}/prejoin/${meetingCode}`;
 
     return res.json({ teamId, meetingCode, meetingUrl, status });
   } catch (err) {
-    console.error("❌ Failed to fetch/create meeting link:", err);
+    console.error(" Failed to fetch/create meeting link:", err);
     return res.status(500).json({ error: "Failed to fetch/create meeting link" });
   }
 };
 
 const createTeamAndSendInvites = async (teamName, selectedUserIds, currentUserId) => {
-  // 1️⃣ Create team in DB
+
   const team = await Team.create(teamName, currentUserId);
 
-  // 2️⃣ Send invites (direct DB insertion)
+  // 2️ Send invites (direct DB insertion)
   for (const userId of selectedUserIds) {
-    if (userId !== currentUserId) { // skip self
+    if (userId !== currentUserId) { 
       await TeamInvite.create(team.id, userId, currentUserId);
     }
   }
 
   return team;
 };
-// -----------------------
+
 // GET teams sorted by latest message
-// -----------------------
 const getTeamsSortedByActivity = async (req, res) => {
-  const userId = req.query.userId;
-  if (!userId) return res.status(400).json({ error: "Missing userId in query" });
+  const userId = req.params.userId; 
+  if (!userId) return res.status(400).json({ error: "Missing userId" });
 
   try {
-    // Fetch all teams for this user and sort by latest message
-    const [teams] = await db.query(
-      `SELECT t.id, t.name, t.created_by, t.created_at, 
-              MAX(tm.created_at) AS last_message_time
-       FROM teams t
-       JOIN team_members tmbr ON tmbr.team_id = t.id
-       LEFT JOIN team_messages tm ON tm.team_id = t.id
-       WHERE tmbr.user_id = ?
-       GROUP BY t.id
-       ORDER BY last_message_time DESC, t.created_at DESC`,
-      [userId]
-    );
-
+    const teams = await Team.getTeamsWithLastMessage(userId);
     res.json(teams);
   } catch (err) {
     console.error("Failed to fetch sorted teams:", err);
     res.status(500).json({ error: "Failed to fetch teams" });
+  }
+};
+const addTeamMembers = async (req, res) => {
+  const { teamId } = req.params;
+  const { members = [] } = req.body;
+  const currentUserId = req.user.id;
+
+  if (!members.length) {
+    return res.status(400).json({ error: "No members provided" });
+  }
+
+  try {
+    // 🚨 0. PERMISSION CHECK — only owner/admin can add new members
+    const userRole = await TeamMember.getRole(teamId, currentUserId);
+
+    if (userRole !== "owner" && userRole !== "admin") {
+      return res.status(403).json({ error: "Only admin can add members" });
+    }
+
+    // 1. get existing members
+    const existing = await TeamMember.getMembers(teamId);
+    const existingRows = Array.isArray(existing[0]) ? existing[0] : existing;
+    const existingIds = existingRows.map((m) => m.user_id);
+
+    // 2. filter new
+    const toInvite = members.filter((id) => !existingIds.includes(id));
+
+    if (!toInvite.length) {
+      return res.json({ message: "No new members to invite" });
+    }
+
+    // 3. get team name safely
+    const teamRes = await Team.getById(teamId);
+    const teamRows = Array.isArray(teamRes[0]) ? teamRes[0] : teamRes;
+    const teamName =
+      Array.isArray(teamRows) && teamRows.length > 0
+        ? teamRows[0].name
+        : "Team";
+
+    // 4. send invites
+    for (const uid of toInvite) {
+      await TeamInvite.create(teamId, uid, currentUserId);
+
+      req.io?.to(`user_${uid}`).emit("teamInviteReceived", {
+        id: Date.now(),
+        teamId,
+        team_name: teamName,
+        invited_by_name: req.user.username,
+      });
+    }
+
+    return res.json({ success: true, invited: toInvite });
+  } catch (err) {
+    console.error("addTeamMembers failed:", err);
+    return res.status(500).json({ error: "Failed to add members" });
   }
 };
 module.exports = {
@@ -487,10 +644,14 @@ module.exports = {
   sendTeamMessage,
   editTeamMessage,
   deleteTeamMessage,
-  updateTeamMessageReactions,
+  reactMessage,
   getTeamMeetingLink,
-   createTeamAndSendInvites,
-    getTeamsSortedByActivity 
+  createTeamAndSendInvites,
+  getTeamsSortedByActivity ,
+  addTeamMembers,
+  removeMember,
+  renameTeam,
+
 };
 
 

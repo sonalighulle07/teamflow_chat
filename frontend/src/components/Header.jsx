@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaSearch, FaPhone, FaVideo } from "react-icons/fa";
+import { FaUsers, FaUser, FaUserPlus, FaCrown, FaShieldAlt } from "react-icons/fa";
+
 import { useSelector } from "react-redux";
 import ProfileModal from "./ProfileModal";
 import ErrorBoundary from "./ErrorBoundary";
 import { URL } from "../config";
 import axios from "axios";
-
 import socket from "./calls/hooks/socket";
-import { FaUsers } from "react-icons/fa";
+
 
 export default function Header({
   activeUser,
@@ -22,7 +23,6 @@ export default function Header({
   const [showSearch, setShowSearch] = useState(false);
   const [activeMeeting, setActiveMeeting] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
-
   const [hasJoinedMeeting, setHasJoinedMeeting] = useState(false);
 
   const [showToast, setShowToast] = useState(false);
@@ -32,31 +32,21 @@ export default function Header({
   const { selectedUser, activeNav } = useSelector((state) => state.user);
   const username = activeUser?.username || "Guest";
   const { selectedTeam } = useSelector((state) => state.team);
-
   const isChatVisible = activeNav === "Chat" || activeNav === "Communities";
-
   const token = sessionStorage.getItem("chatToken");
-
-  const [profileImage, setProfileImage] = useState(
-    () => localStorage.getItem(`profileImage_${activeUser?.id}`) || null
-  );
-
+  const [profileImage, setProfileImage] = useState(null);
   const [showMembers, setShowMembers] = useState(false);
   const { selectedTeamMembers } = useSelector((state) => state.team);
+  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
+  const [teamToEdit, setTeamToEdit] = useState(null);
   const dropdownRef = useRef(null);
-
   const searchRef = useRef(null);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setShowSearch(false); // close dropdown
-        setSearchQuery(""); // clear input
-
-        if (!searchQuery) return; // if nothing typed, don't show toast
-
-        // Show toast if data not available
-        setToast("Data not available");
-        setTimeout(() => setToast(""), 3000); // hide after 3s
+        setShowSearch(false);
+        setSearchQuery("");
       }
     };
 
@@ -148,11 +138,22 @@ useEffect(() => {
 
 
   // ----------------- Profile Image -----------------
+
   useEffect(() => {
-    if (activeUser?.profile_image) {
+    if (!activeUser) {
+      setProfileImage(null);
+      return;
+    }
+
+    const stored = localStorage.getItem(`profileImage_${activeUser.id}`);
+    if (stored) {
+      setProfileImage(stored);
+    } else if (activeUser.profile_image) {
       const imgUrl = `${URL}${activeUser.profile_image}`;
       setProfileImage(imgUrl);
       localStorage.setItem(`profileImage_${activeUser.id}`, imgUrl);
+    } else {
+      setProfileImage(null);
     }
   }, [activeUser]);
 
@@ -178,13 +179,30 @@ useEffect(() => {
       window.removeEventListener("user-joined-toast", handler);
     };
   }, []);
+  // --------------------------------------------------------
+  // TOAST SYSTEM
+  // --------------------------------------------------------
+  useEffect(() => {
+    const handler = (e) => {
+      setToastMsg(e.detail?.message || "");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    };
+
+    window.addEventListener("user-left-toast", handler);
+    window.addEventListener("user-joined-toast", handler);
+    return () => {
+      window.removeEventListener("user-left-toast", handler);
+      window.removeEventListener("user-joined-toast", handler);
+    };
+  }, []);
 
   // ----------------- Logout -----------------
   const logout = () => {
-    sessionStorage.clear();
+    sessionStorage.clear(); // clear session data
     localStorage.removeItem("chatToken");
     localStorage.removeItem("chatUser");
-    localStorage.removeItem(`profileImage_${activeUser?.id}`);
+    //  Keep profile image in localStorage
     setIsAuthenticated(false);
     navigate("/");
   };
@@ -203,7 +221,7 @@ useEffect(() => {
 
       window.open(`${window.location.origin}/prejoin/${meetingCode}`, "_blank");
     } catch (err) {
-      console.error("❌ Failed to create meeting:", err);
+      console.error(" Failed to create meeting:", err);
     } finally {
       setIsCreatingMeeting(false);
     }
@@ -221,6 +239,7 @@ useEffect(() => {
       const { active, meeting } = response.data;
 
       console.log("Active meeting data:", response.data);
+      console.log("Active meeting data:", response.data);
 
       if (active && meeting?.meeting_code === activeMeeting.meeting_code) {
         window.open(
@@ -231,7 +250,7 @@ useEffect(() => {
         alert("⚠️ This meeting is no longer active.");
       }
     } catch (err) {
-      console.error("❌ Failed to validate meeting status:", err);
+      console.error(" Failed to validate meeting status:", err);
       alert("Unable to verify meeting status. Please try again.");
     }
   };
@@ -341,66 +360,99 @@ useEffect(() => {
           {/* 👥 Group Members Button */}
 
           {isChatVisible && selectedTeam && (
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setShowMembers((prev) => !prev)}
-                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm"
-                title="View Group Members"
+  <div className="relative" ref={dropdownRef}>
+    {/* Members Button */}
+    <button
+      onClick={() => setShowMembers((prev) => !prev)}
+      className="p-2 hover:bg-gray-100 rounded-full text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm transform "
+      title="View Group Members"
+    >
+      <FaUsers size={18} />
+    </button>
+
+    {showMembers && (
+      <div
+        className="absolute right-0 mt-3 w-64 bg-white border border-gray-100 rounded-2xl 
+                   shadow-2xl z-50 overflow-hidden animate-fadeIn"
+      >
+        {/* Dropdown Header */}
+        <div className="bg-gradient-to-r from-purple-600 to-purple-500 text-white px-4 py-3 text-sm font-semibold flex items-center gap-2">
+          <FaUsers size={14} className="opacity-90" />
+          <span>{selectedTeam?.name} Members</span>
+        </div>
+
+        {/* Members List */}
+        <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+          {selectedTeamMembers?.length > 0 ? (
+            selectedTeamMembers.map((member) => (
+              <li
+                key={member.user_id}
+                className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-all"
               >
-                <FaUsers size={18} />
-              </button>
+                <div className="flex items-center gap-3">
+                  {member.profile_image ? (
+                    <img
+                      src={`${URL}${member.profile_image}`}
+                      alt={member.username}
+                      className="w-9 h-9 rounded-full object-cover border border-gray-300 shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold uppercase shadow-sm">
+                      {member.username?.[0] || "?"}
+                    </div>
+                  )}
 
-              {showMembers && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-2xl shadow-lg z-50 overflow-hidden">
-                  <div className="bg-purple-600 text-white px-3 py-2 text-sm font-semibold flex justify-between items-center">
-                    <span>{selectedTeam?.name} Members</span>
-                  </div>
-
-                  {/* Members List */}
-                  <ul className="max-h-60 overflow-y-auto divide-y divide-gray-100">
-                    {selectedTeamMembers?.length > 0 ? (
-                      selectedTeamMembers.map((member) => (
-                        <li
-                          key={member.user_id}
-                          className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 transition-colors duration-200"
-                        >
-                          {member.profile_image ? (
-                            <img
-                              src={`${URL}${member.profile_image}`}
-                              alt={member.username}
-                              className="w-7 h-7 rounded-full object-cover border border-gray-300"
-                            />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-purple-400 text-white flex items-center justify-center text-xs font-semibold uppercase">
-                              {member.username?.[0] || "?"}
-                            </div>
-                          )}
-                          <span className="text-gray-700 text-sm font-medium truncate">
-                            {member.username}
-                          </span>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-center text-gray-500 text-sm py-3">
-                        No members found
-                      </li>
-                    )}
-                  </ul>
-
-                  {/* ➕ Add Member Option */}
-                  <button
-                    onClick={() => {
-                      setShowMembers(false);
-                      handleAddMember(); // 👈 call your function (defined below)
-                    }}
-                    className="w-full px-3 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50 border-t border-gray-100 flex items-center justify-center gap-2 transition-all duration-200"
-                  >
-                    <span className="text-lg">➕</span> Add Member
-                  </button>
+                  <span className="text-gray-900 text-sm font-semibold">
+                    {member.username}
+                  </span>
                 </div>
-              )}
-            </div>
+
+                {/* ICON showing role */}
+                <div>
+                  {member.role === "owner" && (
+                    <FaCrown className="text-yellow-500" title="Owner" size={16} />
+                  )}
+                  {member.role === "admin" && (
+                    <FaShieldAlt className="text-purple-500" title="Admin" size={16} />
+                  )}
+                  {member.role === "member" && (
+                    <FaUser className="text-gray-400" title="Member" size={16} />
+                  )}
+                </div>
+              </li>
+            ))
+          ) : (
+            <li className="text-center text-gray-500 text-sm py-4">
+              No members found
+            </li>
           )}
+        </ul>
+
+        {/* Add Member Button */}
+        <button
+          onClick={() => {
+            setShowMembers(false);
+
+            const myRole = selectedTeamMembers.find(
+              (m) => m.user_id === activeUser.id
+            )?.role;
+
+            if (myRole === "owner" || myRole === "admin") {
+              handleOpenAddMember();
+            } else {
+              toast.error("Only admins can add members");
+            }
+          }}
+          className="w-full bg-purple-100 py-3 flex items-center justify-center gap-2 text-purple-700  
+                     font-semibold hover:bg-purple-200 border-t border-gray-100 transition-all"
+        >
+          <FaUserPlus size={16} />
+          <span>Add / Remove Member</span>
+        </button>
+      </div>
+    )}
+  </div>
+)}
 
           {/* Individual call buttons */}
           {isChatVisible && selectedUser && !selectedTeam && (
@@ -501,9 +553,17 @@ useEffect(() => {
                 localStorage.setItem(`profileImage_${activeUser.id}`, img);
               else localStorage.removeItem(`profileImage_${activeUser.id}`);
             }}
-            setIsAuthenticated={setIsAuthenticated}
           />
         </ErrorBoundary>
+      )}
+      {showCreateTeamModal && (
+        <CreateTeams
+          currentUser={activeUser}
+          showModal={showCreateTeamModal}
+          setShowModal={setShowCreateTeamModal}
+          socket={socket}
+          existingTeam={teamToEdit}
+        />
       )}
     </>
   );

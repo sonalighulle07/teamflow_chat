@@ -175,7 +175,6 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   
   // -----------------------
   // Sidebar nav items
-  // -----------------------
   const navItems = [
     { icon: <FaCommentDots />, label: "Chat" },
     { icon: <FaVideo />, label: "Meet" },

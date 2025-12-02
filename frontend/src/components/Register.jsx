@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { URL } from "../config";
 import {
@@ -30,51 +30,41 @@ export default function Register({ onRegister }) {
   const [toastColor, setToastColor] = useState("bg-red-500");
   const [showToast, setShowToast] = useState(false);
 
-  // Form state
+  // Form fields
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [contact, setContact] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [orgList, setOrgList] = useState([]);
-  const [selectedOrg, setSelectedOrg] = useState("");
 
   // Errors
+  const [fullNameError, setFullNameError] = useState("");
   const [usernameError, setUsernameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [contactError, setContactError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
 
-  // Password visibility
+  // Visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Regex patterns
+  // Regex (Google-style)
+  const namePattern = /^[A-Za-z ]{3,}$/;
+  const usernamePattern = /^[a-zA-Z0-9_]{3,}$/;
+  const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
+  const contactPattern = /^[6-9]\d{9}$/;
   const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const contactPattern = /^[0-9]{10,15}$/;
 
-  // Fetch organizations
-  useEffect(() => {
-    const fetchOrgs = async () => {
-      try {
-        const res = await fetch(`${URL}/api/organizations`);
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        setOrgList(data);
-      } catch (err) {
-        console.error(err);
-        showToastMessage("Failed to load organizations", "bg-red-500");
-      }
-    };
-    fetchOrgs();
-  }, []);
-
-  // Validation functions
+  // Username availability
   const checkUsernameAvailability = async (value) => {
     if (!value) return setUsernameError("");
+
+    if (!usernamePattern.test(value)) {
+      return setUsernameError("Invalid username");
+    }
+
     try {
       const res = await fetch(
         `${URL}/api/auth/check-username?username=${value}`
@@ -86,9 +76,13 @@ export default function Register({ onRegister }) {
     }
   };
 
+  // Email availability
   const checkEmailAvailability = async (value) => {
     if (!value) return setEmailError("");
-    if (!emailPattern.test(value)) return setEmailError("Invalid email");
+
+    if (!emailPattern.test(value))
+      return setEmailError("Invalid email address");
+
     try {
       const res = await fetch(`${URL}/api/auth/check-email?email=${value}`);
       const data = await res.json();
@@ -98,32 +92,47 @@ export default function Register({ onRegister }) {
     }
   };
 
+  // Field validation
   const validateField = (field, value) => {
     if (!value) return;
+
     switch (field) {
-      case "contact":
-        setContactError(
-          contactPattern.test(value) ? "" : "Invalid contact number"
+      case "fullName":
+        setFullNameError(
+          namePattern.test(value) ? "" : "Enter a valid full name"
         );
         break;
+
+      case "contact":
+        setContactError(
+          contactPattern.test(value) ? "" : "Invalid mobile number"
+        );
+        break;
+
       case "password":
         setPasswordError(
           passwordPattern.test(value)
             ? ""
-            : "Password must be 8+ chars with numbers"
+            : "Password must be 8+ characters and include a number"
         );
         break;
+
       case "confirmPassword":
         setConfirmPasswordError(
           value === password ? "" : "Passwords do not match"
         );
         break;
+
       default:
         break;
     }
   };
 
   // Debounced validations
+  const debouncedFullNameCheck = debounce(
+    (v) => validateField("fullName", v),
+    600
+  );
   const debouncedUsernameCheck = debounce(checkUsernameAvailability, 600);
   const debouncedEmailCheck = debounce(checkEmailAvailability, 600);
   const debouncedContactCheck = debounce(
@@ -150,19 +159,21 @@ export default function Register({ onRegister }) {
   // Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (
       !fullName ||
       !email ||
       !username ||
       !contact ||
       !password ||
-      !confirmPassword ||
-      !selectedOrg
+      !confirmPassword
     ) {
       showToastMessage("All fields are required!", "bg-red-500");
       return;
     }
+
     if (
+      fullNameError ||
       usernameError ||
       emailError ||
       contactError ||
@@ -183,21 +194,19 @@ export default function Register({ onRegister }) {
           contact,
           username,
           password,
-          organization_id: selectedOrg,
         }),
       });
+
       const data = await res.json();
       const color = res.ok && data.success ? "bg-green-500" : "bg-red-500";
+
       showToastMessage(data.message || "Registration failed!", color);
 
       if (res.ok && data.success) {
         dispatch(setCurrentUser(data.user));
         sessionStorage.setItem("chatToken", data.token);
-
-        // run parent callback
         onRegister?.();
 
-        // redirect to chat window after 1 sec
         setTimeout(() => {
           navigate("/");
         }, 1000);
@@ -213,48 +222,49 @@ export default function Register({ onRegister }) {
         <h2 className="mb-4 text-center text-2xl font-bold text-white tracking-wide">
           Register
         </h2>
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Full Name */}
           <div className="flex flex-col">
-            <label
-              htmlFor="fullName"
-              className="text-white font-medium text-sm mb-1"
-            >
+            <label className="text-white font-medium text-sm mb-1">
               Full Name
             </label>
             <div className="relative">
               <FaUser className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
               <input
                 type="text"
-                id="fullName"
                 value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                onChange={(e) => {
+                  setFullName(e.target.value);
+                  debouncedFullNameCheck(e.target.value);
+                }}
                 placeholder="Enter full name"
-                className="w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border border-gray-300 outline-none focus:border-purple-400 transition duration-200"
+                className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 ${
+                  fullNameError ? "border-red-500" : "border-gray-300"
+                }`}
               />
             </div>
+            {fullNameError && (
+              <span className="text-xs text-red-600 mt-1">{fullNameError}</span>
+            )}
           </div>
 
           {/* Username */}
           <div className="flex flex-col">
-            <label
-              htmlFor="username"
-              className="text-white font-medium text-sm mb-1"
-            >
+            <label className="text-white font-medium text-sm mb-1">
               Username
             </label>
             <div className="relative">
               <FaUser className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
               <input
                 type="text"
-                id="username"
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
                   debouncedUsernameCheck(e.target.value);
                 }}
                 placeholder="Enter username"
-                className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
+                className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 ${
                   usernameError ? "border-red-500" : "border-gray-300"
                 }`}
               />
@@ -266,25 +276,22 @@ export default function Register({ onRegister }) {
 
           {/* Email + Contact */}
           <div className="grid grid-cols-2 gap-2">
+            {/* Email */}
             <div className="flex flex-col">
-              <label
-                htmlFor="email"
-                className="text-white font-medium text-sm mb-1"
-              >
+              <label className="text-white font-medium text-sm mb-1">
                 Email
               </label>
               <div className="relative">
                 <FaEnvelope className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
                   type="email"
-                  id="email"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
                     debouncedEmailCheck(e.target.value);
                   }}
                   placeholder="Enter email"
-                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
+                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 ${
                     emailError ? "border-red-500" : "border-gray-300"
                   }`}
                 />
@@ -294,25 +301,22 @@ export default function Register({ onRegister }) {
               )}
             </div>
 
+            {/* Contact */}
             <div className="flex flex-col">
-              <label
-                htmlFor="contact"
-                className="text-white font-medium text-sm mb-1"
-              >
+              <label className="text-white font-medium text-sm mb-1">
                 Contact
               </label>
               <div className="relative">
                 <FaPhone className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
                   type="text"
-                  id="contact"
                   value={contact}
                   onChange={(e) => {
                     setContact(e.target.value);
                     debouncedContactCheck(e.target.value);
                   }}
-                  placeholder="Enter contact number"
-                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
+                  placeholder="Enter mobile"
+                  className={`w-full pl-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 ${
                     contactError ? "border-red-500" : "border-gray-300"
                   }`}
                 />
@@ -325,27 +329,24 @@ export default function Register({ onRegister }) {
             </div>
           </div>
 
-          {/* Password + Confirm Password */}
+          {/* Password + Confirm */}
           <div className="grid grid-cols-2 gap-2">
+            {/* Password */}
             <div className="flex flex-col">
-              <label
-                htmlFor="password"
-                className="text-white font-medium text-sm mb-1"
-              >
+              <label className="text-white font-medium text-sm mb-1">
                 Password
               </label>
               <div className="relative">
                 <FaLock className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
                   type={showPassword ? "text" : "password"}
-                  id="password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
                     debouncedPasswordCheck(e.target.value);
                   }}
                   placeholder="Enter password"
-                  className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
+                  className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 ${
                     passwordError ? "border-red-500" : "border-gray-300"
                   }`}
                 />
@@ -363,25 +364,22 @@ export default function Register({ onRegister }) {
               )}
             </div>
 
+            {/* Confirm Password */}
             <div className="flex flex-col">
-              <label
-                htmlFor="confirmPassword"
-                className="text-white font-medium text-sm mb-1"
-              >
+              <label className="text-white font-medium text-sm mb-1">
                 Confirm Password
               </label>
               <div className="relative">
                 <FaLock className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
                   type={showConfirmPassword ? "text" : "password"}
-                  id="confirmPassword"
                   value={confirmPassword}
                   onChange={(e) => {
                     setConfirmPassword(e.target.value);
                     debouncedConfirmPasswordCheck(e.target.value);
                   }}
                   placeholder="Confirm password"
-                  className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 transition duration-200 ${
+                  className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 ${
                     confirmPasswordError ? "border-red-500" : "border-gray-300"
                   }`}
                 />
@@ -400,29 +398,6 @@ export default function Register({ onRegister }) {
             </div>
           </div>
 
-          {/* Organization */}
-          <div className="flex flex-col">
-            <label
-              htmlFor="organization"
-              className="text-white font-medium text-sm mb-1"
-            >
-              Organization
-            </label>
-            <select
-              id="organization"
-              value={selectedOrg}
-              onChange={(e) => setSelectedOrg(e.target.value)}
-              className={`w-full rounded-lg bg-white/85 px-3 py-2 text-gray-400 text-sm outline-none focus:border-purple-400 transition duration-200`}
-            >
-              <option value="">Select organization</option>
-              {orgList.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Submit */}
           <button
             type="submit"
@@ -433,7 +408,7 @@ export default function Register({ onRegister }) {
               !contact ||
               !password ||
               !confirmPassword ||
-              !selectedOrg ||
+              fullNameError ||
               usernameError ||
               emailError ||
               contactError ||
@@ -456,6 +431,7 @@ export default function Register({ onRegister }) {
           </span>
         </p>
 
+        {/* Toast */}
         {showToast && (
           <div
             className={`absolute top-[-50px] left-1/2 -translate-x-1/2 px-3 py-2 rounded-md text-white font-semibold shadow-lg ${toastColor} animate-toast`}
