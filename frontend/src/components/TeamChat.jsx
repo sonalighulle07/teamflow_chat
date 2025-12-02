@@ -85,10 +85,10 @@ export default function TeamChat({
   });
 
 
-    return () => {
-      socket.emit("leaveRoom", { teamId: selectedTeam.id });
-      // socket.disconnect();
-    };
+   return () => {
+  socketRef.current?.emit("leaveTeam", { teamId: selectedTeam.id });
+};
+
   }, [selectedTeam, currentUser]);
 
   // --- Fetch messages ---
@@ -124,12 +124,8 @@ export default function TeamChat({
     fetchMessages();
   }, [selectedTeam, token, dispatch]);
 
-  // --- Scroll to bottom ---
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    console.log(messages);
-  }, [messages]);
 
+ 
   // Filter messages for search
   useEffect(() => {
     if (!searchQuery) {
@@ -141,11 +137,15 @@ export default function TeamChat({
       );
     }
   }, [messages, searchQuery]);
+useEffect(() => {
+  if (!messagesEndRef.current) return;
 
-  // Scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  // Wait for DOM to finish paint
+  requestAnimationFrame(() => {
+    messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  });
+}, [messages, selectedTeam]);
+
 
   // Scroll to first search match
   useEffect(() => {
@@ -190,9 +190,6 @@ const handleFileChange = (e) => {
     setFilePreview(null);
   }
 };
-
-
-
 
   const removeFile = () => {
     setSelectedFile(null);
@@ -462,7 +459,7 @@ const handleFileChange = (e) => {
 
       {/* Messages */}
       <div
-        className="flex-1 p-4 bg-gray-50 border border-gray-300 rounded-lg shadow-md overflow-y-auto"
+        className="flex-1 p-4 bg-gray-50 border border-gray-300 rounded-lg shadow-md pb-2.5 overflow-y-auto"
         style={{ maxHeight: "calc(100vh - 200px)" }} // adjust according to your layout
       >
         {selectedTeam ? (
@@ -543,57 +540,74 @@ const handleFileChange = (e) => {
 
       {/* Input + File */}
       {/* Input + File preview */}
-<div className="p-3 border-t border-gray-300 flex flex-col gap-2 bg-white">
+<div className="p-3 border-t border-gray-300 flex flex-col gap-2 pt-3.5 bg-white">
   {selectedFile && (
-  <div className="relative mb-1 p-1 border rounded-md bg-gray-100 flex items-center justify-between">
-    <div className="flex items-center gap-2 overflow-hidden">
-      {previewUrl && selectedFile.type.startsWith("image/") && (
-        <img src={previewUrl} className="max-h-10 rounded-md" />
-      )}
-      {previewUrl && selectedFile.type.startsWith("video/") && (
-        <video src={previewUrl} className="max-h-40 rounded-md" controls />
-      )}
-      {previewUrl && selectedFile.type.startsWith("audio/") && (
-        <audio src={previewUrl} controls className="w-64" />
-      )}
-      {!previewUrl && (
-        <div className="flex items-center gap-2 p-1 bg-white rounded-md shadow-sm">
-          <span className="text-3xl">
-            {selectedFile.name.endsWith(".pdf")
-              ? "📕"
-              : ["doc", "docx"].includes(selectedFile.name.split(".").pop())
-              ? "📘"
-              : ["xls", "xlsx"].includes(selectedFile.name.split(".").pop())
-              ? "📊"
-              : "📄"}
-          </span>
-          <span className="truncate max-w-xs">{selectedFile.name}</span>
-        </div>
-      )}
+    <div className="relative mb-1 p-1 border rounded-md bg-gray-100 flex items-center justify-between">
+      <div className="flex items-center gap-2 overflow-hidden">
+
+        {/* IMAGE */}
+        {previewUrl && selectedFile.type.startsWith("image/") && (
+          <img src={previewUrl} className="max-h-20 rounded-md" />
+        )}
+
+        {/* VIDEO */}
+        {previewUrl && selectedFile.type.startsWith("video/") && (
+          <video src={previewUrl} className="max-h-40 rounded-md" controls />
+        )}
+
+        {/* AUDIO */}
+        {previewUrl && selectedFile.type.startsWith("audio/") && (
+          <audio src={previewUrl} controls className="w-64" />
+        )}
+
+        {/* DOCUMENTS — show file name */}
+        {previewUrl &&
+          !selectedFile.type.startsWith("image/") &&
+          !selectedFile.type.startsWith("video/") &&
+          !selectedFile.type.startsWith("audio/") && (
+            <div className="flex items-center gap-2 p-1 bg-white  rounded-md shadow-sm">
+              <span className="text-2xl">
+                {{
+                  pdf: "📕",
+                  doc: "📘",
+                  docx: "📘",
+                  xls: "📊",
+                  xlsx: "📊",
+                }[selectedFile.name.split(".").pop()] || "📄"}
+              </span>
+
+              <span className="truncate max-w-xs">
+                {selectedFile.name}
+              </span>
+            </div>
+          )}
+      </div>
+
+      {/* Remove Button */}
+      <button
+        onClick={removeFile}
+        className="bg-red-500 text-white rounded-full px-2 hover:bg-red-600"
+      >
+        ✕
+      </button>
     </div>
-    <button
-      onClick={removeFile}
-      className="bg-red-500 text-white rounded-full px-2 hover:bg-red-600"
-    >
-      ✕
-    </button>
-  </div>
-)}
+  )}
 
-  <div className="flex items-center gap-2 relative  bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
+  <div className="flex items-center gap-2 relative bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
     <input
-  type="text"
-  placeholder={
-    selectedTeam ? "Type a message..." : "Select a team..."
-  }
-  value={text}
-  onChange={(e) => setText(e.target.value)}
-  onKeyDown={handleKeyPress}
-  disabled={!selectedTeam}
-  className="flex-1 bg-transparent px-3 py-1 border-0 border-b-2 border-transparent focus:outline-none focus:ring-0 placeholder-gray-400
-    focus:border-transparent focus:bg-gradient-to-r focus:from-purple-400 focus:to-purple-600 focus:[background-position:0_100%] focus:[background-size:100%_2px] focus:[background-repeat:no-repeat] rounded-full"
-/>
-
+      type="text"
+      placeholder={selectedTeam ? "Type a message..." : "Select a team..."}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onKeyDown={handleKeyPress}
+      disabled={!selectedTeam}
+      className="flex-1 bg-transparent px-3 py-1 border-0 border-b-2 border-transparent
+        focus:outline-none focus:ring-0 placeholder-gray-400
+        focus:border-transparent focus:bg-gradient-to-r focus:from-purple-400
+        focus:to-purple-600 focus:[background-position:0_100%]
+        focus:[background-size:100%_2px] focus:[background-repeat:no-repeat]
+        rounded-full"
+    />
 
     {/* Emoji Picker */}
     <div className="relative">
@@ -633,7 +647,7 @@ const handleFileChange = (e) => {
       )}
     </div>
 
-    {/* File upload */}
+    {/* File Upload */}
     <label className="relative flex items-center justify-center w-7 h-7 rounded-full cursor-pointer hover:bg-purple-100 transition">
       <PaperClipIcon className="w-5 h-5 text-gray-600 hover:text-purple-700" />
       <input
@@ -645,11 +659,10 @@ const handleFileChange = (e) => {
 
     {/* Send Button */}
     <button
-  onClick={handleSend}
-  disabled={!selectedTeam}
-  className="flex items-center justify-center p-[4px] bg-white text-purple-600 rounded-full hover:bg-purple-100 transition disabled:cursor-not-allowed"
->
-
+      onClick={handleSend}
+      disabled={!selectedTeam}
+      className="flex items-center justify-center p-[4px] bg-white text-purple-600 rounded-full hover:bg-purple-100 transition disabled:cursor-not-allowed"
+    >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         className="h-5 w-5 text-gray-500 hover:text-purple-700"
@@ -661,6 +674,7 @@ const handleFileChange = (e) => {
     </button>
   </div>
 </div>
+
 
 
       {/* Forward Modal */}
@@ -675,3 +689,4 @@ const handleFileChange = (e) => {
     </div>
   );
 }
+

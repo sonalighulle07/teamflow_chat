@@ -321,54 +321,65 @@ const toggleReaction = (emoji) => {
     }
   };
 
-  const handleSaveMedia = async () => {
-    if (!editingMessage) return;
+ const handleSaveMedia = async () => {
+  if (!editingMessage) return;
 
-    const formData = new FormData();
-    if (editFile instanceof File) formData.append("file", editFile);
-    formData.append("text", editedText || "");
-    formData.append("edited", true);
+  const formData = new FormData();
+  if (editFile instanceof File) formData.append("file", editFile);
+  formData.append("text", editedText || "");
+  formData.append("edited", true);
 
-    try {
-      let res;
-      if (chatType === "team" && teamId) {
-        // ✅ Edit team message
-        res = await axios.put(
-          `${API_URL}/api/teams/${teamId}/messages/${editingMessage.id}`,
-          formData,
-          { headers: { "Content-Type": "multipart/form-data" } }
-        );
-      } else {
-        // ✅ Edit private message
-        res = await axios.put(
-          `${API_URL}/api/chats/chats/${editingMessage.id}`,
-          formData,
-          { headers: { "Content-Type": "multipart/form-data" } }
-        );
-      }
+  try {
+    let res;
 
-      if (res.data.success) {
-  setIsEditing(false);
-  setEditFile(null);
-  setEditPreview(null);
-
-  toast.success("Message edited successfully");
-
-  // Emit updated message for real-time
- socket.emit("editMessage", {
-  id: editingMessage.id,
-  text: editedText || "",
-  file_url: res.data.file_url,
-  file_type: res.data.file_type,
-});
-  // Refresh messages
-  if (chatType === "team") fetchTeamMessages();
-  else fetchMessages();
-}
-    } catch (err) {
-      console.error("Failed to update message:", err);
+    if (chatType === "team" && teamId) {
+      // ⭐ FIXED: added Authorization header
+      res = await axios.put(
+        `${API_URL}/api/teams/${teamId}/messages/${editingMessage.id}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    } else {
+      // ⭐ FIXED: added Authorization header
+      res = await axios.put(
+        `${API_URL}/api/chats/chats/${editingMessage.id}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     }
-  };
+
+    if (res.data.success) {
+      setIsEditing(false);
+      setEditFile(null);
+      setEditPreview(null);
+
+      toast.success("Message edited successfully");
+
+      // real-time update
+      socket.emit("editMessage", {
+        id: editingMessage.id,
+        text: editedText || "",
+        file_url: res.data.file_url,
+        file_type: res.data.file_type,
+      });
+
+      if (chatType === "team") fetchTeamMessages();
+      else fetchMessages();
+    }
+  } catch (err) {
+    console.error("Failed to update message:", err);
+  }
+};
 
   const handleSave = () => {
     if (editText.trim() === "") return;

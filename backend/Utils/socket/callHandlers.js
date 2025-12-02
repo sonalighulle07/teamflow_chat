@@ -2,10 +2,10 @@
 const User = require("../../models/User");
 const { sendPushNotification } = require("../../Utils/pushService");
 const meetServ = require("../../controllers/services/groupMeetings");
-
+ 
 // For group meetings (unchanged, left in place)
 const activeRooms = new Map();
-
+ 
 // Active CALLS (1:1 or multi-user)
 const activeCalls = new Map();
 /*
@@ -16,12 +16,12 @@ activeCalls = {
    }
 }
 */
-
+ 
 let NEXT_CALL_ID = 1000;
-
+ 
 module.exports = function callHandlers(io, socket, connectedSockets) {
   const log = (...args) => console.log("[callHandlers]", ...args);
-
+ 
   // ---------- HELPERS ----------
   // connectedSockets is Map<userId -> Set<socketIds>>
   const getSocketForUser = (userId) => {
@@ -35,7 +35,7 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
     log("getSocketForUser:", userId, "->", sid, "(set size:", s.size, ")");
     return sid || null;
   };
-
+ 
   const ringUser = (targetUserId, eventName, payload) => {
     const sid = getSocketForUser(targetUserId);
     if (sid) {
@@ -47,70 +47,70 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
       log(`Emitted ${eventName} to room user_${targetUserId} (fallback)`);
     }
   };
-
+ 
   // ============================================================
   //                     1 : 1 CALLS (UPGRADED)
   // ============================================================
   function createCallRoom(user1, user2) {
     const callId = `call_${NEXT_CALL_ID++}`;
-
+ 
     activeCalls.set(callId, {
       participants: new Map(),
       meta: {},
     });
-
+ 
     const map = activeCalls.get(callId).participants;
-
+ 
     // Use provided socketId or lookup via connectedSockets
     const socketId1 =
       user1.socketId || getSocketForUser(user1.userId) || null;
     const socketId2 =
       user2.socketId || getSocketForUser(user2.userId) || null;
-
+ 
     map.set(String(user1.userId), {
       userId: String(user1.userId),
       username: user1.username,
       socketId: socketId1,
       joinedAt: Date.now(),
     });
-
+ 
     map.set(String(user2.userId), {
       userId: String(user2.userId),
       username: user2.username,
       socketId: socketId2,
       joinedAt: null, // second user not joined yet
     });
-
+ 
     log("Created callId:", callId, "participants:", Array.from(map.keys()));
     return callId;
   }
-
+ 
   function joinCallRoom(callId, userId, username) {
     const call = activeCalls.get(callId);
     if (!call) {
       log("joinCallRoom: call not found", callId);
       return;
     }
-
+ 
     call.participants.set(String(userId), {
       userId: String(userId),
       username,
       socketId: socket.id,
       joinedAt: Date.now(),
     });
-
+ 
     // ensure socket is in call room (so broadcast to callId reaches them)
     socket.join(callId);
-
+ 
     log(`User ${userId} joined ${callId} (socket ${socket.id})`);
   }
-
+ 
   // ------------------- BASIC 1:1 CALL HANDLERS -------------------
   socket.on(
     "callUser",
     async ({ from, fromUsername, to, offer, callType } = {}) => {
       if (!to || !from) return;
-
+ 
       try {
         // create call room (caller + callee placeholder)
         const callId = createCallRoom(
@@ -121,19 +121,19 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
           },
           { userId: String(to), username: "Unknown", socketId: null }
         );
-
+ 
         // store callId on caller socket
         socket.callId = callId;
         joinCallRoom(callId, from, fromUsername);
-
+ 
         const payload = { from: String(from), fromUsername, offer, callType, callId };
-
+ 
         // Try to ring the callee
         ringUser(to, "incomingCall", payload);
-
+ 
         // Inform caller that call created
         io.to(socket.id).emit("call-created", { callId });
-
+ 
         // Push notification (best-effort)
         try {
           const subscription = await User.getPushSubscription(to);
@@ -146,56 +146,56 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
         } catch (err) {
           log("Push notification failed:", err);
         }
-
+ 
         log(`callUser: ${from} -> ${to} (callId=${callId})`);
       } catch (err) {
         log("callUser error:", err);
       }
     }
   );
-
+ 
   socket.on("answerCall", ({ to, answer, from, fromUsername, callId } = {}) => {
     if (callId) {
       // when callee answers, join them into the call room
       joinCallRoom(callId, from, fromUsername);
       socket.callId = callId;
     }
-
+ 
     log("Call Room has : ", activeCalls.get(callId));
-
+ 
     // relay the answer to the peer (use mapping)
     const payload = { answer, from: String(from), fromUsername, callId };
     ringUser(to, "callAccepted", payload);
-
+ 
     log(`answerCall from ${from} relayed to ${to} (callId=${callId})`);
   });
-
+ 
   socket.on("cancelCall", ({ to, from, fromUsername, callId } = {}) => {
     const payload = { from: String(from), fromUsername, callId };
     ringUser(to, "callCancelled", payload);
-
+ 
     // Also inform call room (if any) that this call was cancelled
     if (callId) io.to(callId).emit("callCancelled", payload);
-
+ 
     log(`cancelCall ${from} -> ${to} (callId=${callId})`);
   });
-
+ 
   socket.on("endCall", ({ from, fromUsername, callId } = {}) => {
     log("Inside end call....", { from, callId });
-
+ 
     if (!callId || !activeCalls.has(callId)) {
       log("endCall: Call not found", callId);
       return;
     }
-
+ 
     const call = activeCalls.get(callId);
     const participants = call.participants; // Map
-
+ 
     // remove user from participants
     if (participants.has(String(from))) participants.delete(String(from));
-
+ 
     const remainingCount = participants.size;
-
+ 
     // If only 1 or 0 users remains → end entire call
     if (remainingCount <= 1) {
       io.to(callId).emit("endCall", {
@@ -203,24 +203,24 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
         fromUsername,
         callId,
       });
-
+ 
       try {
         io.in(callId).socketsLeave(callId);
       } catch (e) {
         log("socketsLeave error:", e);
       }
-
+ 
       activeCalls.delete(callId);
       return;
     }
-
+ 
     // More than 2 users → only remove the leaving user
     io.to(callId).emit("user-left-call", {
       userId: from,
       username: fromUsername,
       callId,
     });
-
+ 
     const socketId = getSocketForUser(from);
     if (socketId) {
       try {
@@ -229,10 +229,10 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
         log("Error removing user from room:", err);
       }
     }
-
+ 
     activeCalls.set(callId, call);
   });
-
+ 
   // ============================================================
   //             ADD USER TO EXISTING CALL (MULTI-USER)
   // ============================================================
@@ -250,13 +250,13 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
         log("call-add-user missing params", { addedUserId, callId });
         return;
       }
-
+ 
       const call = activeCalls.get(callId);
       if (!call) {
         log("call-add-user: call not found", callId);
         return;
       }
-
+ 
       // Add invited user as participant placeholder (not joined yet)
       call.participants.set(String(addedUserId), {
         userId: String(addedUserId),
@@ -264,14 +264,14 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
         socketId: getSocketForUser(addedUserId) || null,
         joinedAt: null,
       });
-
+ 
       const participantsArray = Array.from(call.participants.values()).map((p) => ({
         userId: p.userId,
         username: p.username,
         socketId: p.socketId,
         joinedAt: p.joinedAt,
       }));
-
+ 
       const payload = {
         eventType: "call-add-user",
         isAddUser: true,
@@ -283,92 +283,92 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
         type,
         participants: participantsArray,
       };
-
+ 
       // Ring the invited user directly if we know their socketId
       ringUser(addedUserId, "incomingCall", payload);
-
+ 
       // Also notify everyone already inside the call room
       io.to(callId).emit("call-invite-ringing", payload);
-
+ 
       log("call-add-user → ringing", addedUserId, "in", callId);
     }
   );
-
+ 
   socket.on("call-invite-joined", ({ userId, username, callId } = {}) => {
     if (!callId || !userId) {
       log("call-invite-joined missing params", { userId, callId });
       return;
     }
-
+ 
     const call = activeCalls.get(callId);
     if (!call) {
       log("call-invite-joined: call not found", callId);
       return;
     }
-
+ 
     call.participants.set(String(userId), {
       userId: String(userId),
       username,
       socketId: socket.id,
       joinedAt: Date.now(),
     });
-
+ 
     socket.join(callId);
     socket.callId = callId;
-
+ 
     io.to(callId).emit("call-invite-joined", { userId, username, callId });
-
+ 
     const participantsArray = Array.from(call.participants.values()).map((p) => ({
       userId: p.userId,
       username: p.username,
       socketId: p.socketId,
       joinedAt: p.joinedAt,
     }));
-
+ 
     socket.to(callId).emit("participant-joined", {
       newUser: { userId: String(userId), username },
       callId,
       participants: participantsArray,
     });
-
+ 
     log("call-invite-joined", userId, "in", callId);
   });
-
+ 
   socket.on("call-invite-cancel", ({ userId, callId } = {}) => {
     if (!callId || !userId) return;
-
+ 
     const call = activeCalls.get(callId);
     if (call && call.participants.has(String(userId))) {
       call.participants.delete(String(userId));
     }
-
+ 
     io.to(callId).emit("call-invite-cancel", { userId, callId });
-
+ 
     ringUser(userId, "call-invite-cancel", { userId, callId });
-
+ 
     log("call-invite-cancel", userId, "in", callId);
   });
-
+ 
   socket.on("call-invite-timeout", ({ userId, callId } = {}) => {
     if (!callId || !userId) return;
     io.to(callId).emit("call-invite-timeout", { userId, callId });
     ringUser(userId, "call-invite-timeout", { userId, callId });
     log("call-invite-timeout", userId, "in", callId);
   });
-
+ 
   socket.on("call-invite-timeout-remove", ({ userId, callId } = {}) => {
     if (!callId || !userId) return;
     const call = activeCalls.get(callId);
     if (call && call.participants.has(String(userId))) {
       call.participants.delete(String(userId));
     }
-
+ 
     io.to(callId).emit("call-invite-timeout-remove", { userId, callId });
     ringUser(userId, "call-invite-timeout-remove", { userId, callId });
-
+ 
     log("call-invite-timeout-remove", userId, "in", callId);
   });
-
+ 
   // ============================================================
   //                WEBRTC RELAY
   // ============================================================
@@ -377,52 +377,52 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
       log("relaySignal missing 'to' in payload", { type, payload });
       return;
     }
-
+ 
     const to = String(payload.to);
     const from = payload.from || socket.userId;
-
+ 
     const targetSocket = getSocketForUser(to);
-
+ 
     if (targetSocket) {
       io.to(targetSocket).emit(type, { ...payload, from });
       log(`Relayed ${type} from ${from} -> ${to} via ${targetSocket}`);
       return;
     }
-
+ 
     // fallback to room
     io.to(`user_${to}`).emit(type, { ...payload, from });
     log(`Relayed ${type} from ${from} -> user_${to} (fallback)`);
   };
-
+ 
   socket.on("offer", (payload) => relaySignal("offer", payload));
   socket.on("answer", (payload) => relaySignal("answer", payload));
   socket.on("iceCandidate", (payload) => relaySignal("iceCandidate", payload));
-
+ 
   // ============================================================
   //                GROUP ROOMS (UNCHANGED)
   // ============================================================
   socket.on("joinRoom", ({ userId, username, roomCode } = {}, callback) => {
     if (!userId || !roomCode) return;
-
+ 
     userId = String(userId);
     roomCode = String(roomCode);
-
+ 
     if (!activeRooms.has(roomCode)) activeRooms.set(roomCode, new Map());
     const roomMap = activeRooms.get(roomCode);
-
+ 
     if (roomMap.has(userId))
       return callback && callback({ success: false, message: "Already in room" });
-
+ 
     socket.userId = userId;
     socket.roomCode = roomCode;
     socket.join(roomCode);
-
+ 
     roomMap.set(userId, {
       username,
       socketId: socket.id,
       joinedAt: Date.now(),
     });
-
+ 
     const existingUsers = Array.from(roomMap.entries())
       .filter(([id]) => id !== userId)
       .map(([id, u]) => ({
@@ -430,37 +430,37 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
         username: u.username,
         socketId: u.socketId,
       }));
-
+ 
     socket.emit("existingUsers", { users: existingUsers });
     socket.to(roomCode).emit("userJoined", { userId, username });
-
+ 
     callback && callback({ success: true, users: existingUsers });
   });
-
+ 
   socket.on("leaveRoom", ({ userId, username, roomCode } = {}) => {
     if (!userId || !roomCode) return;
-
+ 
     userId = String(userId);
     roomCode = String(roomCode);
-
+ 
     socket.leave(roomCode);
     socket.to(roomCode).emit("userLeft", { userId, username });
-
+ 
     const roomMap = activeRooms.get(roomCode);
     if (roomMap) {
       roomMap.delete(userId);
       if (roomMap.size === 0) activeRooms.delete(roomCode);
     }
   });
-
+ 
   socket.on("checkJoined", ({ roomCode, userId } = {}, cb) => {
     const joined =
       activeRooms.has(String(roomCode)) &&
       activeRooms.get(String(roomCode)).has(String(userId));
-
+ 
     cb && cb({ joined: !!joined });
   });
-
+ 
   socket.on("startMeeting", async ({ teamId, startedBy, meetingCode } = {}) => {
     try {
       await meetServ.startMeeting(teamId, startedBy, meetingCode);
@@ -468,37 +468,37 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
       log("startMeeting error:", err);
     }
   });
-
+ 
 //   // ----------------------------------------------------------
 //   // DISCONNECT
 //   // ----------------------------------------------------------
 //   socket.on("disconnect", () => {
 //     const userId = socket.userId;
 //     const roomCode = socket.roomCode;
-
+ 
 //     log("disconnect", { socketId: socket.id, userId, roomCode });
-
+ 
 //     // Remove from group rooms
 //     if (roomCode && activeRooms.has(roomCode)) {
 //       const roomMap = activeRooms.get(roomCode);
 //       roomMap.delete(userId);
 //       socket.to(roomCode).emit("userLeft", { userId });
-
+ 
 //       if (roomMap.size === 0) activeRooms.delete(roomCode);
 //     }
-
+ 
 //     // Remove from 1:1 / call rooms
 //     activeCalls.forEach((call, callId) => {
 //       if (call.participants.has(String(userId))) {
 //         call.participants.delete(String(userId));
 //         io.to(callId).emit("userLeftCall", { userId });
-
+ 
 //         if (call.participants.size === 0) {
 //           activeCalls.delete(callId);
 //         }
 //       }
 //     });
-
+ 
 //     // Also remove socketId from connectedSockets (if connectedSockets is Map<userId,Set>)
 //     if (userId) {
 //       const set = connectedSockets.get(String(userId));
