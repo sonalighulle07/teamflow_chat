@@ -120,8 +120,6 @@ module.exports = function meetingHandlers(io, socket, connectedSockets) {
     cb?.({ joined });
   });
 
-
-
 // -------------------------------------------------------
 // CHECK JOINED — SAFE VERSION (MULTI-TAB FRIENDLY)
 // -------------------------------------------------------

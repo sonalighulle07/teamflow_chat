@@ -32,6 +32,7 @@ import { setActiveNav } from "./Store/Features/Users/userSlice";
 import CreateTeam from "./components/CreateTeams";
 import TaskManagement from "./components/TaskManagement";
 import TeamInvites from "./components/TeamInvites";
+import { URL } from "./config";
 
 function AppRoutes({
   isAuthenticated,
@@ -112,9 +113,8 @@ function AppRoutes({
         }
       />
 
-{/*  Lazy loaded block  */}
 
-
+    {/*  Lazy loaded block yet to be implemented  */}
 
       {/* Main App */}
       <Route
@@ -330,7 +330,7 @@ function App() {
           applicationServerKey: urlBase64ToUint8Array(vapidKey),
         });
         const user = JSON.parse(sessionStorage.getItem("chatUser"));
-        await fetch("http://localhost:3000/api/subscribe", {
+        await fetch(`${URL}/api/subscribe`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: user.id, subscription: sub }),

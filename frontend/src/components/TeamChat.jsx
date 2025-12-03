@@ -31,7 +31,7 @@ export default function TeamChat({
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const messageRefs = useRef({});
- 
+
   const dispatch = useDispatch();
   const selectedTeamMembers = useSelector(
     (state) => state.team.selectedTeamMembers
@@ -52,15 +52,14 @@ export default function TeamChat({
 
     // Register user & join room
     socketRef.current.emit("register", { userId: currentUser.id });
-  socketRef.current.emit("joinTeam", { teamId: selectedTeam.id }); // <-- was 
-  // joinRoom
+    socketRef.current.emit("joinTeam", { teamId: selectedTeam.id }); // <-- was  joinRoom
 
-  // ========= REAL-TIME TEAM MESSAGE =========
-  socketRef.current.on("teamMessage", (msg) => {
-    if (msg.team_id === selectedTeam.id) {
-      setMessages((prev) => [...prev, msg]);
-    }
-  });
+    // ========= REAL-TIME TEAM MESSAGE =========
+    socketRef.current.on("teamMessage", (msg) => {
+      if (msg.team_id === selectedTeam.id) {
+        setMessages((prev) => [...prev, msg]);
+      }
+    });
     // ========= MESSAGE EDITED =========
     socket.on("teamMessageEdited", (msg) => {
       if (msg.team_id !== selectedTeam.id) return;
@@ -78,12 +77,11 @@ export default function TeamChat({
     });
 
     // ========= REACTION UPDATED =========
- socket.on('teamMessageUpdated', (updatedMessage) => {
-    setMessages(prev =>
-      prev.map(msg => (msg.id === updatedMessage.id ? updatedMessage : msg))
-    );
-  });
-
+    socket.on("teamMessageUpdated", (updatedMessage) => {
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === updatedMessage.id ? updatedMessage : msg))
+      );
+    });
 
     return () => {
       socket.emit("leaveRoom", { teamId: selectedTeam.id });
@@ -173,26 +171,26 @@ export default function TeamChat({
   };
 
   // --- File handling ---
-const handleFileChange = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  if (typeof window !== "undefined" && typeof window.URL?.createObjectURL === "function") {
-    const url = window.URL.createObjectURL(file);
-    setSelectedFile(file);
-    setPreviewUrl(url);
-    setFilePreview(url);
-  } else {
-    console.error("Browser does not support URL.createObjectURL");
-    // fallback: maybe just store file name, skip preview
-    setSelectedFile(file);
-    setPreviewUrl(null);
-    setFilePreview(null);
-  }
-};
-
-
-
+    if (
+      typeof window !== "undefined" &&
+      typeof window.URL?.createObjectURL === "function"
+    ) {
+      const url = window.URL.createObjectURL(file);
+      setSelectedFile(file);
+      setPreviewUrl(url);
+      setFilePreview(url);
+    } else {
+      console.error("Browser does not support URL.createObjectURL");
+      // fallback: maybe just store file name, skip preview
+      setSelectedFile(file);
+      setPreviewUrl(null);
+      setFilePreview(null);
+    }
+  };
 
   const removeFile = () => {
     setSelectedFile(null);
@@ -398,48 +396,46 @@ const handleFileChange = (e) => {
     }
   };
   // --- Handle Reaction (Team) ---
- const handleReaction = async (messageId, emoji) => {
-  if (!selectedTeam?.id || !token) return;
+  const handleReaction = async (messageId, emoji) => {
+    if (!selectedTeam?.id || !token) return;
 
-  try {
-    const res = await fetch(
-      `${URL}/api/teams/${selectedTeam.id}/messages/${messageId}/reactions`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ emoji, userId: currentUser.id }),
+    try {
+      const res = await fetch(
+        `${URL}/api/teams/${selectedTeam.id}/messages/${messageId}/reactions`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ emoji, userId: currentUser.id }),
+        }
+      );
+
+      if (!res.ok) {
+        console.error("Reaction API failed:", await res.text());
+        return;
       }
-    );
 
-    if (!res.ok) {
-      console.error("Reaction API failed:", await res.text());
-      return;
+      const updatedReactions = await res.json(); // Backend should return updated reactions object
+
+      // Optimistic UI
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, reactions: updatedReactions } : m
+        )
+      );
+
+      // Emit updated reactions for real-time update
+      socketRef.current?.emit("teamMessageReaction", {
+        messageId,
+        teamId: selectedTeam.id,
+        reactions: updatedReactions,
+      });
+    } catch (err) {
+      console.error("handleReaction error:", err);
     }
-
-    const updatedReactions = await res.json(); // Backend should return updated reactions object
-
-    // Optimistic UI
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId ? { ...m, reactions: updatedReactions } : m
-      )
-    );
-
-    // Emit updated reactions for real-time update
-    socketRef.current?.emit("teamMessageReaction", {
-      messageId,
-      teamId: selectedTeam.id,
-      reactions: updatedReactions,
-    });
-  } catch (err) {
-    console.error("handleReaction error:", err);
-  }
-};
-
-
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full relative">
@@ -543,125 +539,130 @@ const handleFileChange = (e) => {
 
       {/* Input + File */}
       {/* Input + File preview */}
-<div className="p-3 border-t border-gray-300 flex flex-col gap-2 bg-white">
-  {selectedFile && (
-  <div className="relative mb-1 p-1 border rounded-md bg-gray-100 flex items-center justify-between">
-    <div className="flex items-center gap-2 overflow-hidden">
-      {previewUrl && selectedFile.type.startsWith("image/") && (
-        <img src={previewUrl} className="max-h-10 rounded-md" />
-      )}
-      {previewUrl && selectedFile.type.startsWith("video/") && (
-        <video src={previewUrl} className="max-h-40 rounded-md" controls />
-      )}
-      {previewUrl && selectedFile.type.startsWith("audio/") && (
-        <audio src={previewUrl} controls className="w-64" />
-      )}
-      {!previewUrl && (
-        <div className="flex items-center gap-2 p-1 bg-white rounded-md shadow-sm">
-          <span className="text-3xl">
-            {selectedFile.name.endsWith(".pdf")
-              ? "📕"
-              : ["doc", "docx"].includes(selectedFile.name.split(".").pop())
-              ? "📘"
-              : ["xls", "xlsx"].includes(selectedFile.name.split(".").pop())
-              ? "📊"
-              : "📄"}
-          </span>
-          <span className="truncate max-w-xs">{selectedFile.name}</span>
-        </div>
-      )}
-    </div>
-    <button
-      onClick={removeFile}
-      className="bg-red-500 text-white rounded-full px-2 hover:bg-red-600"
-    >
-      ✕
-    </button>
-  </div>
-)}
-
-  <div className="flex items-center gap-2 relative  bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
-    <input
-  type="text"
-  placeholder={
-    selectedTeam ? "Type a message..." : "Select a team..."
-  }
-  value={text}
-  onChange={(e) => setText(e.target.value)}
-  onKeyDown={handleKeyPress}
-  disabled={!selectedTeam}
-  className="flex-1 bg-transparent px-3 py-1 border-0 border-b-2 border-transparent focus:outline-none focus:ring-0 placeholder-gray-400
-    focus:border-transparent focus:bg-gradient-to-r focus:from-purple-400 focus:to-purple-600 focus:[background-position:0_100%] focus:[background-size:100%_2px] focus:[background-repeat:no-repeat] rounded-full"
-/>
-
-
-    {/* Emoji Picker */}
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setShowEmoji((prev) => !prev)}
-        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-purple-100 transition-all duration-200"
-        title="Emoji"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-6 h-6 text-gray-500 hover:text-purple-700"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M12 20c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z"
-          />
-        </svg>
-      </button>
-
-      {showEmoji && (
-        <div className="absolute bottom-14 right-0 z-30 transform scale-90 origin-bottom-right transition-all duration-200">
-          <div className="rounded-xl shadow-lg border border-gray-200 bg-white/95 backdrop-blur-md">
-            <Picker
-              onEmojiClick={onEmojiClick}
-              theme="light"
-              width={260}
-              height={320}
-            />
+      <div className="p-3 border-t border-gray-300 flex flex-col gap-2 bg-white">
+        {selectedFile && (
+          <div className="relative mb-1 p-1 border rounded-md bg-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2 overflow-hidden">
+              {previewUrl && selectedFile.type.startsWith("image/") && (
+                <img src={previewUrl} className="max-h-10 rounded-md" />
+              )}
+              {previewUrl && selectedFile.type.startsWith("video/") && (
+                <video
+                  src={previewUrl}
+                  className="max-h-40 rounded-md"
+                  controls
+                />
+              )}
+              {previewUrl && selectedFile.type.startsWith("audio/") && (
+                <audio src={previewUrl} controls className="w-64" />
+              )}
+              {!previewUrl && (
+                <div className="flex items-center gap-2 p-1 bg-white rounded-md shadow-sm">
+                  <span className="text-3xl">
+                    {selectedFile.name.endsWith(".pdf")
+                      ? "📕"
+                      : ["doc", "docx"].includes(
+                          selectedFile.name.split(".").pop()
+                        )
+                      ? "📘"
+                      : ["xls", "xlsx"].includes(
+                          selectedFile.name.split(".").pop()
+                        )
+                      ? "📊"
+                      : "📄"}
+                  </span>
+                  <span className="truncate max-w-xs">{selectedFile.name}</span>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={removeFile}
+              className="bg-red-500 text-white rounded-full px-2 hover:bg-red-600"
+            >
+              ✕
+            </button>
           </div>
+        )}
+
+        <div className="flex items-center gap-2 relative  bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
+          <input
+            type="text"
+            placeholder={
+              selectedTeam ? "Type a message..." : "Select a team..."
+            }
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyPress}
+            disabled={!selectedTeam}
+            className="flex-1 bg-transparent px-3 py-1 border-0 border-b-2 border-transparent focus:outline-none focus:ring-0 placeholder-gray-400
+    focus:border-transparent focus:bg-gradient-to-r focus:from-purple-400 focus:to-purple-600 focus:[background-position:0_100%] focus:[background-size:100%_2px] focus:[background-repeat:no-repeat] rounded-full"
+          />
+
+          {/* Emoji Picker */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmoji((prev) => !prev)}
+              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-purple-100 transition-all duration-200"
+              title="Emoji"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-6 h-6 text-gray-500 hover:text-purple-700"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M12 20c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z"
+                />
+              </svg>
+            </button>
+
+            {showEmoji && (
+              <div className="absolute bottom-14 right-0 z-30 transform scale-90 origin-bottom-right transition-all duration-200">
+                <div className="rounded-xl shadow-lg border border-gray-200 bg-white/95 backdrop-blur-md">
+                  <Picker
+                    onEmojiClick={onEmojiClick}
+                    theme="light"
+                    width={260}
+                    height={320}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* File upload */}
+          <label className="relative flex items-center justify-center w-7 h-7 rounded-full cursor-pointer hover:bg-purple-100 transition">
+            <PaperClipIcon className="w-5 h-5 text-gray-600 hover:text-purple-700" />
+            <input
+              type="file"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={handleFileChange}
+            />
+          </label>
+
+          {/* Send Button */}
+          <button
+            onClick={handleSend}
+            disabled={!selectedTeam}
+            className="flex items-center justify-center p-[4px] bg-white text-purple-600 rounded-full hover:bg-purple-100 transition disabled:cursor-not-allowed"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-gray-500 hover:text-purple-700"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+          </button>
         </div>
-      )}
-    </div>
-
-    {/* File upload */}
-    <label className="relative flex items-center justify-center w-7 h-7 rounded-full cursor-pointer hover:bg-purple-100 transition">
-      <PaperClipIcon className="w-5 h-5 text-gray-600 hover:text-purple-700" />
-      <input
-        type="file"
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-        onChange={handleFileChange}
-      />
-    </label>
-
-    {/* Send Button */}
-    <button
-  onClick={handleSend}
-  disabled={!selectedTeam}
-  className="flex items-center justify-center p-[4px] bg-white text-purple-600 rounded-full hover:bg-purple-100 transition disabled:cursor-not-allowed"
->
-
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-5 w-5 text-gray-500 hover:text-purple-700"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-      >
-        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-      </svg>
-    </button>
-  </div>
-</div>
-
+      </div>
 
       {/* Forward Modal */}
       {forwardMsg && (
