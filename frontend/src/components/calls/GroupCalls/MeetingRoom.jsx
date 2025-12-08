@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useLocation, useNavigate,useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMeeting } from "../hooks/useMeeting";
 import PeerTile from "./PeerTile";
 import MeetingControls from "./MeetingUtils/MeetingControls";
+import MeeingParticipants from "./MeetingUtils/MeetingParicipants";
 
 export default function MeetingRoom() {
   const location = useLocation();
@@ -15,6 +16,7 @@ export default function MeetingRoom() {
 
   const code = credentials?.split("-")[2] || null;
   console.log("Room Code:", code);
+
   const teamId = credentials.split("-")[1]; 
   console.log("Team ID:", teamId);
 
@@ -34,7 +36,7 @@ export default function MeetingRoom() {
     userRefs
   } = useMeeting(userId, code, teamId);
 
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = (false);
   const [pinnedId, setPinnedId] = useState(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
@@ -66,7 +68,7 @@ export default function MeetingRoom() {
         setReady(true);
 
       } catch (err) {
-        console.error("Join meeting failed:", err);
+        console.error( "Join meeting failed:", err );
       }
     };
 
@@ -89,6 +91,7 @@ export default function MeetingRoom() {
         setShowToast(false);
         navigate(-1);
       }, 1000);
+      
     } catch (err) {
       console.error("Leave error:", err);
     }
@@ -112,6 +115,7 @@ export default function MeetingRoom() {
 
   // TOAST SYSTEM
   useEffect(() => {
+
     const handler = (e) => {
       setToastMsg(e.detail?.message || "");
       setShowToast(true);
@@ -120,6 +124,7 @@ export default function MeetingRoom() {
 
     window.addEventListener("meeting-toast", handler);
     return () => window.removeEventListener("meeting-toast", handler);
+
   }, []);
 
   const handlePin = (id) => {
@@ -136,6 +141,7 @@ export default function MeetingRoom() {
     );
   }
 
+  // --------------------------------------------------------
   // MAIN UI
   // --------------------------------------------------------
  return (
@@ -207,6 +213,7 @@ export default function MeetingRoom() {
                 isLocal={id === userId}
                 onDoubleClick={() => handlePin(id)}
               />
+
             </div>
           ))}
         </div>
@@ -226,6 +233,10 @@ export default function MeetingRoom() {
         isScreenSharing={isScreenSharing}
       />
     </div>
+
+    <MeeingParticipants
+      roomCode={code}
+      />
 
     {/* TOAST */}
     {showToast && (

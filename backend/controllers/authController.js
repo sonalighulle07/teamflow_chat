@@ -92,13 +92,12 @@ exports.login = async (req, res) => {
         .json({ success: false, message: "Incorrect password" });
     }
 
-    await pool.query("UPDATE users SET is_online = 1 WHERE id = ?", [user.id]);
-
     const token = jwt.sign(
       { id: user.id },
       process.env.JWT_SECRET || "secret_key",
       { expiresIn: "1d" }
     );
+
 
     res.status(200).json({
       success: true,

@@ -53,7 +53,7 @@ class User {
   static async findById(id) {
     try {
       const [rows] = await pool.query(
-        `SELECT id, full_name, email, contact, username, profile_image, is_online, organization_id
+        `SELECT id, full_name, email, contact, username, profile_image, status, organization_id
          FROM users WHERE id = ? LIMIT 1`,
         [id]
       );
@@ -68,7 +68,7 @@ class User {
   static async getAllByOrganization(orgId) {
     try {
       const [rows] = await pool.query(
-        `SELECT id, full_name, username, profile_image, is_online
+        `SELECT id, full_name, username, profile_image, status
          FROM users WHERE organization_id = ? ORDER BY username ASC`,
         [orgId]
       );
@@ -94,15 +94,36 @@ class User {
   }
 
   // ===== Set Online Status =====
-  static async setOnlineStatus(userId, status = true) {
+  static async setOnlineStatus(userId) {
     try {
-      await pool.query("UPDATE users SET is_online = ? WHERE id = ?", [
-        status ? 1 : 0,
+      await pool.query("UPDATE users SET status = 'online' WHERE id = ?", [
         userId,
       ]);
     } catch (error) {
       console.error("Error setting online status:", error);
       throw error;
+    }
+  }
+
+
+  static async setInCallStatus(userId){
+    try{
+      await pool.query("UPDATE users SET status = 'inCall' WHERE id = ? ",[
+        userId,
+      ]);
+    }catch (error){
+      console.error("Error setting inCall status:",error);
+      throw error;
+    }
+  }
+
+  static async setOfflineStatus(userId){
+    try{
+      await pool.query("UPDATE users SET status = 'offline' WHERE id = ? ",[
+        userId,
+      ]);
+    }catch (error){
+      console.error("Error setting offline status:",error);
     }
   }
 

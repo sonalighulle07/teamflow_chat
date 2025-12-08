@@ -26,6 +26,7 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
     if (!userId) return null;
     const s = connectedSockets.get(String(userId));
     if (!s) return null;
+
     // Return the most-recently-added socket id (last entry in Set)
     // Array.from preserves insertion order; pop last
     const arr = Array.from(s);
@@ -85,6 +86,7 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
   }
 
   function joinCallRoom(callId, userId, username) {
+
     const call = activeCalls.get(callId);
     if (!call) {
       log("joinCallRoom: call not found", callId);
@@ -100,6 +102,8 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
 
     // ensure socket is in call room (so broadcast to callId reaches them)
     socket.join(callId);
+
+    User.setInCallStatus(userId);
 
     log(`User ${userId} joined ${callId} (socket ${socket.id})`);
   }
@@ -182,7 +186,9 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
     log(`cancelCall ${from} -> ${to} (callId=${callId})`);
   });
 
+
   socket.on("endCall", ({ from, fromUsername, callId } = {}) => {
+
     log("Inside end call....", { from, callId });
 
     if (!callId || !activeCalls.has(callId)) {
@@ -192,6 +198,8 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
 
     const call = activeCalls.get(callId);
     const participants = call.participants; // Map
+
+    User.setOnlineStatus(from);
 
     // remove user from participants
     if (participants.has(String(from))) participants.delete(String(from));
@@ -206,11 +214,18 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
         callId,
       });
 
-      try {
-        io.in(callId).socketsLeave(callId);
-      } catch (e) {
-        log("socketsLeave error:", e);
-      }
+
+
+  let remainingUserId = participants.values().next().value.userId;
+  console.log(remainingUserId)
+  User.setOnlineStatus(remainingUserId);
+
+
+      // try {
+      //   io.in(callId).socketsLeave(callId);
+      // } catch (e) {
+      //   log("socketsLeave error:", e);
+      // }
 
       activeCalls.delete(callId);
       return;
@@ -254,6 +269,7 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
       }
 
       const call = activeCalls.get(callId);
+
       if (!call) {
         log("call-add-user: call not found", callId);
         return;
@@ -418,6 +434,7 @@ socket.on("in-call-users-request", ({ callId } = {}, cb) => {
       return;
     }
 
+    console.log("relaySignal 'to' in payload", { type, payload });
     const to = String(payload.to);
     const from = payload.from || socket.userId;
 

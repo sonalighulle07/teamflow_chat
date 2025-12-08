@@ -22,6 +22,7 @@ const messageHandlers = require("./Utils/socket/messageHandlers");
 const eventHandlers = require("./Utils/socket/eventHandlers");
 const sidebarSocket = require("./Utils/socket/sidebarSocket");
 const meetingHandlers = require("./Utils/socket/meetingHandlers");
+const User = require("./models/User");
 
 const app = express();
 const server = http.createServer(app);
@@ -102,6 +103,8 @@ io.on("connection", (socket) => {
     socket.join(`user_${userId}`);
     addSocketForUser(userId, socket.id);
 
+    User.setOnlineStatus(userId);
+
     log(`Registered user ${userId} (socket: ${socket.id})`);
   });
 
@@ -109,6 +112,16 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const { userId } = socket;
     if (!userId) return;
+
+    console.log("Connected sockets: ",connectedSockets)
+
+    console.log("get user confirmation : ",connectedSockets.has(userId));
+
+
+    if(!connectedSockets.has(userId))
+    {
+      User.setOfflineStatus(userId);
+    }
 
     removeSocketForUser(userId, socket.id);
   });

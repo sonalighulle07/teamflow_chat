@@ -52,7 +52,7 @@ exports.getUsers = async (req, res) => {
     } else {
       // fallback: fetch all (if admin)
       const [rows] = await pool.query(
-        `SELECT id, full_name, username, profile_image, is_online FROM users ORDER BY username ASC`
+        `SELECT id, full_name, username, profile_image,status FROM users ORDER BY username ASC`
       );
       users = rows;
     }

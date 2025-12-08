@@ -203,7 +203,11 @@ useEffect(() => {
     localStorage.removeItem("chatToken");
     localStorage.removeItem("chatUser");
     //  Keep profile image in localStorage
+    
     setIsAuthenticated(false);
+
+    socket.disconnect();
+
     navigate("/");
   };
 

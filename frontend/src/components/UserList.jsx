@@ -39,8 +39,6 @@ const UserItem = memo(
       );
     };
 
-    const hasActivity = item.recentActivity && !item.recentActivity.read_status;
-
     // Format last message date with fallback
     const formatLastMessageDate = (date, fallbackDate = new Date()) => {
       const d = date ? new Date(date) : new Date(fallbackDate);
@@ -53,7 +51,10 @@ const UserItem = memo(
     };
 
     // Use lastMessage or fallback to item.created_at or today
-    const lastMessageDate = formatLastMessageDate(lastMessage, item.created_at);
+    const lastMessageDate = formatLastMessageDate(
+      lastMessage,
+      item.created_at
+    );
 
     return (
       <li
@@ -85,8 +86,17 @@ const UserItem = memo(
           ) : (
             getInitials(name)
           )}
-          {hasActivity && (
-            <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-white"></span>
+
+          {/* User Status: online / inCall / offline */}
+          {item.type === "user" && (
+            <span
+              className={`
+                absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white
+                ${item.status === "online" ? "bg-green-500" : ""}
+                ${item.status === "inCall" ? "bg-yellow-500" : ""}
+                ${item.status === "offline" ? "bg-gray-400" : ""}
+              `}
+            ></span>
           )}
         </div>
 
@@ -95,6 +105,13 @@ const UserItem = memo(
           <span className="text-gray-600 font-[10px]">
             {highlightMatch(name)}
           </span>
+
+          {item.type === "user" && (
+            <span className="text-[11px] text-gray-500 capitalize">
+              {item.status === "inCall" ? "In a call" : item.status}
+            </span>
+          )}
+
           {lastMessageDate && (
             <span className="text-xs text-gray-500 truncate">
               {lastMessageDate}
@@ -113,7 +130,7 @@ export default function UserList({
   onSelectTeam,
   searchQuery = "",
   selectedUser,
-  selectedTeam, //  Added selectedTeam
+  selectedTeam,
   lastMessages = {},
 }) {
   const listRef = useRef(null);
@@ -125,29 +142,28 @@ export default function UserList({
   };
 
   // Merge and sort users/teams by last message date
-const displayedItems = useMemo(() => {
-  const allUsers = users.map((u) => ({ ...u, type: "user" }));
-  const allTeams = teams.map((t) => ({ ...t, type: "team" }));
+  const displayedItems = useMemo(() => {
+    const allUsers = users.map((u) => ({ ...u, type: "user" }));
+    const allTeams = teams.map((t) => ({ ...t, type: "team" }));
 
-  const allItems = [...allUsers, ...allTeams];
+    const allItems = [...allUsers, ...allTeams];
 
-  return allItems.sort((a, b) => {
-    const aTime = lastMessages[a.id]
-      ? new Date(lastMessages[a.id]).getTime()
-      : a.created_at
-      ? new Date(a.created_at).getTime()
-      : 0;
+    return allItems.sort((a, b) => {
+      const aTime = lastMessages[a.id]
+        ? new Date(lastMessages[a.id]).getTime()
+        : a.created_at
+        ? new Date(a.created_at).getTime()
+        : 0;
 
-    const bTime = lastMessages[b.id]
-      ? new Date(lastMessages[b.id]).getTime()
-      : b.created_at
-      ? new Date(b.created_at).getTime()
-      : 0;
+      const bTime = lastMessages[b.id]
+        ? new Date(lastMessages[b.id]).getTime()
+        : b.created_at
+        ? new Date(b.created_at).getTime()
+        : 0;
 
-    return bTime - aTime; // newest first
-  });
-}, [users, teams, lastMessages]);
-
+      return bTime - aTime; // newest first
+    });
+  }, [users, teams, lastMessages]);
 
   // Scroll to first search match
   useEffect(() => {
@@ -183,8 +199,7 @@ const displayedItems = useMemo(() => {
       {displayedItems.map((item) => {
         let isSelected = false;
         if (item.type === "user") isSelected = selectedUser?.id === item.id;
-        else if (item.type === "team")
-          isSelected = selectedTeam?.id === item.id;
+        else if (item.type === "team") isSelected = selectedTeam?.id === item.id;
 
         const key = item.type === "user" ? item.id : `team-${item.id}`;
         const lastMessage = lastMessages[item.id] || null;
