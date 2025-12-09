@@ -238,7 +238,7 @@ export function useCall(userId, currentUsername) {
 
         window.dispatchEvent(
         new CustomEvent("user-joined-toast", { detail: { message: `${newUser.username === currentUsername ? "You" : newUser.username} Joined the call` } })
-    );
+        );
       } catch (e) {
         console.error("handleParticipantJoined error", e);
       }
@@ -433,6 +433,7 @@ export function useCall(userId, currentUsername) {
   // IMPORTANT: do NOT create any placeholder remote entry here.
   // Just notify server and let server trigger call-invite-ringing + participant-joined flows.
   // ------------------------------------------------------------------
+  
   function addUserToCall(addedUserId, addedUsername) {
     if (!callId) {
       console.warn("No callId set — cannot add user. Wait for server to create call.");

@@ -26,6 +26,7 @@ export default function CallOverlay({
 }) {
   const localVideoRef = useRef(null);
   const remoteVideoRefs = useRef({}); // map userId -> element
+  const [addUserList, setAddUserList] = useState([]);
 
   const userList = useSelector((state) => state.user.userList || []);
   const currentUser = useSelector((state) => state.user.currentUser);
@@ -78,6 +79,21 @@ export default function CallOverlay({
     });
   }, [remoteStreams]);
 
+
+  const handleAddBtnClick = (s) =>{
+
+    socket.emit("in-call-users-request", { callId },async (resp) => {
+      if (resp?.success && Array.isArray(resp.users))
+      {
+        const existingUserIds = resp.users.map((u) => String(u.userId));
+        const filtered = userList.filter((u) => !existingUserIds.includes(String(u.id)) && String(u.id) !== String(currentUser.id));
+        setAddUserList(filtered);
+        setShowUserList(s);
+      }
+    }
+    )
+  }
+
   // helper: create invite tile (id = userId)
   const addInviteTile = (userId, username, status = "ringing", timeoutMs = 15000) => {
     const idStr = String(userId);
@@ -124,7 +140,7 @@ export default function CallOverlay({
     });
   };
 
-  const handleAddClick = (uid) => {
+  const handleAddUserClick = (uid) => {
     const u = userList.find((x) => String(x.id) === String(uid));
     const name = u?.username || `User ${uid}`;
 
@@ -271,7 +287,7 @@ export default function CallOverlay({
 
         <div style={{ display: "flex", gap: 10 }}>
           <button
-            onClick={() => setShowUserList((s) => !s)}
+            onClick={() => handleAddBtnClick(!showUserList)}
             style={{ background: "#444", color: "#fff", padding: "6px 8px", borderRadius: 6 }}
           >
             ➕ Add
@@ -290,10 +306,10 @@ export default function CallOverlay({
         <div style={{ position: "absolute", top: 50, right: 12, width: 220, background: "#2b2b2b", padding: 10, borderRadius: 8, zIndex: 4000 }}>
           <div style={{ color: "#fff", fontWeight: 600 }}>Add user</div>
           <div style={{ marginTop: 8, maxHeight: 220, overflowY: "auto" }}>
-            {userList.map((u) => (
+            {addUserList.map((u) => (
               <div
                 key={u.id}
-                onClick={() => handleAddClick(u.id)}
+                onClick={() => handleAddUserClick(u.id)}
                 style={{ padding: 8, marginTop: 6, background: "#333", borderRadius: 6, color: "#fff", cursor: "pointer" }}
               >
                 {u.username}

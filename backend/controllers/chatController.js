@@ -283,14 +283,14 @@ exports.getLastMessagesByUser = async (req, res) => {
         u.id AS user_id,
         u.username,
         u.profile_image,
-        u.is_online,
+        u.status,
         MAX(c.timestamp) AS last_message_at
       FROM users u
       LEFT JOIN chats c
         ON (c.sender_id = ? AND c.receiver_id = u.id)
         OR (c.sender_id = u.id AND c.receiver_id = ?)
       WHERE u.id != ?
-      GROUP BY u.id, u.username, u.profile_image, u.is_online
+      GROUP BY u.id, u.username, u.profile_image, u.status
       ORDER BY last_message_at DESC
       `,
       [userId, userId, userId]

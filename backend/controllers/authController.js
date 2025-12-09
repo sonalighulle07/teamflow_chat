@@ -100,8 +100,10 @@ exports.login = async (req, res) => {
       return res.status(400).json({ success: false, message: "User not found" });
 
     const match = await bcrypt.compare(password, user.password);
+
     if (!match)
       return res.status(400).json({ success: false, message: "Incorrect password" });
+
 
     const token = jwt.sign(
       { id: user.id, role: user.role },

@@ -20,10 +20,22 @@ module.exports = function meetingHandlers(io, socket, connectedSockets) {
     return activeRooms.get(roomCode);
   };
 
+  // // Helper: create room if missing
+  // const ensureRoom = (roomCode) => {
+  //   if (!activeRooms.has(roomCode)) {
+  //     activeRooms.set(roomCode, {
+  //       users: new Map(),
+  //       permissions: new Map(),
+  //     });
+  //   }
+  //   return activeRooms.get(roomCode);
+  // };
+
   // -------------------------------------------------------
   // JOIN MEETING
   // -------------------------------------------------------
   socket.on("meet-joinRoom", ({ userId, username, roomCode } = {}, cb) => {
+    
     if (!userId || !roomCode) {
       return cb?.({ success: false, message: "Missing userId or roomCode." });
     }
@@ -53,6 +65,7 @@ module.exports = function meetingHandlers(io, socket, connectedSockets) {
     if (!connectedSockets.has(userId)) {
       connectedSockets.set(userId, new Set());
     }
+
     connectedSockets.get(userId).add(socket.id);
 
     // Build existing users list
@@ -70,7 +83,7 @@ module.exports = function meetingHandlers(io, socket, connectedSockets) {
   // -------------------------------------------------------
   // LEAVE MEETING
   // -------------------------------------------------------
-  socket.on("meet-leaveRoom", async ({ userId, username, roomCode, teamId } = {}) => {
+  socket.on("meet-leaveRoom", async ({ userId, username, roomCode, teamId = null } = {}) => {
     if (!userId || !roomCode) return;
 
     userId = String(userId);
@@ -122,6 +135,41 @@ module.exports = function meetingHandlers(io, socket, connectedSockets) {
 
 
 
+// =============================
+// GET ACTIVE USERS IN A ROOM
+// =============================
+socket.on("get-active-users", ({ roomCode }, callback) => {
+
+  console.log(`[get-active-users] room=${roomCode}`);
+
+  try {
+    if (!roomCode) {
+      return callback({ success: false, message: "roomCode missing" });
+    }
+
+    const room = activeRooms.get(roomCode);
+    if (!room) {
+      return callback({ success: false, users: [] });
+    }
+
+    // Convert map -> array
+    const users = Array.from(room.entries()).map(([userId, data]) => ({
+      userId,
+      username: data.username,
+      joinedAt: data.joinedAt,
+    }));
+
+    callback({
+      success: true,
+      users,
+    });
+  } catch (err) {
+    console.error("Error in get-active-users:", err);
+    callback({ success: false, users: [] });
+  }
+});
+
+
 // -------------------------------------------------------
 // CHECK JOINED — SAFE VERSION (MULTI-TAB FRIENDLY)
 // -------------------------------------------------------
@@ -162,6 +210,7 @@ socket.on("header-checkJoined", ({ roomCode, userId, requesterSocketId }) => {
   // -------------------------------------------------------
   // WEBRTC RELAY
   // -------------------------------------------------------
+
   const relay = (eventType, payload = {}) => {
     if (!payload || !payload.to) return;
 

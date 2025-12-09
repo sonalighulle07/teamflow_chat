@@ -32,6 +32,7 @@ export function useMeeting(userId, roomCode, teamId = null) {
     setLocalStream(s);
   }, []);
 
+
   // Clean event listener helper
   const cleanupSocketHandlers = useCallback(() => {
     socket.off("existingUsers");
@@ -42,6 +43,7 @@ export function useMeeting(userId, roomCode, teamId = null) {
     socket.off("userLeft");
     socket.off("registered");
   }, []);
+
 
   // Create RTCPeerConnection for a remote user
   const createPeer = useCallback(
@@ -246,6 +248,8 @@ export function useMeeting(userId, roomCode, teamId = null) {
       // Finally emit join AFTER handlers are registered
       const localUser = JSON.parse(sessionStorage.getItem("chatUser") || "{}");
       socket.emit("meet-joinRoom", { userId: userIdStr, username: localUser.username || "Unknown", roomCode }, (res) => {
+        console.log("meet-joinRoom response:",res)
+
         // server callback: might contain existing users — server already emits existingUsers,
         // but callback can be used for errors
         if (res && res.success === false) {
@@ -270,6 +274,7 @@ export function useMeeting(userId, roomCode, teamId = null) {
     },
     [createPeer, updateLocalStream, roomCode, userIdStr]
   );
+
 
   // leaveMeeting: clean everything
   const leaveMeeting = useCallback(() => {
@@ -308,6 +313,7 @@ export function useMeeting(userId, roomCode, teamId = null) {
       setIsVideoEnabled(videoTrack.enabled);
       return;
     }
+
     // if no track, create and replace / add to peers
     try {
       const cam = await navigator.mediaDevices.getUserMedia({ video: true });

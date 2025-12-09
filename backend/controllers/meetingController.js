@@ -19,7 +19,7 @@ exports.createMeeting = async (req, res) => {
 
     res.status(201).json({
       meetingCode: code,
-      link: `http://localhost:5173/prejoin/${code}`,
+      link: `http://localhost:5173/prejoin/${"globle--"+code}`,
     });
   } catch (err) {
     console.error("Meeting creation failed:", err.message);

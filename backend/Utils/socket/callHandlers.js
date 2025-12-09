@@ -8,11 +8,12 @@ const activeRooms = new Map();
  
 // Active CALLS (1:1 or multi-user)
 const activeCalls = new Map();
+
 /*
 activeCalls = {
    callId: {
       participants: Map<userId, { userId, username, socketId, joinedAt }>,
-      meta: {}
+      meta: {  }
    }
 }
 */
@@ -20,6 +21,7 @@ activeCalls = {
 let NEXT_CALL_ID = 1000;
  
 module.exports = function callHandlers(io, socket, connectedSockets) {
+  
   const log = (...args) => console.log("[callHandlers]", ...args);
  
   // ---------- HELPERS ----------
@@ -28,6 +30,7 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
     if (!userId) return null;
     const s = connectedSockets.get(String(userId));
     if (!s) return null;
+
     // Return the most-recently-added socket id (last entry in Set)
     // Array.from preserves insertion order; pop last
     const arr = Array.from(s);
@@ -52,6 +55,7 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
   //                     1 : 1 CALLS (UPGRADED)
   // ============================================================
   function createCallRoom(user1, user2) {
+    console.log("Inside createCallRoom...",user1,user2)
     const callId = `call_${NEXT_CALL_ID++}`;
  
     activeCalls.set(callId, {
@@ -86,6 +90,7 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
   }
  
   function joinCallRoom(callId, userId, username) {
+
     const call = activeCalls.get(callId);
     if (!call) {
       log("joinCallRoom: call not found", callId);
@@ -101,7 +106,9 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
  
     // ensure socket is in call room (so broadcast to callId reaches them)
     socket.join(callId);
- 
+
+    User.setInCallStatus(userId);
+
     log(`User ${userId} joined ${callId} (socket ${socket.id})`);
   }
  
@@ -109,8 +116,11 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
   socket.on(
     "callUser",
     async ({ from, fromUsername, to, offer, callType } = {}) => {
+
       if (!to || !from) return;
- 
+
+      console.log("callUser event recieved:");
+
       try {
         // create call room (caller + callee placeholder)
         const callId = createCallRoom(
@@ -179,8 +189,10 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
  
     log(`cancelCall ${from} -> ${to} (callId=${callId})`);
   });
- 
+
+
   socket.on("endCall", ({ from, fromUsername, callId } = {}) => {
+
     log("Inside end call....", { from, callId });
  
     if (!callId || !activeCalls.has(callId)) {
@@ -190,7 +202,9 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
  
     const call = activeCalls.get(callId);
     const participants = call.participants; // Map
- 
+
+    User.setOnlineStatus(from);
+
     // remove user from participants
     if (participants.has(String(from))) participants.delete(String(from));
  
@@ -203,13 +217,20 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
         fromUsername,
         callId,
       });
- 
-      try {
-        io.in(callId).socketsLeave(callId);
-      } catch (e) {
-        log("socketsLeave error:", e);
-      }
- 
+
+
+
+  let remainingUserId = participants.values().next().value.userId;
+  console.log(remainingUserId)
+  User.setOnlineStatus(remainingUserId);
+
+
+      // try {
+      //   io.in(callId).socketsLeave(callId);
+      // } catch (e) {
+      //   log("socketsLeave error:", e);
+      // }
+
       activeCalls.delete(callId);
       return;
     }
@@ -252,6 +273,7 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
       }
  
       const call = activeCalls.get(callId);
+
       if (!call) {
         log("call-add-user: call not found", callId);
         return;
@@ -368,7 +390,45 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
  
     log("call-invite-timeout-remove", userId, "in", callId);
   });
- 
+
+
+socket.on("in-call-users-request", ({ callId } = {}, cb) => {
+  if (!callId) {
+    console.log("in-call-users-request: missing callId");
+    if (cb) cb({ success: false, message: "Missing callId" });
+    return;
+  }
+
+  // Fetch the call room from activeCalls map
+  const call = activeCalls.get(callId);
+
+  console.log("call room :", call);
+
+  if (!call) {
+    console.log("Call not found:", callId);
+    if (cb) cb({ success: false, message: "Call not found" });
+    return;
+  }
+
+  // Extract users from call.participants (Map)
+  const usersInCall = [...call.participants.values()].map((p) => ({
+    userId: p.userId,
+    username: p.username,
+  }));
+
+  console.log("users in call", callId, ":", usersInCall);
+
+  if (cb) {
+    cb({
+      success: true,
+      users: usersInCall,
+    });
+  }
+});
+
+
+
+
   // ============================================================
   //                WEBRTC RELAY
   // ============================================================
@@ -377,7 +437,8 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
       log("relaySignal missing 'to' in payload", { type, payload });
       return;
     }
- 
+
+    console.log("relaySignal 'to' in payload", { type, payload });
     const to = String(payload.to);
     const from = payload.from || socket.userId;
  
@@ -397,78 +458,8 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
   socket.on("offer", (payload) => relaySignal("offer", payload));
   socket.on("answer", (payload) => relaySignal("answer", payload));
   socket.on("iceCandidate", (payload) => relaySignal("iceCandidate", payload));
- 
-  // ============================================================
-  //                GROUP ROOMS (UNCHANGED)
-  // ============================================================
-  socket.on("joinRoom", ({ userId, username, roomCode } = {}, callback) => {
-    if (!userId || !roomCode) return;
- 
-    userId = String(userId);
-    roomCode = String(roomCode);
- 
-    if (!activeRooms.has(roomCode)) activeRooms.set(roomCode, new Map());
-    const roomMap = activeRooms.get(roomCode);
- 
-    if (roomMap.has(userId))
-      return callback && callback({ success: false, message: "Already in room" });
- 
-    socket.userId = userId;
-    socket.roomCode = roomCode;
-    socket.join(roomCode);
- 
-    roomMap.set(userId, {
-      username,
-      socketId: socket.id,
-      joinedAt: Date.now(),
-    });
- 
-    const existingUsers = Array.from(roomMap.entries())
-      .filter(([id]) => id !== userId)
-      .map(([id, u]) => ({
-        userId: id,
-        username: u.username,
-        socketId: u.socketId,
-      }));
- 
-    socket.emit("existingUsers", { users: existingUsers });
-    socket.to(roomCode).emit("userJoined", { userId, username });
- 
-    callback && callback({ success: true, users: existingUsers });
-  });
- 
-  socket.on("leaveRoom", ({ userId, username, roomCode } = {}) => {
-    if (!userId || !roomCode) return;
- 
-    userId = String(userId);
-    roomCode = String(roomCode);
- 
-    socket.leave(roomCode);
-    socket.to(roomCode).emit("userLeft", { userId, username });
- 
-    const roomMap = activeRooms.get(roomCode);
-    if (roomMap) {
-      roomMap.delete(userId);
-      if (roomMap.size === 0) activeRooms.delete(roomCode);
-    }
-  });
- 
-  socket.on("checkJoined", ({ roomCode, userId } = {}, cb) => {
-    const joined =
-      activeRooms.has(String(roomCode)) &&
-      activeRooms.get(String(roomCode)).has(String(userId));
- 
-    cb && cb({ joined: !!joined });
-  });
- 
-  socket.on("startMeeting", async ({ teamId, startedBy, meetingCode } = {}) => {
-    try {
-      await meetServ.startMeeting(teamId, startedBy, meetingCode);
-    } catch (err) {
-      log("startMeeting error:", err);
-    }
-  });
- 
+
+
 //   // ----------------------------------------------------------
 //   // DISCONNECT
 //   // ----------------------------------------------------------
