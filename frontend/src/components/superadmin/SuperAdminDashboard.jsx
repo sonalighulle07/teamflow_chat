@@ -22,15 +22,21 @@ export default function SuperAdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#EBEEFF] p-6 transition-all">
+    <div className="min-h-screen bg-purple-100 p-6 transition-all">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* HEADER */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-            Super Admin Panel
-          </h1>
+        <div className="bg-white backdrop-blur-md border border-gray-200 rounded-2xl p-5  flex items-center justify-between transition-all">
+          {/* Left Title */}
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-600 tracking-tight">
+              Super Admin Panel
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Manage organizations & admins
+            </p>
+          </div>
 
-          {/* Right Side */}
+          {/* Right Side Controls */}
           <div className="flex items-center gap-4">
             {/* Search */}
             <div className="relative">
@@ -41,11 +47,11 @@ export default function SuperAdminDashboard() {
                   setPage(1);
                 }}
                 placeholder="Search organizations or users..."
-                className="pl-12 pr-4 py-2 w-72 rounded-2xl 
-                           bg-white backdrop-blur border  border-gray-200
-                           shadow-sm text-gray-700 text-[15px]
-                           focus:ring-2 focus:ring-indigo-500 focus:outline-none
-                           transition-all"
+                className="pl-12 pr-2 py-1 w-72 rounded-xl
+                   bg-gray-50 border border-gray-300
+                   shadow-sm text-gray-700 text-[15px]
+                   focus:ring-2 focus:ring-indigo-500 focus:outline-none
+                   transition-all"
               />
 
               <span className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -64,6 +70,7 @@ export default function SuperAdminDashboard() {
                 </svg>
               </span>
             </div>
+
             {/* Create Buttons */}
             {tab === "organizations" && (
               <button
@@ -71,30 +78,31 @@ export default function SuperAdminDashboard() {
                   setEditOrg(null);
                   setShowOrgModal(true);
                 }}
-                className="px-4 py-2 rounded-xl transition-all bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm
-"
+                className="px-4 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 
+                   text-white shadow-sm transition-all"
               >
-                + Create Organization
+                + Create
               </button>
             )}
 
             {tab === "users" && (
               <button
                 onClick={() => setShowAdminModal(true)}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm
- transition-all"
+                className="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 
+                   text-white shadow-sm transition-all"
               >
-                + Add Admin/User
+                + Add
               </button>
             )}
+
             {/* Logout */}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl 
-                         bg-red-500 hover:bg-red-600 text-white font-medium shadow 
-                         transition-all duration-200 active:scale-95"
+              className="flex items-center gap-2 px-3 py-1 rounded-xl 
+                 bg-red-500 hover:bg-red-600 text-white  shadow 
+                 transition-all duration-200 active:scale-95"
             >
-              <i className="fa-solid fa-right-from-bracket text-white"></i>
+              <i className="fa-solid fa-right-from-bracket"></i>
               Logout
             </button>
           </div>
@@ -106,7 +114,7 @@ export default function SuperAdminDashboard() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`relative px-4 py-2 text-sm font-semibold transition ${
+              className={`relative px-4 py-2 text-[15px] font-semibold transition ${
                 tab === t ? "text-blue-600" : "text-gray-600"
               }`}
             >

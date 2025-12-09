@@ -157,34 +157,43 @@ exports.registerUser = async (req, res) => {
 
 
 // ==========================================================
-// Get all users (UPDATED -> return roles)
+// Get all users (UPDATED -> return roles + correct status field)
 // ==========================================================
 exports.getUsers = async (req, res) => {
   try {
     const { organization_id } = req.query;
 
     let users;
+
+    const query = `
+      SELECT 
+        id, 
+        full_name, 
+        username, 
+        profile_image, 
+        status,        -- corrected field
+        role 
+      FROM users
+      ${organization_id ? "WHERE organization_id = ?" : ""}
+      ORDER BY username ASC
+    `;
+
     if (organization_id) {
-      users = await pool.query(
-        `SELECT id, full_name, username, profile_image, is_online, role 
-         FROM users WHERE organization_id = ? ORDER BY username ASC`,
-        [organization_id]
-      );
-      users = users[0];
+      const [rows] = await pool.query(query, [organization_id]);
+      users = rows;
     } else {
-      const [rows] = await pool.query(
-        `SELECT id, full_name, username, profile_image, is_online, role 
-         FROM users ORDER BY username ASC`
-      );
+      const [rows] = await pool.query(query);
       users = rows;
     }
 
     res.status(200).json(users);
+
   } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ message: "Error fetching users" });
   }
 };
+
 
 // ==========================================================
 // Update Avatar

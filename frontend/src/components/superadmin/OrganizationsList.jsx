@@ -4,7 +4,7 @@ import { URL } from "../../config";
 import OrganizationViewModal from "./OrganizationViewModal";
 import { toast } from "react-toastify";
 import { FaEye, FaEdit, FaTrash } from "react-icons/fa";
-import { FiCheckSquare, FiX } from "react-icons/fi";
+import { FiSquare ,FiX } from "react-icons/fi";
 
 export default function OrganizationsList({ q }) {
 
@@ -96,7 +96,7 @@ export default function OrganizationsList({ q }) {
   <div className="space-y-6">
 
     {/* HEADER */}
-    <div className="flex items-center justify-between bg-white border border-gray-200 shadow-sm p-4 rounded-xl">
+    <div className="flex items-center justify-between bg-white border border-gray-200 p-4 rounded-xl">
 
       <div className="flex items-center gap-2 text-lg font-semibold text-gray-900">
         <i className="fa-solid fa-building text-blue-600 text-[20px]"></i>
@@ -126,7 +126,7 @@ export default function OrganizationsList({ q }) {
             </>
           ) : (
             <>
-              <FiCheckSquare className="text-white" /> Select Multiple
+              < FiSquare className="text-white" />Select
             </>
           )}
         </button>
@@ -156,7 +156,7 @@ export default function OrganizationsList({ q }) {
     </div>
 
     {/* TABLE */}
-    <div className="overflow-x-auto bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div className="overflow-x-auto bg-white border border-gray-200 rounded-xl ">
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-gray-200 text-left text-sm text-gray-600">
@@ -204,30 +204,30 @@ export default function OrganizationsList({ q }) {
                 )}
 
                 {/* SR NO */}
-                <td className="pl-3  text-gray-600  ">
+                <td className="pl-3 text-[14px] text-gray-600  ">
                   {(page - 1) * perPage + index + 1}
                 </td>
 
                 {/* Name */}
                 <td
-                  className="p-3  text-gray-800"
+                  className="p-3 text-[15px] text-gray-600"
                   dangerouslySetInnerHTML={{ __html: highlight(o.name) }}
                 ></td>
 
                 {/* Domain */}
                 <td
-                  className="p-3 text-gray-600"
+                  className="p-3 text-[15px] text-gray-600"
                   dangerouslySetInnerHTML={{ __html: highlight(o.domain) }}
                 ></td>
 
                 {/* Email */}
                 <td
-                  className="p-3 text-gray-500"
+                  className="p-3 text-[15px] text-gray-500"
                   dangerouslySetInnerHTML={{ __html: highlight(o.email) }}
                 ></td>
 
                 {/* STATUS COLUMN */}
-                <td className="p-3">
+                <td className="p-3 text-[15px]">
                   {o.status === "active" ? (
                     <span className="px-3 py-1 text-xs rounded-full bg-green-100 text-green-700">
                       Active
@@ -275,7 +275,7 @@ export default function OrganizationsList({ q }) {
     </div>
 
     {/* PAGINATION */}
-    <div className="flex justify-between items-center mt-4 bg-white p-3 rounded-xl shadow-sm">
+    <div className="flex justify-between items-center mt-4 bg-white p-3 rounded-xl ">
 
       <button
         disabled={page <= 1}
@@ -292,7 +292,7 @@ export default function OrganizationsList({ q }) {
       <button
         disabled={page >= totalPages}
         onClick={() => setPage(page + 1)}
-        className="px-4 py-1.5 text-sm rounded-lg border border-gray-700 shadow-sm disabled:opacity-60 hover:bg-gray-100"
+        className="px-4 py-1.5 text-sm rounded-lg border border-gray-700  disabled:opacity-60 hover:bg-gray-100"
       >
         Next
       </button>

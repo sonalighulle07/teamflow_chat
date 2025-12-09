@@ -3,7 +3,7 @@ import axios from "axios";
 import { URL } from "../../config";
 import { FaEye, FaTrash } from "react-icons/fa";
 import AdminViewModal from "./AdminViewModal";
-import { FiCheckSquare, FiX } from "react-icons/fi";
+import {  FiSquare, FiX } from "react-icons/fi";
 
 export default function AdminUsersList({ q }) {
   const [admins, setAdmins] = useState([]);
@@ -87,7 +87,7 @@ export default function AdminUsersList({ q }) {
     <div className="space-y-6">
 
       {/* HEADER */}
-      <div className="flex items-center justify-between bg-white border border-gray-200 shadow-sm p-4 rounded-xl">
+      <div className="flex items-center justify-between bg-white border border-gray-200  p-4 rounded-xl">
 
         <div className="flex items-center gap-2 text-lg font-semibold text-gray-900">
           <i className="fa-solid fa-user-shield text-indigo-600 text-[20px]"></i>
@@ -105,7 +105,7 @@ export default function AdminUsersList({ q }) {
               setMultiMode(!multiMode);
               setSelected([]);
             }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition shadow-sm
               ${
                 multiMode
                   ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
@@ -118,7 +118,7 @@ export default function AdminUsersList({ q }) {
               </>
             ) : (
               <>
-                <FiCheckSquare className="text-white" /> Select Multiple
+                < FiSquare className="text-white" /> Select
               </>
             )}
           </button>
@@ -150,7 +150,7 @@ export default function AdminUsersList({ q }) {
       </div>
 
       {/* TABLE */}
-      <div className="overflow-x-auto bg-white border border-gray-200 rounded-xl shadow-sm">
+      <div className="overflow-x-auto bg-white border border-gray-200 rounded-xl">
         <table className="w-full border-collapse">
           <thead>
   <tr className="bg-gray-200 text-left text-sm text-gray-600">
@@ -183,25 +183,25 @@ export default function AdminUsersList({ q }) {
         )}
 
         {/* SR NO */}
-        <td className="p-3  text-gray-700">
+        <td className="p-3 text-[14px]  text-gray-700">
           {(page - 1) * perPage + index + 1}
         </td>
 
         <td
-          className="p-3  text-gray-800"
+          className="p-3 text-[15px] text-gray-700"
           dangerouslySetInnerHTML={{ __html: highlight(u.name) }}
         ></td>
 
         <td
-          className="p-3 text-gray-600"
+          className="p-3  text-[15px] text-gray-600"
           dangerouslySetInnerHTML={{ __html: highlight(u.email) }}
         ></td>
 
-        <td className="p-3 text-gray-500">
+        <td className="p-3 text-[15px] text-gray-500">
           {u.organization_name || "—"}
         </td>
 
-        <td className="p-3">
+        <td className="p-3 text-[15px]">
           <span className="px-2 py-1 text-xs bg-indigo-100 text-indigo-600 rounded-full">
             Org Admin
           </span>
@@ -236,7 +236,7 @@ export default function AdminUsersList({ q }) {
       </div>
 
       {/* BOTTOM PAGINATION */}
-      <div className="flex justify-between items-center mt-4 bg-white p-3 rounded-xl shadow-sm">
+      <div className="flex justify-between items-center mt-4 bg-white p-3 rounded-xl ">
 
   {/* Prev */}
   <button
