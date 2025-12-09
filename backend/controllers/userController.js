@@ -2,7 +2,72 @@ const fs = require('fs').promises;
 const pool = require('../config/db');
 const User = require('../models/User');
 
-//  Get all organizations
+// ==========================================================
+// SUPER ADMIN: Create new organization
+// ==========================================================
+exports.createOrganization = async (req, res) => {
+  try {
+    const { name, email, contact, address, status } = req.body;
+
+    if (!name || !email || !contact || !address) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields required",
+      });
+    }
+
+    const domain = email.split("@")[1]?.toLowerCase();
+
+    const [existing] = await pool.query(
+      "SELECT id FROM organizations WHERE domain = ? LIMIT 1",
+      [domain]
+    );
+
+    if (existing.length > 0) {
+      return res.json({
+        success: false,
+        message: "Organization domain already exists",
+      });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO organizations 
+      (name, address, email, contact, domain, status)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [name, address, email, contact, domain, status || "active"]
+    );
+
+    res.json({
+      success: true,
+      message: "Organization created successfully",
+      organization_id: result.insertId,
+    });
+
+  } catch (err) {
+    console.log("Create Org Error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
+// ==========================================================
+// SUPER ADMIN: Fetch all organizations
+// ==========================================================
+exports.getAllOrganizations = async (req, res) => {
+  try {
+    const [orgs] = await pool.query(
+      "SELECT id, name, created_at FROM organizations ORDER BY id DESC"
+    );
+    res.status(200).json(orgs);
+  } catch (err) {
+    console.error("Error fetching all orgs:", err);
+    res.status(500).json({ message: "Error fetching organizations" });
+  }
+};
+
+// ==========================================================
+// Get organizations (normal users)
+// ==========================================================
 exports.getOrganizations = async (req, res) => {
   try {
     const [orgs] = await pool.query('SELECT id, name FROM organizations ORDER BY name');
@@ -13,46 +78,103 @@ exports.getOrganizations = async (req, res) => {
   }
 };
 
-//  Register new user
+// ==========================================================
+// Register new user  (UPDATED -> role support)
+// ==========================================================
 exports.registerUser = async (req, res) => {
   try {
-    const { full_name, email, contact, username, password, organization_id } = req.body;
+    const { full_name, email, contact, username, password, role } = req.body;
 
-    if (!organization_id) {
-      return res.status(400).json({ success: false, message: "Organization is required" });
+    // 1. Validate required fields
+    if (!full_name || !email || !contact || !username || !password) {
+      return res.status(400).json({ success: false, message: "All fields required" });
     }
-    const userId = await User.create({
-      full_name,
-      email,
-      contact,
-      username,
-      password,
+
+    // 2. Super Admin cannot be created from frontend
+    if (role === "super_admin") {
+      return res.status(400).json({ success: false, message: "Super Admin cannot be registered" });
+    }
+
+    // 3. Extract domain from email
+    const domain = email.split("@")[1]?.toLowerCase();
+    if (!domain) {
+      return res.status(400).json({ success: false, message: "Invalid email format" });
+    }
+
+    // 4. Check if organization exists with this domain
+    const [org] = await pool.query(
+      "SELECT id FROM organizations WHERE domain = ? LIMIT 1",
+      [domain]
+    );
+
+    if (org.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Organization does not exist. Contact your admin.",
+      });
+    }
+
+    const organization_id = org[0].id; // ⭐ assign organization
+
+    // 5. Check if username/email already used
+    const [existingUser] = await pool.query(
+      "SELECT id FROM users WHERE email = ? OR username = ? LIMIT 1",
+      [email, username]
+    );
+
+    if (existingUser.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Email or username is already registered."
+      });
+    }
+
+    // 6. Encrypt password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 7. Create user under the found organization
+    const [result] = await pool.query(
+      `INSERT INTO users 
+      (full_name, email, username, contact, password, role, organization_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [full_name, email, username, contact, hashedPassword, role, organization_id]
+    );
+
+    // 8. Respond
+    return res.status(200).json({
+      success: true,
+      message: "Registered successfully",
+      user_id: result.insertId,
       organization_id,
     });
 
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully!",
-      userId,
-    });
   } catch (err) {
-    console.error("Registration error:", err);
-    res.status(500).json({ success: false, message: "Registration failed" });
+    console.error("Register Error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Get all users
+
+
+// ==========================================================
+// Get all users (UPDATED -> return roles)
+// ==========================================================
 exports.getUsers = async (req, res) => {
   try {
-    const { organization_id } = req.query; 
+    const { organization_id } = req.query;
 
     let users;
     if (organization_id) {
-      users = await User.getAllByOrganization(organization_id);
+      users = await pool.query(
+        `SELECT id, full_name, username, profile_image, is_online, role 
+         FROM users WHERE organization_id = ? ORDER BY username ASC`,
+        [organization_id]
+      );
+      users = users[0];
     } else {
-      // fallback: fetch all (if admin)
       const [rows] = await pool.query(
-        `SELECT id, full_name, username, profile_image, is_online FROM users ORDER BY username ASC`
+        `SELECT id, full_name, username, profile_image, is_online, role 
+         FROM users ORDER BY username ASC`
       );
       users = rows;
     }
@@ -64,7 +186,9 @@ exports.getUsers = async (req, res) => {
   }
 };
 
-//  Update user avatar
+// ==========================================================
+// Update Avatar
+// ==========================================================
 exports.updateAvatar = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -89,7 +213,9 @@ exports.updateAvatar = async (req, res) => {
   }
 };
 
-//  Remove avatar permanently
+// ==========================================================
+// Remove Avatar
+// ==========================================================
 exports.removeAvatar = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -98,7 +224,7 @@ exports.removeAvatar = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Delete file from disk if exists
+    // Delete file from disk
     if (user.profile_image) {
       const filePath = `./public${user.profile_image}`;
       try {
@@ -108,7 +234,6 @@ exports.removeAvatar = async (req, res) => {
       }
     }
 
-    // Remove avatar path from DB
     await User.updateAvatar(userId, null);
     res.json({ success: true, message: "Avatar removed" });
   } catch (err) {
@@ -117,7 +242,9 @@ exports.removeAvatar = async (req, res) => {
   }
 };
 
-//  Delete user account
+// ==========================================================
+// Delete User Account
+// ==========================================================
 exports.deleteAccount = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -128,7 +255,6 @@ exports.deleteAccount = async (req, res) => {
     }
 
     const result = await User.deleteById(userId);
-    console.log("Delete result:", result);
 
     if (result) {
       res.json({ success: true, message: "User deleted successfully" });

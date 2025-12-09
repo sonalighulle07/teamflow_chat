@@ -15,6 +15,10 @@ const teamRoutes = require("./routes/teamRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 
+// ❗ Keep ONLY ONE super admin route import
+const superAdminRoutes = require("./routes/superAdminRoutes");
+
+
 // Socket handlers
 const teamSocket = require("./Utils/socket/teamSocket");
 const callHandlers = require("./Utils/socket/callHandlers");
@@ -34,16 +38,17 @@ const io = new Server(server, {
 });
 
 // GLOBAL — Supports multiple sockets per user
-// Map<userId => Set(socketIds)>
-const connectedSockets = new Map(); 
-
+const connectedSockets = new Map();
 const log = (...args) => console.log("[SERVER]", ...args);
 
 // Middleware
-app.use(cors({
-  origin: ["http://localhost:5173", "http://192.168.1.28:5173"],
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://192.168.1.28:5173"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
@@ -64,10 +69,13 @@ app.use("/api/teams", teamRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/tasks", taskRoutes);
 
+// ❗ Super Admin Panel Routes (KEEP ONLY THIS)
+app.use("/super-admin", superAdminRoutes);
+
+
 
 // SOCKET.IO
 io.on("connection", (socket) => {
-
   console.log("Socket connected:", socket.id);
 
   const addSocketForUser = (userId, socketId) => {
@@ -92,7 +100,6 @@ io.on("connection", (socket) => {
     }
   };
 
-  // ---------------- REGISTER USER ----------------
   socket.on("register", ({ userId } = {}) => {
     if (!userId) return;
 
@@ -105,7 +112,6 @@ io.on("connection", (socket) => {
     log(`Registered user ${userId} (socket: ${socket.id})`);
   });
 
-  // ---------------- DISCONNECT ----------------
   socket.on("disconnect", () => {
     const { userId } = socket;
     if (!userId) return;
@@ -113,7 +119,6 @@ io.on("connection", (socket) => {
     removeSocketForUser(userId, socket.id);
   });
 
-  // Attach handlers
   messageHandlers(io, socket);
   callHandlers(io, socket, connectedSockets);
   eventHandlers(io, socket);
@@ -121,6 +126,7 @@ io.on("connection", (socket) => {
   meetingHandlers(io, socket, connectedSockets);
   sidebarSocket(io, socket);
 });
+
 
 // Start server
 const PORT = process.env.PORT || 3000;

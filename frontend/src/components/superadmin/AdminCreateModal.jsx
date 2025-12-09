@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { URL } from "../config";
+import { URL } from "../../config";
 import {
   FaUser,
   FaEnvelope,
@@ -9,7 +9,7 @@ import {
   FaEye,
   FaEyeSlash,
 } from "react-icons/fa";
-import { setCurrentUser } from "../Store/Features/Users/userSlice";
+import { setCurrentUser } from "../../Store/Features/Users/userSlice";
 import { useDispatch } from "react-redux";
 
 // Debounce helper
@@ -21,7 +21,8 @@ const debounce = (func, delay) => {
   };
 };
 
-export default function Register({ onRegister }) {
+export default function AdminCreateModal({ open, onClose, onRegister }) {
+     if (!open) return null;
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -37,6 +38,8 @@ export default function Register({ onRegister }) {
   const [contact, setContact] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // ⭐ ONLY allow user + org_admin
   const [role, setRole] = useState("user");
 
   // Errors
@@ -176,65 +179,63 @@ export default function Register({ onRegister }) {
       return;
     }
 
-  try {
-  let res;
-  try {
-    res = await fetch(`${URL}/api/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        full_name: fullName,
-        email,
-        contact,
-        username,
-        password,
-        role,
-      }),
-    });
-  } catch {
-    showToastMessage("Network error, try again.", "bg-red-500");
-    return;
-  }
+    try {
+      const res = await fetch(`${URL}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: fullName,
+          email,
+          contact,
+          username,
+          password,
+          role, // ✔ Only user or org_admin
+        }),
+      });
 
-  let data = {};
-  try {
-    data = await res.json(); // safe parse
-  } catch {
-    data = { message: "Something went wrong" };
-  }
+      const data = await res.json();
+      const color = res.ok && data.success ? "bg-green-500" : "bg-red-500";
 
-  const color = res.ok && data.success ? "bg-green-500" : "bg-red-500";
-  showToastMessage(data.message || "Registration failed!", color);
+      showToastMessage(data.message || "Registration failed!", color);
 
-  if (res.ok && data.success) {
-    dispatch(setCurrentUser(data.user));
-    sessionStorage.setItem("chatToken", data.token);
-    sessionStorage.setItem("chatRole", data.user.role);
+      if (res.ok && data.success) {
+        dispatch(setCurrentUser(data.user));
+        sessionStorage.setItem("chatToken", data.token);
+        sessionStorage.setItem("chatRole", data.user.role);
 
-    onRegister?.();
-    setTimeout(() => navigate("/"), 1000);
-  }
-} catch {
-  showToastMessage("Server error, try again later.", "bg-red-500");
-}
+        onRegister?.();
 
+        setTimeout(() => {
+          navigate("/"); // ✔ No super_admin redirect here
+        }, 1000);
+      }
+    } catch {
+      showToastMessage("Server error, try again later.", "bg-red-500");
+    }
   };
 
-  return (
-    <div className="flex h-screen w-full items-center justify-center bg-gradient-to-tl from-white to-purple-600 p-1">
-      <div className="w-full max-w-md rounded-2xl bg-white/20 p-4 sm:p-8 shadow-xl backdrop-blur-md relative">
+   return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-2">
+      <div className="relative w-full max-w-md rounded-2xl bg-white/20 p-4 sm:p-8 shadow-xl backdrop-blur-md">
+
+        {/* CLOSE BUTTON */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-white text-xl hover:text-gray-200"
+        >
+          ✕
+        </button>
 
         <h2 className="mb-4 text-center text-2xl font-bold text-white">
-          Register
+          Add Admin
         </h2>
 
+        {/* FORM START */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
           {/* Full Name */}
           <div className="flex flex-col">
-            <label className="text-white font-medium text-sm mb-1">
-              Full Name
-            </label>
+            <label className="text-white font-medium text-sm mb-1">Full Name</label>
             <div className="relative">
               <FaUser className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
               <input
@@ -257,9 +258,7 @@ export default function Register({ onRegister }) {
 
           {/* Username */}
           <div className="flex flex-col">
-            <label className="text-white font-medium text-sm mb-1">
-              Username
-            </label>
+            <label className="text-white font-medium text-sm mb-1">Username</label>
             <div className="relative">
               <FaUser className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
               <input
@@ -276,9 +275,7 @@ export default function Register({ onRegister }) {
               />
             </div>
             {usernameError && (
-              <span className="text-xs text-red-600 mt-1">
-                {usernameError}
-              </span>
+              <span className="text-xs text-red-600 mt-1">{usernameError}</span>
             )}
           </div>
 
@@ -287,9 +284,7 @@ export default function Register({ onRegister }) {
 
             {/* Email */}
             <div className="flex flex-col">
-              <label className="text-white font-medium text-sm mb-1">
-                Email
-              </label>
+              <label className="text-white font-medium text-sm mb-1">Email</label>
               <div className="relative">
                 <FaEnvelope className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
@@ -312,9 +307,7 @@ export default function Register({ onRegister }) {
 
             {/* Contact */}
             <div className="flex flex-col">
-              <label className="text-white font-medium text-sm mb-1">
-                Contact
-              </label>
+              <label className="text-white font-medium text-sm mb-1">Contact</label>
               <div className="relative">
                 <FaPhone className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
@@ -331,9 +324,7 @@ export default function Register({ onRegister }) {
                 />
               </div>
               {contactError && (
-                <span className="text-xs text-red-600 mt-1">
-                  {contactError}
-                </span>
+                <span className="text-xs text-red-600 mt-1">{contactError}</span>
               )}
             </div>
           </div>
@@ -343,9 +334,7 @@ export default function Register({ onRegister }) {
 
             {/* Password */}
             <div className="flex flex-col">
-              <label className="text-white font-medium text-sm mb-1">
-                Password
-              </label>
+              <label className="text-white font-medium text-sm mb-1">Password</label>
               <div className="relative">
                 <FaLock className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
@@ -353,7 +342,7 @@ export default function Register({ onRegister }) {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    debouncedPasswordCheck(e.target.value);
+                    debouncedPasswordCheck(e.target.target.value);
                   }}
                   placeholder="Enter password"
                   className={`w-full pl-8 pr-8 rounded-lg bg-white/85 px-3 py-2 text-gray-600 text-sm border outline-none focus:border-purple-400 ${
@@ -368,9 +357,7 @@ export default function Register({ onRegister }) {
                 </span>
               </div>
               {passwordError && (
-                <span className="text-xs text-red-600 mt-1">
-                  {passwordError}
-                </span>
+                <span className="text-xs text-red-600 mt-1">{passwordError}</span>
               )}
             </div>
 
@@ -408,11 +395,9 @@ export default function Register({ onRegister }) {
             </div>
           </div>
 
-          {/* ⭐ ROLE SELECTOR (SuperAdmin Removed) */}
+          {/* Role */}
           <div className="flex flex-col">
-            <label className="text-white font-medium text-sm mb-1">
-              Select Role
-            </label>
+            <label className="text-white font-medium text-sm mb-1">Select Role</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
@@ -423,7 +408,6 @@ export default function Register({ onRegister }) {
             </select>
           </div>
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={
@@ -446,16 +430,6 @@ export default function Register({ onRegister }) {
           </button>
         </form>
 
-        <p className="mt-5 text-center text-[15px] mb-[15px] font-semibold text-white">
-          Already have an account?{" "}
-          <span
-            className="text-blue-500 cursor-pointer hover:text-blue-700 hover:underline"
-            onClick={() => navigate("/login")}
-          >
-            Login
-          </span>
-        </p>
-
         {/* Toast */}
         {showToast && (
           <div
@@ -468,3 +442,4 @@ export default function Register({ onRegister }) {
     </div>
   );
 }
+

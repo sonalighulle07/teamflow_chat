@@ -3,23 +3,23 @@ const fs = require("fs").promises;
 const bcrypt = require("bcrypt");
 
 class User {
-  static async create({ full_name, email, contact, username, password, organization_id }) {
-    try {
-      //  Hash password before inserting
-      const hashedPassword = await bcrypt.hash(password, 10);
+  static async create({ full_name, email, contact, username, password, role = "user", organization_id }) {
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-      const [result] = await pool.query(
-        `INSERT INTO users (full_name, email, contact, username, password, organization_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [full_name, email, contact, username, hashedPassword, organization_id]
-      );
+    const [result] = await pool.query(
+      `INSERT INTO users (full_name, email, contact, username, password, role, organization_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [full_name, email, contact, username, hashedPassword, role, organization_id]
+    );
 
-      return result.insertId;
-    } catch (error) {
-      console.error("Error creating user:", error);
-      throw error;
-    }
+    return result.insertId;
+  } catch (error) {
+    console.error("Error creating user:", error);
+    throw error;
   }
+}
+
 
   // ===== Find by Username =====
   static async findByUsername(username) {
@@ -53,7 +53,8 @@ class User {
   static async findById(id) {
     try {
       const [rows] = await pool.query(
-        `SELECT id, full_name, email, contact, username, profile_image, is_online, organization_id
+        `SELECT id, full_name, email, contact, username, profile_image, is_online, role, organization_id
+
          FROM users WHERE id = ? LIMIT 1`,
         [id]
       );

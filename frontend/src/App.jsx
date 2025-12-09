@@ -32,6 +32,9 @@ import { setActiveNav } from "./Store/Features/Users/userSlice";
 import CreateTeam from "./components/CreateTeams";
 import TaskManagement from "./components/TaskManagement";
 import TeamInvites from "./components/TeamInvites";
+import SuperAdminDashboard from "./components/superadmin/SuperAdminDashboard";
+import SecureRoutes from "./components/SecureRoutes";
+
 
 function AppRoutes({
   isAuthenticated,
@@ -69,213 +72,225 @@ function AppRoutes({
     setShowTeamInvites((prev) => !prev);
   };
 
-  return (
-    <Routes>
-      {/* Login */}
-      <Route
-        path="/login"
-        element={
-          isAuthenticated ? (
-            <Navigate to={location.state?.from || "/"} replace />
-          ) : (
-            <Login onLogin={handleAuthSuccess} />
-          )
-        }
-      />
+ return (
+  <Routes>
+    {/* SUPER ADMIN DASHBOARD */}
+    <Route
+      path="/super-admin"
+      element={
+        !isAuthenticated ? (
+          <Navigate to="/login" replace />
+        ) : currentUser === null ? (
+          <div className="flex h-screen items-center justify-center text-gray-600 text-xl">
+            Loading account...
+          </div>
+        ) : (
+          <SecureRoutes
+            isAuthenticated={isAuthenticated}
+            role={currentUser.role}
+            allowedRoles={["super_admin"]}
+          >
+            <SuperAdminDashboard />
+          </SecureRoutes>
+        )
+      }
+    />
 
-      {/* Register */}
-      <Route
-        path="/register"
-        element={<Register onRegister={handleAuthSuccess} />}
-      />
+    {/* LOGIN */}
+    <Route
+      path="/login"
+      element={
+        isAuthenticated ? (
+          <Navigate to={location.state?.from || "/"} replace />
+        ) : (
+          <Login onLogin={handleAuthSuccess} />
+        )
+      }
+    />
 
- 
-    {/* Lazy loaded block */}
+    {/* REGISTER */}
+    <Route
+      path="/register"
+      element={<Register onRegister={handleAuthSuccess} />}
+    />
 
-      {/* Prejoin media page */}
-      <Route
-        path="/prejoin/:credentials"
-        element={
-          <ProtectedRoute isAuthenticated={isAuthenticated}>
-            <MediaConfirmation userId={userId} currentUser={currentUser} />
-          </ProtectedRoute>
-        }
-      />
+    {/* PREJOIN */}
+    <Route
+      path="/prejoin/:credentials"
+      element={
+        <ProtectedRoute isAuthenticated={isAuthenticated}>
+          <MediaConfirmation userId={userId} currentUser={currentUser} />
+        </ProtectedRoute>
+      }
+    />
 
-      {/* Meeting Room */}
-      <Route
-        path="/meet/:credentials"
-        element={
-          <ProtectedRoute isAuthenticated={isAuthenticated}>
-            <MeetingRoom userId={userId} currentUser={currentUser} />
-          </ProtectedRoute>
-        }
-      />
+    {/* MEETING ROOM */}
+    <Route
+      path="/meet/:credentials"
+      element={
+        <ProtectedRoute isAuthenticated={isAuthenticated}>
+          <MeetingRoom userId={userId} currentUser={currentUser} />
+        </ProtectedRoute>
+      }
+    />
 
-{/*  Lazy loaded block  */}
+    {/* MAIN APP — NORMAL USERS ONLY */}
+    <Route
+      path="/"
+      element={
+        !isAuthenticated ? (
+          <Navigate to="/login" replace />
+        ) : currentUser === null ? (
+          <div className="flex-1 flex items-center justify-center text-xl text-gray-600">
+            Loading your account...
+          </div>
+        ) : currentUser.role === "super_admin" ? (
+          <Navigate to="/super-admin" replace />
+        ) : (
+          <div className="flex flex-col h-screen w-screen">
+            <Header
+              activeUser={currentUser}
+              onStartCall={(type, selectedUser) =>
+                call.startCall(type, selectedUser)
+              }
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              setIsAuthenticated={setIsAuthenticated}
+            />
 
-
-
-      {/* Main App */}
-      <Route
-        path="/"
-        element={
-          !isAuthenticated ? (
-            <Navigate to="/login" replace />
-          ) : !currentUser ? (
-            <div className="flex-1 flex items-center justify-center text-xl text-gray-600">
-              Loading your account...
-            </div>
-          ) : (
-            <div className="flex flex-col h-screen w-screen">
-              <Header
-                activeUser={currentUser}
-                onStartCall={(type, selectedUser) =>
-                  call.startCall(type, selectedUser)
-                }
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                setIsAuthenticated={setIsAuthenticated}
+            <div className="flex flex-1 overflow-hidden w-full">
+              <Sidebar
+                setShowModal={setShowModal}
+                activeNav={activeNav}
+                onCommunitiesClick={onCommunitiesClick}
               />
 
-              <div className="flex flex-1 overflow-hidden w-full">
-                {/* Sidebar */}
-                
-                  <Sidebar
-                    setShowModal={setShowModal}
-                    activeNav={activeNav}
-                    onCommunitiesClick={onCommunitiesClick}
+              {/* MAIN CONTENT */}
+              <div className="flex-1 flex flex-col overflow-hidden w-full">
+                {activeNav === "Chat" && (
+                  <ChatWindow
+                    selectedTeam={selectedTeam}
+                    messages={selectedTeam ? teamMessages : userMessages}
+                    setMessages={
+                      selectedTeam ? setTeamMessages : setUserMessages
+                    }
+                    currentUserId={userId}
+                    searchQuery={searchQuery}
+                    usersList={userList}
+                    socket={socket}
+                    onForward={handleOpenForwardModal}
                   />
-                
+                )}
 
-                {/* Main content */}
-                <div className="flex-1 flex flex-col overflow-hidden w-full">
-                  {activeNav === "Chat" && (
-                    <ChatWindow
-                      selectedTeam={selectedTeam}
-                      messages={selectedTeam ? teamMessages : userMessages}
-                      setMessages={
-                        selectedTeam ? setTeamMessages : setUserMessages
-                      }
-                      currentUserId={userId}
-                      searchQuery={searchQuery}
-                      usersList={userList}
+                {activeNav === "Communities" && (
+                  <div className="relative flex-1">
+                    <TeamInvites
                       socket={socket}
-                      onForward={handleOpenForwardModal}
+                      show={showTeamInvites}
+                      setShow={setShowTeamInvites}
                     />
-                  )}
-
-                  {activeNav === "Communities" && (
-                    <div className="relative flex-1">
-                      <TeamInvites
-                        socket={socket}
-                        show={showTeamInvites}
-                        setShow={setShowTeamInvites}
-                      />
-                      <TeamChat
-                        team={selectedTeam}
-                        currentUser={currentUser}
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        setTeamToEdit={setTeamToEdit}
-                      />
-                    </div>
-                  )}
-
-                  {activeNav === "Meet" && (
-                    <div className="flex items-center justify-center h-full">
-                      <CreateMeetingModal
-                        userId={userId}
-                        setActiveNav={setActiveNav}
-                      />
-                    </div>
-                  )}
-
-                  {activeNav === "Calendar" && (
-                    <div className="flex flex-col items-center justify-center h-full w-full">
-                      <MyCalendar />
-                    </div>
-                  )}
-
-                  {activeNav === "Tasks" && (
-                    <div className="flex-1 overflow-auto ">
-                      <TaskManagement />
-                    </div>
-                  )}
-
-                  {showModal && (
-                    <CreateTeam
+                    <TeamChat
+                      team={selectedTeam}
                       currentUser={currentUser}
-                      showModal={showModal}
-                      setShowModal={setShowModal}
-                      socket={socket}
-                      existingTeam={teamToEdit}
+                      searchQuery={searchQuery}
+                      setSearchQuery={setSearchQuery}
+                      setTeamToEdit={setTeamToEdit}
                     />
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {activeNav === "Meet" && (
+                  <div className="flex items-center justify-center h-full">
+                    <CreateMeetingModal
+                      userId={userId}
+                      setActiveNav={setActiveNav}
+                    />
+                  </div>
+                )}
+
+                {activeNav === "Calendar" && (
+                  <div className="flex flex-col items-center justify-center h-full w-full">
+                    <MyCalendar />
+                  </div>
+                )}
+
+                {activeNav === "Tasks" && (
+                  <div className="flex-1 overflow-auto ">
+                    <TaskManagement />
+                  </div>
+                )}
+
+                {showModal && (
+                  <CreateTeam
+                    currentUser={currentUser}
+                    showModal={showModal}
+                    setShowModal={setShowModal}
+                    socket={socket}
+                    existingTeam={teamToEdit}
+                  />
+                )}
               </div>
-
-              {/* Forward Modal */}
-              {forwardModalOpen && messageToForward && (
-                <ForwardModal
-                  open={forwardModalOpen}
-                  onClose={handleForwardComplete}
-                  message={messageToForward}
-                  users={userList}
-                  onForward={handleForwardComplete}
-                />
-              )}
-
-              {/* Incoming call */}
-              {call.callState.incoming && (
-                <IncomingCallModal
-                  visible
-                  fromUser={call.callState.incoming.fromUsername} // <-- updated
-                  callType={call.callState.type}
-                  onAccept={call.acceptCall}
-                  onReject={call.rejectCall}
-                />
-              )}
-              {/* Ongoing call overlay */}
-              {call.callState.type && (
-                <CallOverlay
-                  callId={call.callState.callId}
-                  callType={call.callState.type}
-                  localStream={call.localStream}
-                  remoteStreams={call.remoteStreams}
-                  onEndCall={call.endCall}
-                  onToggleMic={call.toggleMic}
-                  onToggleCam={call.toggleCam}
-                  onStartScreenShare={call.startScreenShare}
-                  onStopScreenShare={call.stopScreenShare}
-                  isScreenSharing={call.isScreenSharing}
-                  isMuted={call.isMuted}
-                  isVideoEnabled={call.isVideoEnabled}
-                  onMinimize={() => call.setIsMaximized(false)}
-                  onMaximize={() => call.setIsMaximized(true)}
-                  onClose={call.endCall}
-                  isMaximized={call.isMaximized}
-                  inCall={call.inCall}
-                  addUser={call.addUserToCall} // ✅ FIXED
-                  cancelInvite={call.cancelInviteFor} // ✅ FIXED
-                />
-              )}
-              <ToastContainer
-                position="top-right"
-                autoClose={3000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                pauseOnHover
-                draggable
-                theme="colored"
-              />
             </div>
-          )
-        }
-      />
-    </Routes>
-  );
+
+            {/* FORWARD MODAL */}
+            {forwardModalOpen && messageToForward && (
+              <ForwardModal
+                open={forwardModalOpen}
+                onClose={handleForwardComplete}
+                message={messageToForward}
+                users={userList}
+                onForward={handleForwardComplete}
+              />
+            )}
+
+            {/* INCOMING CALL */}
+            {call.callState.incoming && (
+              <IncomingCallModal
+                visible
+                fromUser={call.callState.incoming.fromUsername}
+                callType={call.callState.type}
+                onAccept={call.acceptCall}
+                onReject={call.rejectCall}
+              />
+            )}
+
+            {/* ONGOING CALL OVERLAY */}
+            {call.callState.type && (
+              <CallOverlay
+                callId={call.callState.callId}
+                callType={call.callState.type}
+                localStream={call.localStream}
+                remoteStreams={call.remoteStreams}
+                onEndCall={call.endCall}
+                onToggleMic={call.toggleMic}
+                onToggleCam={call.toggleCam}
+                onStartScreenShare={call.startScreenShare}
+                onStopScreenShare={call.stopScreenShare}
+                isScreenSharing={call.isScreenSharing}
+                isMuted={call.isMuted}
+                isVideoEnabled={call.isVideoEnabled}
+                onMinimize={() => call.setIsMaximized(false)}
+                onMaximize={() => call.setIsMaximized(true)}
+                onClose={call.endCall}
+                isMaximized={call.isMaximized}
+                inCall={call.inCall}
+                addUser={call.addUserToCall}
+                cancelInvite={call.cancelInviteFor}
+              />
+            )}
+
+            <ToastContainer
+              position="top-right"
+              autoClose={3000}
+              theme="colored"
+            />
+          </div>
+        )
+      }
+    />
+  </Routes>
+);
+
 }
 
 function App() {
@@ -309,10 +324,11 @@ function App() {
   }, [isAuthenticated, userId]);
 
   useEffect(() => {
-    if (isAuthenticated && !currentUser) {
-      dispatch(rehydrateUser());
-    }
-  }, [isAuthenticated, currentUser, dispatch]);
+  const saved = sessionStorage.getItem("chatUser");
+  if (isAuthenticated && saved && !currentUser) {
+    dispatch(rehydrateUser(JSON.parse(saved)));
+  }
+}, [isAuthenticated]);
 
   useEffect(() => {
     async function subscribeUser() {

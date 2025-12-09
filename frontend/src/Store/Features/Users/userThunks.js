@@ -1,6 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { setCurrentUser } from "./userSlice";
-import {URL} from '../../../config';
+import { URL } from "../../../config";
 
 // ---------------------- LOGIN USER ----------------------
 export const loginUser = createAsyncThunk(
@@ -10,28 +9,31 @@ export const loginUser = createAsyncThunk(
       const res = await fetch(`${URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", 
+        credentials: "include",
         body: JSON.stringify({ username, password }),
       });
+
       const data = await res.json();
 
-
-      if (!res.ok || !data.success) {
+      if (!res.ok) {
         return rejectWithValue(data.message || "Login failed");
       }
-      sessionStorage.setItem("chatUser", JSON.stringify(data.user));
-      sessionStorage.setItem("chatToken", data.token);
-      localStorage.setItem("chatUser", JSON.stringify(data.user));
-      localStorage.setItem("chatToken", data.token);
 
-      return data.user; 
+      // backend sends { success, token, user }
+      const { token, user } = data;
+
+      // Save token + user
+      sessionStorage.setItem("chatUser", JSON.stringify(user));
+      sessionStorage.setItem("chatToken", token);
+
+      return { user, token }; // Redux will store token
     } catch (err) {
-      return rejectWithValue("Server error, try again later.");
+      return rejectWithValue("Server error, try again.");
     }
   }
 );
 
-// ---------------------- FETCH USERS ----------------------
+// ---------------------- FETCH USERS (Org Based) ----------------------
 export const fetchUsers = createAsyncThunk(
   "user/fetchUsers",
   async (_, { getState, rejectWithValue }) => {
@@ -39,26 +41,40 @@ export const fetchUsers = createAsyncThunk(
       const state = getState();
       const currentUser = state.user.currentUser;
 
-      if (!currentUser) throw new Error("No current user found.");
+      if (!currentUser) {
+        throw new Error("No current user found.");
+      }
+
+      // Super Admin does NOT fetch org users
+      if (currentUser.role === "super_admin") {
+        return []; // super admin dashboard has its own APIs
+      }
 
       const orgId = currentUser.organization_id;
       const currentUserId = currentUser.id;
 
-      console.log("Fetching users for org:", orgId);
+      const token = sessionStorage.getItem("chatToken");
+
       const res = await fetch(`${URL}/api/users?organization_id=${orgId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         credentials: "include",
       });
 
-      if (!res.ok) throw new Error("Failed to fetch users");
+      if (!res.ok) {
+        throw new Error("Failed to fetch users");
+      }
 
       const data = await res.json();
-      if (!Array.isArray(data)) throw new Error("Invalid response format");
 
-      //  Remove current user from the list
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid response format");
+      }
+
       return data.filter((u) => u.id !== currentUserId);
     } catch (err) {
-      return rejectWithValue(err.message || "Server error while fetching users.");
+      return rejectWithValue(err.message || "Failed to fetch users.");
     }
   }
 );
-
