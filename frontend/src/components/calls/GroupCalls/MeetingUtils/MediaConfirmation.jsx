@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { getMeeting } from "./meetingUtils";
 import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash } from "react-icons/fa";
 import socket from "../../hooks/socket";
 
@@ -18,6 +19,11 @@ const MediaConfirmation = ({ userId, currentUser }) => {
   
   const code = credentials?.split("-")[2] || null;
   console.log("Room Code:", code);
+
+
+  // make a call to get meeting details byCode
+
+  // const result = await getMeeting(code);
 
   const teamId = credentials.split("-")[1]; 
 

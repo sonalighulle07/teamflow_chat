@@ -103,6 +103,9 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
     // ensure socket is in call room (so broadcast to callId reaches them)
     socket.join(callId);
 
+
+    console.log("******************************************************************************************Setting inCall status for: ",username)
+
     User.setInCallStatus(userId);
 
     log(`User ${userId} joined ${callId} (socket ${socket.id})`);

@@ -10,7 +10,7 @@ export async function createMeeting(payload) {
     if (!res.ok) throw new Error("Failed to create meeting");
     return await res.json();
   } catch (err) {
-    console.error(" createMeeting error:", err);
+    console.error("createMeeting error:", err);
     return null;
   }
 }

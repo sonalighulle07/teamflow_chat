@@ -36,7 +36,7 @@ export default function MeetingRoom() {
     userRefs
   } = useMeeting(userId, code, teamId);
 
-  const [ready, setReady] = (false);
+  const [ready, setReady] = useState(false);
   const [pinnedId, setPinnedId] = useState(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState("");

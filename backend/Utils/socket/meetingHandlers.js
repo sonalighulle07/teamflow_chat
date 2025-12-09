@@ -21,11 +21,13 @@ module.exports = function meetingHandlers(io, socket, connectedSockets) {
   };
 
   // // Helper: create room if missing
-  // const ensureRoom = (roomCode) => {
+  // const ensureRoom = (roomCode,roomState) => {
   //   if (!activeRooms.has(roomCode)) {
   //     activeRooms.set(roomCode, {
   //       users: new Map(),
   //       permissions: new Map(),
+  //       hostId: null               // <-- store meeting host
+  //       roomState: from frontend when the meeting is started or add from feild for global meeting
   //     });
   //   }
   //   return activeRooms.get(roomCode);
@@ -34,7 +36,7 @@ module.exports = function meetingHandlers(io, socket, connectedSockets) {
   // -------------------------------------------------------
   // JOIN MEETING
   // -------------------------------------------------------
-  socket.on("meet-joinRoom", ({ userId, username, roomCode } = {}, cb) => {
+  socket.on("meet-joinRoom", ({ userId, username, roomCode/*, roomState*/ } = {}, cb) => {
     
     if (!userId || !roomCode) {
       return cb?.({ success: false, message: "Missing userId or roomCode." });

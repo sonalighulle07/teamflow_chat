@@ -1,9 +1,9 @@
 const pool = require("../config/db");
 
-exports.createMeeting = async ({ hostId, title, scheduledAt, type, code }) => {
+exports.createMeeting = async ({ hostId, title, scheduledAt, type, code,is_controlled }) => {
   await pool.query(
-    "INSERT INTO meetings (code, host_id, title, scheduled_at, type) VALUES (?, ?, ?, ?, ?)",
-    [code, hostId, title, scheduledAt, type]
+    "INSERT INTO meetings (code, host_id, title, scheduled_at, type,is_controlled) VALUES (?, ?, ?, ?, ?,?)",
+    [code, hostId, title, scheduledAt, type,is_controlled]
   );
 };
 
