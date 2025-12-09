@@ -1,7 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import { URL } from "../../../config";
-
+import { setTeamList } from "./teamSlice";  
 export const fetchTeams = createAsyncThunk(
   "teams/fetchTeams",
   async (_, { rejectWithValue }) => {
@@ -58,3 +58,18 @@ export const fetchTeamsSorted = (userId) => async (dispatch) => {
     console.error("Failed to fetch sorted teams:", err);
   }
 };
+export const silentFetchTeams = createAsyncThunk(
+  "teams/silentFetchTeams",
+  async () => {
+    const token = sessionStorage.getItem("chatToken");
+    const currentUser = JSON.parse(sessionStorage.getItem("chatUser"));
+
+    if (!token || !currentUser?.id) return [];
+
+    const res = await axios.get(`${URL}/api/teams?userId=${currentUser.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    return Array.isArray(res.data) ? res.data : [];
+  }
+);

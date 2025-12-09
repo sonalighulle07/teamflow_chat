@@ -55,73 +55,114 @@ const UserItem = memo(
       lastMessage,
       item.created_at
     );
+return (
+  <li
+    ref={ref}
+    onClick={() => onClick(item)}
+    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1 text-gray-400 text-[14px]
+      ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
+  >
+    {/* Avatar Wrapper */}
+    <div className="relative w-9 h-9 flex-shrink-0">
 
-    return (
-      <li
-        ref={ref}
-        onClick={() => onClick(item)}
-        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1 text-gray-400 text-[14px]
-          ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
-      >
-        {/* Avatar */}
-        <div
-          className={`w-9 h-9 text-center rounded-full flex-shrink-0 flex items-center justify-center font-semibold text-white overflow-hidden relative ${
-            isSelected
-              ? "bg-green-600 text-[11px]"
-              : item.type === "user"
-              ? "bg-gradient-to-r from-purple-700 to-purple-500 text-[12px]"
-              : "bg-purple-600"
+      {/* Status ABOVE Avatar */}
+      {item.type === "user" && (
+        <div className="absolute bottom-0 right-0 w-4 h-4  rounded-full bg-white flex items-center justify-center shadow">
+          
+          {/* ONLINE */}
+          {item.status === "online" && (
+            <div className="w-3 h-3 bg-green-500 rounded-full flex items-center justify-center text-white">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="white"
+                className="w-2 h-2"
+              >
+                <path d="M20.285 6.708l-11.01 11.01-5.56-5.56 1.414-1.415 4.146 4.147 9.596-9.596z" />
+              </svg>
+            </div>
+          )}
+
+          {/* IN CALL */}
+          {item.status === "inCall" && (
+            <div className="w-3 h-3 bg-yellow-500 rounded-full flex items-center justify-center text-white">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="white"
+                className="w-2 h-2"
+              >
+                <path d="M6.62 10.79a15.054 15.054 0 006.59 6.59l2.2-2.2a1 1 0 011-.24 11.72 11.72 0 003.68.59 1 1 0 011 1V21a1 1 0 01-1 1A18 18 0 013 6a1 1 0 011-1h3.37a1 1 0 011 1 11.72 11.72 0 00.59 3.68 1 1 0 01-.24 1z"/>
+              </svg>
+            </div>
+          )}
+
+          {/* OFFLINE → Black Background */}
+          {item.status === "offline" && (
+            <div className="w-3 h-3 bg-gray-500 rounded-full flex items-center justify-center ">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="white"
+                className="w-2 h-2"
+              >
+                <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" />
+              </svg>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Avatar */}
+      <div
+        className={`w-full h-full rounded-full flex items-center justify-center text-white font-semibold overflow-hidden
+          ${isSelected
+            ? "bg-green-600 text-[11px]"
+            : item.type === "user"
+            ? "bg-gradient-to-r from-purple-700 to-purple-500 text-[12px]"
+            : "bg-purple-600"
           }`}
-        >
-          {item.type === "user" && item.profile_image ? (
-            <img
-              src={
-                item.profile_image.startsWith("http")
-                  ? item.profile_image
-                  : `${API_URL}${item.profile_image}`
-              }
-              alt={item.username || "User"}
-              className="w-full h-full object-cover rounded-full"
-            />
-          ) : (
-            getInitials(name)
-          )}
+      >
+        {item.type === "user" && item.profile_image ? (
+          <img
+            src={
+              item.profile_image.startsWith("http")
+                ? item.profile_image
+                : `${API_URL}${item.profile_image}`
+            }
+            alt={item.username || "User"}
+            className="w-full h-full object-cover rounded-full"
+          />
+        ) : (
+          getInitials(name)
+        )}
+      </div>
+    </div>
 
-          {/* User Status: online / inCall / offline */}
-          {item.type === "user" && (
-            <span
-              className={`
-                absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white
-                ${item.status === "online" ? "bg-green-500" : ""}
-                ${item.status === "inCall" ? "bg-yellow-500" : ""}
-                ${item.status === "offline" ? "bg-gray-400" : ""}
-              `}
-            ></span>
-          )}
-        </div>
+    {/* Name + last message */}
+    <div className="flex flex-col truncate">
+      <span className="text-gray-600 font-[10px]">
+        {highlightMatch(name)}
+      </span>
 
-        {/* Name + last message date */}
-        <div className="flex flex-col truncate">
-          <span className="text-gray-600 font-[10px]">
-            {highlightMatch(name)}
-          </span>
+      
+      {item.type === "user" && (  <span className="text-[11px] text-gray-500 capitalize">
+          {item.status === "inCall" ? "In a call" : item.status}
+        </span>
+      )}
 
-          {item.type === "user" && (
-            <span className="text-[11px] text-gray-500 capitalize">
-              {item.status === "inCall" ? "In a call" : item.status}
-            </span>
-          )}
+      {lastMessageDate && (
+        <span className="text-xs text-gray-500 truncate">
+          {lastMessageDate}
+        </span>
+      )}
+    </div>
+  </li>
+);
 
-          {lastMessageDate && (
-            <span className="text-xs text-gray-500 truncate">
-              {lastMessageDate}
-            </span>
-          )}
-        </div>
-      </li>
-    );
   })
 );
+
 
 export default function UserList({
   users = [],

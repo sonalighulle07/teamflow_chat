@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { fetchTeams, fetchTeamMembers } from "./teamThunk";
+import { fetchTeams, fetchTeamMembers, silentFetchTeams } from "./teamThunk";
 
 const initialState = {
   teamList: [],
@@ -15,20 +15,24 @@ const teamSlice = createSlice({
 
   reducers: {
     setTeamList: (state, action) => {
-      state.teamList = [...action.payload]; 
+      state.teamList = [...action.payload];
     },
+
     setSelectedTeam: (state, action) => {
       state.selectedTeam = action.payload;
       console.log("Setting State selected team to:", state.selectedTeam);
     },
+
     clearTeams: (state) => {
       state.teamList = [];
       state.selectedTeam = null;
+      state.selectedTeamMembers = [];
     },
   },
 
   extraReducers: (builder) => {
     builder
+      // ---------------- TEAMS LIST ----------------
       .addCase(fetchTeams.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -41,6 +45,8 @@ const teamSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+
+      // ---------------- TEAM MEMBERS ----------------
       .addCase(fetchTeamMembers.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -48,11 +54,15 @@ const teamSlice = createSlice({
       .addCase(fetchTeamMembers.fulfilled, (state, action) => {
         state.loading = false;
         state.selectedTeamMembers = action.payload;
-        console.log("Fetched team members:", state.selectedTeamMembers);
       })
       .addCase(fetchTeamMembers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+
+      // ---------------- SILENT FETCH (background) ----------------
+      .addCase(silentFetchTeams.fulfilled, (state, action) => {
+        state.teamList = action.payload || [];
       });
   },
 });

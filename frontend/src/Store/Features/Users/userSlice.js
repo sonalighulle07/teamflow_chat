@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { loginUser, fetchUsers } from "./userThunks";
+import { loginUser, fetchUsers, silentFetchUsers } from "./userThunks";
 
 function shallowEqual(objA, objB) {
   if (objA === objB) return true;
@@ -16,7 +16,7 @@ function shallowEqual(objA, objB) {
 const initialState = {
   currentUser: null,
   userList: [],
-  organizationList: [],   // <-- ADDED for super admin
+  organizationList: [],   // For super admin
   selectedUser: null,
   activeNav: "Chat",
   loading: false,
@@ -51,9 +51,10 @@ const userSlice = createSlice({
       localStorage.removeItem("chatUser");
       localStorage.removeItem("chatToken");
     },
-rehydrateUser: (state, action) => {
-  state.currentUser = action.payload;
-},
+
+    rehydrateUser: (state, action) => {
+      state.currentUser = action.payload;
+    },
 
     setSelectedUser: (state, action) => {
       state.selectedUser = action.payload;
@@ -66,20 +67,21 @@ rehydrateUser: (state, action) => {
 
   extraReducers: (builder) => {
     builder
+      // ---- Silent fetch users ----
+      .addCase(silentFetchUsers.fulfilled, (state, action) => {
+        state.userList = action.payload || [];
+      })
+
+      // ---- Login ----
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
-
-        // backend sends: { token, user }
         state.currentUser = action.payload.user;
 
-        // save user
         sessionStorage.setItem("chatUser", JSON.stringify(action.payload.user));
-
-        // save token
         sessionStorage.setItem("chatToken", action.payload.token);
       })
       .addCase(loginUser.rejected, (state, action) => {
@@ -87,6 +89,7 @@ rehydrateUser: (state, action) => {
         state.error = action.payload;
       })
 
+      // ---- Fetch users ----
       .addCase(fetchUsers.pending, (state) => {
         state.loading = true;
         state.error = null;

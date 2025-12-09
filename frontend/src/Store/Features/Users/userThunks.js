@@ -1,5 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { URL } from "../../../config";
+import axios from "axios";
+
 
 // ---------------------- LOGIN USER ----------------------
 export const loginUser = createAsyncThunk(
@@ -78,3 +80,21 @@ export const fetchUsers = createAsyncThunk(
     }
   }
 );
+export const silentFetchUsers = createAsyncThunk(
+  "users/silentFetch",
+  async (_, thunkAPI) => {
+    const state = thunkAPI.getState();
+    const orgId = state.user.currentUser?.organization_id;
+    const token = sessionStorage.getItem("chatToken");
+
+    const res = await axios.get(
+      `${URL}/api/users?organization_id=${orgId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    return res.data;
+  }
+);
+

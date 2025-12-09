@@ -12,7 +12,10 @@ import {
   setSelectedUser,
   setActiveNav,
 } from "../Store/Features/Users/userSlice";
-import { fetchUsers } from "../Store/Features/Users/userThunks";
+
+import { silentFetchUsers } from "../Store/Features/Users/userThunks";
+import { silentFetchTeams } from "../Store/Features/Teams/teamThunk";
+
 import {
   fetchTeams,
   fetchTeamMembers,
@@ -36,19 +39,23 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   // -----------------------
   // Fetch users/teams periodically
   // -----------------------
-  useEffect(() => {
-    if (!currentUser?.organization_id) return;
-    if (activeNav === "Chat") {
-      dispatch(fetchUsers());
-      const interval = setInterval(() => dispatch(fetchUsers()), 5000);
-      return () => clearInterval(interval);
-    }
-    if (activeNav === "Communities") {
-      dispatch(fetchTeams());
-      const interval = setInterval(() => dispatch(fetchTeams()), 5000);
-      return () => clearInterval(interval);
-    }
-  }, [activeNav, currentUser, dispatch]);
+ useEffect(() => {
+  if (!currentUser?.organization_id) return;
+
+  if (activeNav === "Chat") {
+    dispatch(silentFetchUsers());
+
+    const interval = setInterval(() => dispatch(silentFetchUsers()), 5000);
+    return () => clearInterval(interval);
+  }
+
+  if (activeNav === "Communities") {
+    dispatch(silentFetchTeams());
+
+    const interval = setInterval(() => dispatch(silentFetchTeams()), 5000);
+    return () => clearInterval(interval);
+  }
+}, [activeNav, currentUser, dispatch]);
 
   // -----------------------
   // Fetch last messages
