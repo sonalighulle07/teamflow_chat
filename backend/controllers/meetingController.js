@@ -2,7 +2,8 @@ const { v4: uuidv4 } = require("uuid");
 const Meeting = require("../models/MeetingsModal");
 
 exports.createMeeting = async (req, res) => {
-  const { hostId, title, scheduledAt, type } = req.body;
+  const { hostId, title, scheduledAt, type,is_controlled } = req.body;
+  console.log("[Meeting creation payload]: "+ JSON.stringify(req.body));
   const code = uuidv4().slice(0, 8);
   const date = new Date(scheduledAt);
   const mysqlDate = date.toISOString().slice(0, 19).replace("T", " ");
@@ -13,6 +14,7 @@ exports.createMeeting = async (req, res) => {
       scheduledAt: mysqlDate,
       type,
       code,
+      is_controlled
     });
 
     console.log("Meeting created...")

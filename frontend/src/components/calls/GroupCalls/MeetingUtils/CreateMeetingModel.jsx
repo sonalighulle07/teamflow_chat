@@ -10,6 +10,8 @@ import {
   FaLink,
   FaCopy,
   FaCalendarAlt,
+  FaShieldAlt, // Added for the controlled icon
+  FaUsers, // Added for the open icon
 } from "react-icons/fa";
 
 export default function CreateMeetingModal({ userId }) {
@@ -18,18 +20,27 @@ export default function CreateMeetingModal({ userId }) {
   const [scheduledAt, setScheduledAt] = useState(new Date());
   const [meetingLink, setMeetingLink] = useState("");
   const [copied, setCopied] = useState(false);
+  // ✅ NEW STATE: To store the permission setting (true for Controlled, false for Open)
+  const [is_controlled, setIsControlled] = useState(false); 
   const dispatch = useDispatch();
 
   const handleCreate = async () => {
-    console.log("Button clicked...")
+    console.log("Button clicked...");
+    
+    // ✅ PASS isControlled TO THE UTILITY FUNCTION
     const res = await createMeeting({
       hostId: userId,
       title,
       scheduledAt,
       type,
+      is_controlled, // <-- New value sent to the backend
     });
+    
     setMeetingLink(res.link);
-    console.log(meetingLink)
+    console.log(meetingLink);
+    // Optionally, clear form fields after creation
+    // setTitle(""); 
+    // setScheduledAt(new Date());
   };
 
   const handleCopy = () => {
@@ -39,7 +50,7 @@ export default function CreateMeetingModal({ userId }) {
   };
 
   const handleViewCalendar = () => {
-    dispatch(setActiveNav("Calendar")); //  Switch main view to Calendar
+    dispatch(setActiveNav("Calendar")); // Switch main view to Calendar
   };
 
   return (
@@ -76,7 +87,7 @@ export default function CreateMeetingModal({ userId }) {
       <label className="block text-gray-600 mb-2 font-medium">
         Meeting Type
       </label>
-      <div className="relative mb-6">
+      <div className="relative mb-4">
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
@@ -87,6 +98,36 @@ export default function CreateMeetingModal({ userId }) {
         </select>
         <div className="absolute top-3 right-4 text-gray-400">
           {type === "video" ? <FaVideo /> : <FaMicrophone />}
+        </div>
+      </div>
+
+      {/* ✅ NEW: Stream Sharing Permission (Controlled/Open) */}
+      <div className="mb-6 p-4 border border-gray-200 rounded-xl bg-purple-50">
+        <div className="flex items-center">
+          <input
+            id="isControlled-toggle"
+            type="checkbox"
+            checked={is_controlled}
+            onChange={(e) => setIsControlled(e.target.checked)}
+            className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500"
+          />
+          <label htmlFor="isControlled-toggle" className="ml-3 text-gray-700 font-medium cursor-pointer">
+            Controlled Stream Sharing
+          </label>
+        </div>
+        
+        <div className="mt-2 text-sm text-gray-600 flex items-center gap-2">
+          {is_controlled ? (
+            <>
+              <FaShieldAlt className="text-red-500" />
+              **Controlled:** Only the meeting host can share their screen.
+            </>
+          ) : (
+            <>
+              <FaUsers className="text-green-600" />
+              **Open:** All participants can share their screen.
+            </>
+          )}
         </div>
       </div>
 
