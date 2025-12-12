@@ -3,7 +3,6 @@ import axios from "axios";
 import { URL } from "../config";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
-
 import { FaUsers, FaSearch, FaTimes, FaTrash, FaEdit } from "react-icons/fa";
 
 export default function CreateTeam({

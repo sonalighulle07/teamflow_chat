@@ -38,13 +38,17 @@ export default function Message({
   }
 
   // ---- Normalize reactions into consistent shape ----
-  const normalizeReactions = (reactions = {}) => {
+ const normalizeReactions = (reactions = {}) => {
   const normalized = {};
   for (let emoji in reactions) {
-    normalized[emoji] = reactions[emoji].count || 0;
+    normalized[emoji] = {
+      count: reactions[emoji].count || 0,
+      users: reactions[emoji].users || {},
+    };
   }
   return normalized;
 };
+
 useEffect(() => {
   if (message.reactions) {
     setReactedEmojis(normalizeReactions(message.reactions));
@@ -70,20 +74,14 @@ useEffect(() => {
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
   const audioRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
+   const didIReact = (emoji) => !!reactedEmojis[emoji]?.users?.[userId];
 
   // ---- Initialize reactions state ----
-  const [reactedEmojis, setReactedEmojis] = useState(() => {
-    try {
-      let decrypted = safeDecrypt(message.reactions);
-      try {
-        decrypted = JSON.parse(decrypted);
-      } catch {}
-      return normalizeReactions(decrypted);
-    } catch (err) {
-      console.error("Failed to decrypt initial reactions:", err);
-      return normalizeReactions(message.reactions);
-    }
-  });
+ const [reactedEmojis, setReactedEmojis] = useState(() => {
+  let decrypted = safeDecrypt(message.reactions);
+  try { decrypted = JSON.parse(decrypted); } catch {}
+  return normalizeReactions(decrypted);
+});
 
   // ---- Update when message changes ----
   useEffect(() => {
@@ -264,15 +262,34 @@ const handleEditClick = (msg, e) => {
 const toggleReaction = (emoji) => {
   if (!userId) return;
 
-  const sendEvent =
-    message.team_id ? "reaction" : "privateReaction";
+  const reactedAlready = didIReact(emoji);
+
+  setReactedEmojis(prev => {
+    const users = { ...(prev[emoji]?.users || {}) };
+    if (reactedAlready) delete users[userId];
+    else users[userId] = true;
+
+    return {
+      ...prev,
+      [emoji]: {
+        count: Object.keys(users).length,
+        users,
+      }
+    };
+  });
+
+  const sendEvent = message.team_id ? "reaction" : "privateReaction";
 
   socket.emit(sendEvent, {
     messageId: message.id,
     userId,
     emoji,
+    remove: reactedAlready,
   });
 };
+
+
+
   const handlePickerEmoji = (emojiObject) => {
     const e = emojiObject?.emoji;
     if (!e) return;
@@ -695,7 +712,7 @@ const toggleReaction = (emoji) => {
       ? data.count
       : Object.keys(data.users || {}).length;
   };
-  const didIReact = (emoji) => !!reactedEmojis[emoji]?.users?.[userId];
+ 
 
   return (
     <div
@@ -825,18 +842,26 @@ const toggleReaction = (emoji) => {
       {/* Reactions below bubble */}
       <div className="mt-1">
   {Object.keys(reactedEmojis).length > 0 && (
-  <div className="flex flex-wrap gap-1 mt-1">
-    {Object.entries(reactedEmojis).map(([emoji, count]) =>
-      count > 0 ? (
-        <span
-          key={emoji}
-          className="px-2 py-1 bg-gray-100 rounded-full text-sm"
-        >
-          {emoji} {count}
-        </span>
-      ) : null
-    )}
-  </div>
+ <div className="flex flex-wrap gap-1 mt-1">
+  {Object.entries(reactedEmojis).map(([emoji, data]) =>
+    data.count > 0 ? (
+      <button
+        key={emoji}
+        onClick={() => toggleReaction(emoji)}
+       className={`
+  px-2 py-1 rounded-full text-sm flex items-center gap-1
+  ${didIReact(emoji)
+    ? "bg-gray-100 text-black hover:bg-gray-300"    // active
+    : "bg-gray-100 text-gray-700 hover:bg-purple-200"}  // inactive hover
+
+        }`}
+      >
+        <span>{emoji}</span> {data.count}
+      </button>
+    ) : null
+  )}
+</div>
+
 )}
 </div>
       <div

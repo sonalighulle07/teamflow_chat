@@ -173,6 +173,8 @@ export default function UserList({
   selectedUser,
   selectedTeam,
   lastMessages = {},
+  currentUser
+  
 }) {
   const listRef = useRef(null);
   const itemRefs = useRef({});
@@ -183,28 +185,31 @@ export default function UserList({
   };
 
   // Merge and sort users/teams by last message date
-  const displayedItems = useMemo(() => {
-    const allUsers = users.map((u) => ({ ...u, type: "user" }));
-    const allTeams = teams.map((t) => ({ ...t, type: "team" }));
+ const displayedItems = useMemo(() => {
+  const allUsers = users
+    .filter(u => u.id !== currentUser?.id) // exclude logged-in user
+    .map((u) => ({ ...u, type: "user" }));
 
-    const allItems = [...allUsers, ...allTeams];
+  const allTeams = teams.map((t) => ({ ...t, type: "team" }));
 
-    return allItems.sort((a, b) => {
-      const aTime = lastMessages[a.id]
-        ? new Date(lastMessages[a.id]).getTime()
-        : a.created_at
-        ? new Date(a.created_at).getTime()
-        : 0;
+  const allItems = [...allUsers, ...allTeams];
 
-      const bTime = lastMessages[b.id]
-        ? new Date(lastMessages[b.id]).getTime()
-        : b.created_at
-        ? new Date(b.created_at).getTime()
-        : 0;
+  return allItems.sort((a, b) => {
+    const aTime = lastMessages[a.id]
+      ? new Date(lastMessages[a.id]).getTime()
+      : a.created_at
+      ? new Date(a.created_at).getTime()
+      : 0;
 
-      return bTime - aTime; // newest first
-    });
-  }, [users, teams, lastMessages]);
+    const bTime = lastMessages[b.id]
+      ? new Date(lastMessages[b.id]).getTime()
+      : b.created_at
+      ? new Date(b.created_at).getTime()
+      : 0;
+
+    return bTime - aTime; // newest first
+  });
+}, [users, teams, lastMessages, currentUser]);
 
   // Scroll to first search match
   useEffect(() => {

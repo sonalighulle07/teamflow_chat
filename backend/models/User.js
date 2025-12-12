@@ -51,19 +51,30 @@ class User {
 
   // ===== Find by ID =====
   static async findById(id) {
-    try {
-      const [rows] = await pool.query(
-        `SELECT id, full_name, email, contact, username, profile_image, is_online, role, organization_id
-
-         FROM users WHERE id = ? LIMIT 1`,
-        [id]
-      );
-      return rows[0] || null;
-    } catch (error) {
-      console.error("Error finding user by ID:", error);
-      throw error;
-    }
+  try {
+    const [rows] = await pool.query(
+      `SELECT 
+         id,
+         full_name,
+         email,
+         contact,
+         username,
+         profile_image,
+         status,
+         role,
+         organization_id
+       FROM users 
+       WHERE id = ? 
+       LIMIT 1`,
+      [id]
+    );
+    return rows[0] || null;
+  } catch (error) {
+    console.error("Error finding user by ID:", error);
+    throw error;
   }
+}
+
 
   // ===== Get all users by organization =====
   static async getAllByOrganization(orgId) {

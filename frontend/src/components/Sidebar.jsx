@@ -265,6 +265,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
               <UserList
                 users={activeNav === "Chat" ? filteredUsers : []}
                 teams={activeNav === "Communities" ? filteredTeams : []}
+               currentUser={currentUser} 
                 selectedUser={selectedUser}
                 selectedTeam={selectedTeam}
                 searchQuery={searchQuery}

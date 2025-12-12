@@ -99,28 +99,52 @@ export default function ChatWindow({
   }, [selectedUser, selectedTeam]);
 
   // Handle reactions
-  const handleReact = async (messageId, emoji) => {
-    try {
-      // Call backend to store reaction
-      await fetch(`${URL}/api/chats/${messageId}/react`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ emoji }),
-      });
+ const handleReact = async (messageId, emoji) => {
+  try {
+    // Find the message
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg) return;
 
-      // Emit to server for real-time update
-      socketRef.current.emit("reaction", {
-        messageId,
-        emoji,
-        userId: currentUserId,
-      });
-    } catch (err) {
-      console.error("Reaction error:", err);
+    // Get decrypted reactions or empty
+    let reactions = {};
+    try {
+      reactions = msg.reactions ? JSON.parse(msg.reactions) : {};
+    } catch {}
+
+    reactions[emoji] = reactions[emoji] || { users: {} };
+
+    // Toggle: remove if already reacted
+    if (reactions[emoji].users[currentUserId]) {
+      delete reactions[emoji].users[currentUserId];
+    } else {
+      reactions[emoji].users[currentUserId] = true;
     }
-  };
+
+    // Update count
+    reactions[emoji].count = Object.keys(reactions[emoji].users).length;
+
+    // Send updated reactions to backend
+    await fetch(`${URL}/api/chats/${messageId}/react`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ reactions }),
+    });
+
+    // Emit real-time update
+    socketRef.current.emit("reaction", { messageId, reactions });
+
+    // Update local state
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, reactions } : m))
+    );
+  } catch (err) {
+    console.error("Reaction error:", err);
+  }
+};
+
 
   const handleDelete = (messageId) => {
     if (!socketRef.current) return;

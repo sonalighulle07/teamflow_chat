@@ -1,4 +1,3 @@
-// 📁 src/components/TeamInvites.jsx
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,7 +17,7 @@ export default function TeamInvites({ socket, show, setShow }) {
   const inviteIdsRef = useRef(new Set());
 
   // -----------------------------
-  // 1️⃣ Fetch pending invites ONCE (only invites sent by others)
+  // 1️ Fetch pending invites ONCE (only invites sent by others)
   // -----------------------------
   useEffect(() => {
     if (!token) return;
@@ -60,7 +59,7 @@ export default function TeamInvites({ socket, show, setShow }) {
   }, [token, setShow, currentUserId]);
 
   // -----------------------------
-  // 2️⃣ Real-time invite listener
+  // 2️ Real-time invite listener
   // -----------------------------
   const handleInvite = (invite) => {
     if (!invite?.id) return;
