@@ -244,12 +244,13 @@ export default function ChatWindow({
 
   // Handle file selection
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
 
-    setSelectedFile(file); 
-    setFilePreview(URL.createObjectURL(file)); 
-  };
+  setSelectedFile(file);
+  setFilePreview(window.URL.createObjectURL(file)); // use filePreview
+};
+
 
   const removeFile = () => {
     setSelectedFile(null);
@@ -360,49 +361,65 @@ export default function ChatWindow({
 
       {/* Input + File preview */}
       <div className="p-3 border-t border-gray-300 flex flex-col gap-2 bg-white">
-        {selectedFile && (
-          <div className="relative mb-2 p-2 border rounded-md bg-gray-100 flex items-center justify-between">
-            <div className="flex items-center gap-2 overflow-hidden">
-              {filePreview && selectedFile.type.startsWith("image/") && (
-                <img src={filePreview} className="max-h-40 rounded-md" />
-              )}
-              {filePreview && selectedFile.type.startsWith("video/") && (
-                <video
-                  src={filePreview}
-                  className="max-h-40 rounded-md"
-                  controls
-                />
-              )}
-              {filePreview && selectedFile.type.startsWith("audio/") && (
-                <audio src={filePreview} controls className="w-64" />
-              )}
-              {!filePreview && (
-                <div className="flex items-center gap-2 p-2 bg-white rounded-md shadow-sm">
-                  <span className="text-3xl">
-                    {selectedFile.name.endsWith(".pdf")
-                      ? "📕"
-                      : ["doc", "docx"].includes(
-                          selectedFile.name.split(".").pop()
-                        )
-                      ? "📘"
-                      : ["xls", "xlsx"].includes(
-                          selectedFile.name.split(".").pop()
-                        )
-                      ? "📊"
-                      : "📄"}
-                  </span>
-                  <span className="truncate max-w-xs">{selectedFile.name}</span>
-                </div>
-              )}
-            </div>
-            <button
-              onClick={removeFile}
-              className="bg-red-500 text-white rounded-full px-2 hover:bg-red-600"
-            >
-              ✕
-            </button>
+  {/* Input + File Preview */}
+{selectedFile && (
+  <div className="relative mb-2 p-2 border rounded-md bg-gray-100 flex items-center justify-between">
+    <div className="flex items-center gap-2 overflow-hidden">
+      {/* IMAGE */}
+      {selectedFile.type.startsWith("image/") && filePreview && (
+        <>
+          <img src={filePreview} className="max-h-20 rounded-md" alt="preview" />
+          <span className="truncate max-w-xs">{selectedFile.name}</span>
+        </>
+      )}
+
+      {/* VIDEO */}
+      {selectedFile.type.startsWith("video/") && filePreview && (
+        <>
+          <video src={filePreview} className="max-h-30 rounded-md" controls />
+          <span className="truncate max-w-xs">{selectedFile.name}</span>
+        </>
+      )}
+
+      {/* AUDIO */}
+      {selectedFile.type.startsWith("audio/") && filePreview && (
+        <>
+          <audio src={filePreview} controls className="w-64" />
+          <span className="truncate max-w-xs">{selectedFile.name}</span>
+        </>
+      )}
+
+      {/* DOCUMENTS / FILES */}
+      {!selectedFile.type.startsWith("image/") &&
+        !selectedFile.type.startsWith("video/") &&
+        !selectedFile.type.startsWith("audio/") &&
+        filePreview && (
+          <div className="flex items-center gap-2 p-1 bg-white rounded-md shadow-sm">
+            <span className="text-2xl">
+              {{
+                pdf: "📕",
+                doc: "📘",
+                docx: "📘",
+                xls: "📊",
+                xlsx: "📊",
+              }[selectedFile.name.split(".").pop()] || "📄"}
+            </span>
+            <span className="truncate max-w-xs">{selectedFile.name}</span>
           </div>
         )}
+    </div>
+
+    {/* Remove Button */}
+    <button
+      onClick={removeFile}
+      className="bg-red-500 text-white rounded-full px-2 hover:bg-red-600"
+    >
+      ✕
+    </button>
+  </div>
+)}
+
+
 
         <div className="flex items-center gap-2 relative bg-white  dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
           <input

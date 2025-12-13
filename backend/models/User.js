@@ -20,7 +20,6 @@ class User {
   }
 }
 
-
   // ===== Find by Username =====
   static async findByUsername(username) {
     try {
@@ -53,20 +52,7 @@ class User {
   static async findById(id) {
   try {
     const [rows] = await pool.query(
-      `SELECT 
-         id,
-         full_name,
-         email,
-         contact,
-         username,
-         profile_image,
-         status,
-         role,
-         organization_id
-       FROM users 
-       WHERE id = ? 
-       LIMIT 1`,
-      [id]
+      `SELECT id,full_name,email, contact,username,profile_image,status,role,organization_id FROM users WHERE id = ? LIMIT 1`, [id]
     );
     return rows[0] || null;
   } catch (error) {

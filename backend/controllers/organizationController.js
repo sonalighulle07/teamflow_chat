@@ -259,37 +259,35 @@ exports.deleteOrganization = async (req, res) => {
   try {
     await pool.query("START TRANSACTION");
 
-    // 1. Delete team messages
+    // 1. Delete chats involving users of this org
+    await pool.query(`
+      DELETE c FROM chats c
+      JOIN users u ON c.sender_id = u.id OR c.receiver_id = u.id
+      WHERE u.organization_id = ?
+    `, [orgId]);
+
+    // 2. Delete team messages
     await pool.query(`
       DELETE tm FROM team_messages tm
       JOIN teams t ON tm.team_id = t.id
       WHERE t.organization_id = ?
     `, [orgId]);
 
-    // 2. Delete team members
+    // 3. Delete team members
     await pool.query(`
       DELETE tm FROM team_members tm
       JOIN teams t ON tm.team_id = t.id
       WHERE t.organization_id = ?
     `, [orgId]);
 
-    // 3. Delete teams
-    await pool.query(
-      `DELETE FROM teams WHERE organization_id = ?`,
-      [orgId]
-    );
+    // 4. Delete teams
+    await pool.query(`DELETE FROM teams WHERE organization_id = ?`, [orgId]);
 
-    // 4. Delete users
-    await pool.query(
-      `DELETE FROM users WHERE organization_id = ?`,
-      [orgId]
-    );
+    // 5. Delete users
+    await pool.query(`DELETE FROM users WHERE organization_id = ?`, [orgId]);
 
-    // 5. Delete organization
-    await pool.query(
-      `DELETE FROM organizations WHERE id = ?`,
-      [orgId]
-    );
+    // 6. Delete organization
+    await pool.query(`DELETE FROM organizations WHERE id = ?`, [orgId]);
 
     await pool.query("COMMIT");
 
@@ -299,13 +297,11 @@ exports.deleteOrganization = async (req, res) => {
     });
 
   } catch (err) {
-    console.log("Cascade Delete Error:", err);
+    console.error("Cascade Delete Error:", err);
     await pool.query("ROLLBACK");
-    return res.status(500).json({
-      success: false,
-      message: "Delete failed",
-    });
+    res.status(500).json({ success: false, message: "Delete failed" });
   }
 };
+
 
 

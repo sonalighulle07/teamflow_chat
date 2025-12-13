@@ -5,7 +5,7 @@ import OrganizationViewModal from "./OrganizationViewModal";
 import { toast } from "react-toastify";
 import { FaEye, FaEdit, FaTrash } from "react-icons/fa";
 import { FiSquare ,FiX } from "react-icons/fi";
-
+import OrgCreateModal from "./OrgCreateModal";
 export default function OrganizationsList({ q }) {
 
   const [orgs, setOrgs] = useState([]);
@@ -16,6 +16,9 @@ export default function OrganizationsList({ q }) {
 
   const [viewData, setViewData] = useState(null);
   const token = sessionStorage.getItem("chatToken");
+  const [editOrg, setEditOrg] = useState(null);
+const [modalOpen, setModalOpen] = useState(false);
+
 
   const [page, setPage] = useState(1);
   const perPage = 5;
@@ -251,12 +254,16 @@ export default function OrganizationsList({ q }) {
                         <FaEye size={12} /> View
                       </button>
 
-                      <button
-                        onClick={() => alert("Edit coming soon")}
-                        className="flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white shadow-sm"
-                      >
-                        <FaEdit size={12} /> Edit
-                      </button>
+                     <button
+  onClick={() => {
+    setEditOrg(o); // pass the whole org data
+    setModalOpen(true);
+  }}
+  className="flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white shadow-sm"
+>
+  <FaEdit size={12} /> Edit
+</button>
+
 
                       <button
                         onClick={() => handleDelete(o.id)}
@@ -304,6 +311,15 @@ export default function OrganizationsList({ q }) {
       <OrganizationViewModal
         id={viewData}
         onClose={() => setViewData(null)}
+      />
+    )}
+
+      {/* MODAL for edit/create */}
+    {modalOpen && (
+      <OrgCreateModal
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setEditOrg(null); load(); }}
+        editData={editOrg}
       />
     )}
   </div>

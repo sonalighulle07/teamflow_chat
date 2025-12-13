@@ -769,8 +769,8 @@ const toggleReaction = (emoji) => {
                     <EmojiPicker
                       onEmojiClick={handlePickerEmoji}
                       theme="light"
-                      width={260}
-                      height={320}
+                      width={300}
+                      height={380}
                     />
                   </div>
                 </div>
@@ -851,7 +851,7 @@ const toggleReaction = (emoji) => {
        className={`
   px-2 py-1 rounded-full text-sm flex items-center gap-1
   ${didIReact(emoji)
-    ? "bg-gray-100 text-black hover:bg-gray-300"    // active
+    ? "bg-gray-100 text-gray-600 hover:bg-gray-300"    // active
     : "bg-gray-100 text-gray-700 hover:bg-purple-200"}  // inactive hover
 
         }`}

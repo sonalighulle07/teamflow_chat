@@ -72,7 +72,6 @@ router.post("/meetings/end/:teamId", authenticateToken, async (req, res) => {
 router.get("/user/:userId/sorted", authenticateToken, getTeamsSortedByActivity);
 router.get("/all", authenticateToken, getAllTeams);
 router.get("/", authenticateToken, getUserTeams);
-
 router.post("/", authenticateToken, createTeam);
 router.put("/:teamId", authenticateToken, checkTeamMember, updateTeam);
 router.delete("/:teamId", authenticateToken, checkTeamMember, deleteTeam);
@@ -81,7 +80,6 @@ router.get("/:teamId", authenticateToken, checkTeamMember, getTeamById);
 /* ----------------------------------------
    MEMBER MANAGEMENT (FINAL CLEAN VERSION)
 ---------------------------------------- */
-
 // Add multiple members
 router.post("/:teamId/members", authenticateToken, addTeamMembers);
 
@@ -90,42 +88,20 @@ router.post("/:teamId/members/add", authenticateToken, addTeamMember);
 
 // List team members
 router.get("/:teamId/members", authenticateToken, checkTeamMember, getTeamMembers);
-// POST or DELETE method; choose what matches your app
-// Remove single member (correct route)
 router.delete("/:teamId/members/:memberId", authenticateToken, removeMember);
 router.put("/:teamId/rename", authenticateToken, renameTeam);
-
-
-
 
 /* ----------------------------------------
    TEAM CHAT
 ---------------------------------------- */
 router.get("/:teamId/messages", authenticateToken, checkTeamMember, getTeamMessages);
 
-router.post(
-  "/:teamId/messages",
-  authenticateToken,
-  checkTeamMember,
-  uploadMiddleware.single("file"),
-  sendTeamMessage
-);
+router.post("/:teamId/messages",authenticateToken,checkTeamMember,uploadMiddleware.single("file"),sendTeamMessage);
 
-router.put(
-  "/:teamId/messages/:messageId",
-  authenticateToken,
-  checkTeamMember,
-  uploadMiddleware.single("file"),
-  editTeamMessage
-);
+router.put("/:teamId/messages/:messageId",authenticateToken,checkTeamMember,uploadMiddleware.single("file"),editTeamMessage);
 
 router.delete("/:teamId/messages/:messageId", authenticateToken, checkTeamMember, deleteTeamMessage);
 
-router.put(
-  "/:teamId/messages/:messageId/reactions",
-  authenticateToken,
-  checkTeamMember,
-  reactMessage
-);
+router.put("/:teamId/messages/:messageId/reactions",authenticateToken,checkTeamMember,reactMessage);
 
 module.exports = router;
