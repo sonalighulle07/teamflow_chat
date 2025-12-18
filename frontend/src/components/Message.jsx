@@ -460,75 +460,76 @@ const toggleReaction = (emoji) => {
           <FaEllipsisV />
         </button>
 
-        {mediaMenuOpen && (
-          <div className="absolute flex flex-col space-y-1 p-2  bg-white/30 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 w-44 right-0 z-50">
-            {/* Download */}
-            <button
-              onClick={() => handleDownload(fileUrl, fileName)}
-              className="flex items-center gap-2 px-3 py-1.5 text-gray-700 font-medium bg-white rounded-lg hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 text-purple-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"
-                />
-              </svg>
-              <span className="text-sm">Download</span>
-            </button>
+       {mediaMenuOpen && (
+  <div className="absolute flex flex-col space-y-1 p-2 bg-white/30 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 w-44 right-0 z-50">
+    {/* Download */}
+    <button
+      onClick={() => handleDownload(fileUrl, fileName)}
+      className="flex items-center gap-2 px-3 py-1.5 text-gray-700 font-medium bg-white rounded-lg hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 text-purple-600"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"
+        />
+      </svg>
+      <span className="text-sm">Download</span>
+    </button>
 
-            {/* Copy URL */}
-            <button
-              onClick={() => handleCopyUrl(fileUrl)}
-              className="flex items-center gap-2 px-3 py-1.5 text-gray-700 font-medium bg-white rounded-lg hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 text-purple-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 16h8m-8-4h8m-2-6h6v12a2 2 0 01-2 2H8l-4-4V4a2 2 0 012-2h8z"
-                />
-              </svg>
-              <span className="text-sm">Copy URL</span>
-            </button>
+    {/* Copy URL */}
+    <button
+      onClick={() => handleCopyUrl(fileUrl)}
+      className="flex items-center gap-2 px-3 py-1.5 text-gray-700 font-medium bg-white rounded-lg hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 text-purple-600"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M8 16h8m-8-4h8m-2-6h6v12a2 2 0 01-2 2H8l-4-4V4a2 2 0 012-2h8z"
+        />
+      </svg>
+      <span className="text-sm">Copy URL</span>
+    </button>
 
-            {/* Open in New Tab */}
-            <button
-              onClick={() => handleOpenUrl(fileUrl)}
-              className="flex items-center gap-2 px-3 py-1.5 text-gray-700 font-medium bg-white rounded-lg hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 text-purple-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M14 3h7v7m0 0L10 21l-7-7L21 3z"
-                />
-              </svg>
-              <span className="text-sm">Open</span>
-            </button>
-          </div>
-        )}
+    {/* Open in New Tab */}
+    <button
+      onClick={() => window.open(fileUrl, "_blank")}
+      className="flex items-center gap-2 px-3 py-1.5 text-gray-700 font-medium bg-white rounded-lg hover:bg-purple-50 hover:text-purple-700 transition-all duration-150"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 text-purple-600"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M14 3h7v7m0 0L10 21l-7-7L21 3z"
+        />
+      </svg>
+      <span className="text-sm">Open</span>
+    </button>
+  </div>
+)}
+
       </div>
     );
   };

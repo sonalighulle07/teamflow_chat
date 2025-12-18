@@ -173,38 +173,43 @@ export default function Header({
     }
   };
 
-  const renderMeetingButton = () => {
-    if (!selectedTeam || activeNav !== "Communities") return null;
-    const buttonClass = hasJoinedMeeting
-      ? "bg-red-500 text-white hover:bg-red-600 animate-pulse"
-      : activeMeeting
-      ? "bg-green-500 text-white hover:bg-green-600 animate-pulse"
-      : "text-purple-600 bg-gray-100 hover:bg-purple-300";
-    const buttonText = isCreatingMeeting
-      ? "Creating..."
-      : hasJoinedMeeting
-      ? "Joined"
-      : activeMeeting
-      ? "Join Meeting"
-      : "Start Meeting";
+ const renderMeetingButton = () => {
+  if (!selectedTeam || activeNav !== "Communities") return null;
 
-    return (
-      <button
-        className={`p-2 rounded-full transition-all duration-300 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait ${buttonClass}`}
-        onClick={
-          hasJoinedMeeting
-            ? null
-            : activeMeeting
-            ? joinActiveMeeting
-            : startGroupCall
-        }
-        disabled={isCreatingMeeting || hasJoinedMeeting}
-      >
-        <FaVideo size={18} className="text-purple-600" />
-        <span className="text-sm font-medium">{buttonText}</span>
-      </button>
-    );
-  };
+  const buttonClass = hasJoinedMeeting
+    ? "bg-red-600 text-white hover:bg-red-700"
+    : activeMeeting
+    ? "bg-green-600 text-white hover:bg-green-700"
+    : "bg-gray-100 text-purple-600 hover:bg-purple-200";
+
+  const iconColor = hasJoinedMeeting || activeMeeting ? "text-white" : "text-purple-600";
+
+  const buttonText = isCreatingMeeting
+    ? "Creating..."
+    : hasJoinedMeeting
+    ? "Joined"
+    : activeMeeting
+    ? "Join Meeting"
+    : "Start Meeting";
+
+  return (
+    <button
+      className={`px-4 py-2 flex items-center gap-2 rounded-full shadow-md transition-all duration-300 disabled:opacity-50 disabled:cursor-wait ${buttonClass}`}
+      onClick={
+        hasJoinedMeeting
+          ? null
+          : activeMeeting
+          ? joinActiveMeeting
+          : startGroupCall
+      }
+      disabled={isCreatingMeeting || hasJoinedMeeting}
+    >
+      <FaVideo size={18} className={iconColor} />
+      <span className="text-sm font-medium">{buttonText}</span>
+    </button>
+  );
+};
+
 
   // ----------------- Add Member Handler -----------------
  const handleOpenAddMember = () => {
@@ -229,7 +234,7 @@ export default function Header({
       ? selectedTeam.name
       : selectedUser && activeNav === "Chat"
       ? selectedUser.username
-      : "Select a chat";
+      : "Select a Chat";
 
   const displayProfileImage =
     selectedUser && !selectedTeam && selectedUser.profile_image
@@ -411,7 +416,7 @@ export default function Header({
             <div className="relative" ref={searchRef}>
               <button
                 onClick={() => setShowSearch((prev) => !prev)}
-                className="p-2 hover:bg-gray-100 rounded-full text-gray-600"
+                                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm"
                 title="Search in Chat"
               >
                 <FaSearch />

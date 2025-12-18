@@ -297,136 +297,159 @@ export function useCall(userId, currentUsername) {
   // ------------------------------------------------------------------
   // START a call (caller)
   // ------------------------------------------------------------------
-  async function startCall(type, remoteUser) {
-    if (!remoteUser) return console.warn("startCall missing remoteUser");
-    setCallType(type);
-    setInCall(true);
+ async function startCall(type, remoteUser) {
+  if (!remoteUser) return console.warn("startCall missing remoteUser");
+  setCallType(type);
+  setInCall(true);
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: type === "video",
-      });
-      setLocalStream(stream);
-
-      // create peer for the initial 1:1
-      const peer = new RTCPeerConnection({ iceServers : [{ urls: "stun:stun.l.google.com:19302" }] });
-
-      peer.ontrack = (e) => {
-        if (e.streams && e.streams[0]) {
-          setRemoteStreamFor(remoteUser.id, e.streams[0]);
-        }
-      };
-
-      peer.onicecandidate = (e) => {
-        if (e.candidate) {
-          socket.emit("iceCandidate", { to: remoteUser.id, from: userId, candidate: e.candidate });
-        }
-      };
-
-      stream.getTracks().forEach((t) => peer.addTrack(t, stream));
-      peerMap.current.set(String(remoteUser.id), peer);
-
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
-
-      socket.emit("callUser", {
-        from: userId,
-        fromUsername: currentUsername,
-        to: remoteUser.id,
-        offer,
-        callType: type,
-      });
-
-      // caller will receive call-created event and callee's incomingCall
-    } catch (err) {
-      console.error("startCall error:", err);
-      cleanup();
-    }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    console.error("Browser does not support getUserMedia API or not in secure context (HTTPS/localhost)");
+    cleanup();
+    return;
   }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: type === "video",
+    });
+    setLocalStream(stream);
+
+    // create peer connection
+    const peer = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
+
+    // handle remote stream
+    peer.ontrack = (e) => {
+      if (e.streams && e.streams[0]) {
+        setRemoteStreamFor(remoteUser.id, e.streams[0]);
+      }
+    };
+
+    // handle ICE candidates
+    peer.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit("iceCandidate", {
+          to: remoteUser.id,
+          from: userId,
+          candidate: e.candidate,
+        });
+      }
+    };
+
+    // add local tracks
+    stream.getTracks().forEach((t) => peer.addTrack(t, stream));
+    peerMap.current.set(String(remoteUser.id), peer);
+
+    // create and set offer
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+
+    // notify callee
+    socket.emit("callUser", {
+      from: userId,
+      fromUsername: currentUsername,
+      to: remoteUser.id,
+      offer,
+      callType: type,
+    });
+
+  } catch (err) {
+    console.error("startCall error:", err);
+    cleanup();
+  }
+}
+
 
   // ------------------------------------------------------------------
   // ACCEPT an incoming call
   // ------------------------------------------------------------------
-  async function acceptCall() {
-    if (!incoming) return console.warn("acceptCall: no incoming call");
+async function acceptCall() {
+  if (!incoming) return console.warn("acceptCall: no incoming call");
 
-    const isAddUser = incoming.isAddUser === true;
+  const isAddUser = incoming.isAddUser === true;
 
-    if (isAddUser) {
-      // join existing call room — do not create local remote placeholders
-      try {
-        setCallType(incoming.invitedType || incoming.type);
-        setCallId(incoming.callId || callId);
-        setInCall(true);
-
-        await ensureLocalStream(incoming.invitedType === "video");
-
-        socket.emit("call-invite-joined", {
-          userId,
-          username: currentUsername,
-          callId: incoming.callId || callId,
-        });
-
-        setIncoming(null);
-        return;
-      } catch (err) {
-        console.error("acceptCall (add-user) error:", err);
-        cleanup();
-        return;
-      }
-    }
-
-    // Normal 1:1 offer/answer flow
-    setCallType(incoming.callType);
-    setCallId(incoming.callId || callId);
-    setInCall(true);
-
+  if (isAddUser) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: incoming.callType === "video",
-      });
-      setLocalStream(stream);
+      setCallType(incoming.invitedType || incoming.type);
+      setCallId(incoming.callId || callId);
+      setInCall(true);
 
-      const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      await ensureLocalStream(incoming.invitedType === "video");
 
-      peer.ontrack = (e) => {
-        if (e.streams && e.streams[0]) {
-          setRemoteStreamFor(incoming.from, e.streams[0]);
-        }
-      };
-
-      peer.onicecandidate = (e) => {
-        if (e.candidate) {
-          socket.emit("iceCandidate", { to: incoming.from, from: userId, candidate: e.candidate });
-        }
-      };
-
-      stream.getTracks().forEach((t) => peer.addTrack(t, stream));
-      peerMap.current.set(String(incoming.from), peer);
-
-      await peer.setRemoteDescription(new RTCSessionDescription(incoming.offer));
-      const answer = await peer.createAnswer();
-      await peer.setLocalDescription(answer);
-
-      socket.emit("answer", {
-        to: incoming.from,
-        answer,
-        from: userId,
-        fromUsername: currentUsername,
+      socket.emit("call-invite-joined", {
+        userId,
+        username: currentUsername,
         callId: incoming.callId || callId,
       });
 
-      // Now tell server we joined so other participants can create offers to us
-      socket.emit("call-invite-joined", { userId, username: currentUsername, callId: incoming.callId || callId });
-
       setIncoming(null);
+      return;
     } catch (err) {
-      console.error("acceptCall error:", err);
+      console.error("acceptCall (add-user) error:", err);
       cleanup();
+      return;
     }
   }
+
+  // Check if getUserMedia is available
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    console.error("Browser does not support getUserMedia API or not in secure context (HTTPS/localhost)");
+    cleanup();
+    return;
+  }
+
+  // Normal 1:1 offer/answer flow
+  setCallType(incoming.callType);
+  setCallId(incoming.callId || callId);
+  setInCall(true);
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: incoming.callType === "video",
+    });
+    setLocalStream(stream);
+
+    const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+
+    peer.ontrack = (e) => {
+      if (e.streams && e.streams[0]) {
+        setRemoteStreamFor(incoming.from, e.streams[0]);
+      }
+    };
+
+    peer.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit("iceCandidate", { to: incoming.from, from: userId, candidate: e.candidate });
+      }
+    };
+
+    stream.getTracks().forEach((t) => peer.addTrack(t, stream));
+    peerMap.current.set(String(incoming.from), peer);
+
+    await peer.setRemoteDescription(new RTCSessionDescription(incoming.offer));
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+
+    socket.emit("answer", {
+      to: incoming.from,
+      answer,
+      from: userId,
+      fromUsername: currentUsername,
+      callId: incoming.callId || callId,
+    });
+
+    socket.emit("call-invite-joined", { userId, username: currentUsername, callId: incoming.callId || callId });
+
+    setIncoming(null);
+  } catch (err) {
+    console.error("acceptCall error:", err);
+    cleanup();
+  }
+}
+
 
   // ------------------------------------------------------------------
   // Add user to call (inviter)

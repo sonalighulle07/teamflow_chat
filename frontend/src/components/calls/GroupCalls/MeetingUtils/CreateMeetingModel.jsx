@@ -28,13 +28,16 @@ export default function CreateMeetingModal({ userId }) {
     console.log("Button clicked...");
     
     // ✅ PASS isControlled TO THE UTILITY FUNCTION
-    const res = await createMeeting({
-      hostId: userId,
-      title,
-      scheduledAt,
-      type,
-      is_controlled, // <-- New value sent to the backend
-    });
+   const res = await createMeeting({
+  hostId: userId,
+  title,
+  scheduledAt: scheduledAt
+    ? scheduledAt.toISOString().slice(0, 19).replace("T", " ")
+    : null,
+  type,
+  is_controlled,
+});
+
     
     setMeetingLink(res.link);
     console.log(meetingLink);

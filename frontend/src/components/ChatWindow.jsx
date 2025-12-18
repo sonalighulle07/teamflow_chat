@@ -15,7 +15,6 @@ export default function ChatWindow({
   currentUserId,
   searchQuery,
 }) {
- 
   const { selectedUser, currentUser } = useSelector((state) => state.user);
   const token = sessionStorage.getItem("chatToken");
   const [text, setText] = useState("");
@@ -51,47 +50,56 @@ export default function ChatWindow({
     }
   };
 
-  // Initialize Socket.IO
+  // Initialize Socket.IO with cleanup
   useEffect(() => {
     socketRef.current = socket;
 
-    socket.on("privateMessage", (msg) => {
-  setMessages((prev) => {
-    if (prev.some((m) => m.id === msg.id)) return prev;
-    return [...prev, msg];
-  });
-});
+    const handlePrivateMessage = (msg) => {
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+    };
 
-    socket.on("teamMessage", (msg) => {
+    const handleTeamMessage = (msg) => {
       if (selectedTeam && msg.team_id === selectedTeam.id) {
         setMessages((prev) => [...prev, msg]);
       }
-    });
+    };
 
-    socket.on("reaction", ({ message }) => {
-      if (!message || !message.id) return;
+    const handleReaction = ({ message }) => {
+      if (!message?.id) return;
       setMessages((prev) =>
         prev.map((m) => (m.id === message.id ? message : m))
       );
-    });
-    socket.on("messageDeleted", ({ messageId, senderId }) => {
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
-    });
+    };
 
-    // message edited (update + toast)
-    socket.on("messageEdited", (updatedMsg) => {
-      console.log(" messageEdited received on client", updatedMsg);
+    const handleDeleted = ({ messageId }) => {
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    };
+
+    const handleEdited = (updatedMsg) => {
       setMessages((prev) =>
         prev.map((m) =>
           String(m.id) === String(updatedMsg.id) ? { ...updatedMsg } : m
         )
       );
-    });
-  }, [
-    currentUserId,
-    selectedUser,
-    selectedTeam /* leave these if you want socket re-init on change */,
-  ]);
+    };
+
+    socket.on("privateMessage", handlePrivateMessage);
+    socket.on("teamMessage", handleTeamMessage);
+    socket.on("reaction", handleReaction);
+    socket.on("messageDeleted", handleDeleted);
+    socket.on("messageEdited", handleEdited);
+
+    return () => {
+      socket.off("privateMessage", handlePrivateMessage);
+      socket.off("teamMessage", handleTeamMessage);
+      socket.off("reaction", handleReaction);
+      socket.off("messageDeleted", handleDeleted);
+      socket.off("messageEdited", handleEdited);
+    };
+  }, [selectedTeam]); // re-register when team changes
 
   // Fetch messages when conversation changes
   useEffect(() => {
@@ -99,52 +107,44 @@ export default function ChatWindow({
   }, [selectedUser, selectedTeam]);
 
   // Handle reactions
- const handleReact = async (messageId, emoji) => {
-  try {
-    // Find the message
-    const msg = messages.find((m) => m.id === messageId);
-    if (!msg) return;
-
-    // Get decrypted reactions or empty
-    let reactions = {};
+  const handleReact = async (messageId, emoji) => {
     try {
-      reactions = msg.reactions ? JSON.parse(msg.reactions) : {};
-    } catch {}
+      const msg = messages.find((m) => m.id === messageId);
+      if (!msg) return;
 
-    reactions[emoji] = reactions[emoji] || { users: {} };
+      let reactions = {};
+      try {
+        reactions = msg.reactions ? JSON.parse(msg.reactions) : {};
+      } catch {}
 
-    // Toggle: remove if already reacted
-    if (reactions[emoji].users[currentUserId]) {
-      delete reactions[emoji].users[currentUserId];
-    } else {
-      reactions[emoji].users[currentUserId] = true;
+      reactions[emoji] = reactions[emoji] || { users: {} };
+
+      if (reactions[emoji].users[currentUserId]) {
+        delete reactions[emoji].users[currentUserId];
+      } else {
+        reactions[emoji].users[currentUserId] = true;
+      }
+
+      reactions[emoji].count = Object.keys(reactions[emoji].users).length;
+
+      await fetch(`${URL}/api/chats/${messageId}/react`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reactions }),
+      });
+
+      socketRef.current.emit("reaction", { messageId, reactions });
+
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, reactions } : m))
+      );
+    } catch (err) {
+      console.error("Reaction error:", err);
     }
-
-    // Update count
-    reactions[emoji].count = Object.keys(reactions[emoji].users).length;
-
-    // Send updated reactions to backend
-    await fetch(`${URL}/api/chats/${messageId}/react`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ reactions }),
-    });
-
-    // Emit real-time update
-    socketRef.current.emit("reaction", { messageId, reactions });
-
-    // Update local state
-    setMessages((prev) =>
-      prev.map((m) => (m.id === messageId ? { ...m, reactions } : m))
-    );
-  } catch (err) {
-    console.error("Reaction error:", err);
-  }
-};
-
+  };
 
   const handleDelete = (messageId) => {
     if (!socketRef.current) return;
@@ -152,7 +152,6 @@ export default function ChatWindow({
     toast.success("Message deleted successfully!");
   };
 
-  // Edit message
   const handleEdit = async (updatedMsg) => {
     try {
       const res = await fetch(`${URL}/api/chats/edit/${updatedMsg.id}`, {
@@ -195,8 +194,6 @@ export default function ChatWindow({
       }
     } catch (err) {
       console.error("Forward failed", err);
-      setForwardAlert("Forward failed due to server error ");
-      setTimeout(() => setForwardAlert(""), 3000);
     }
   };
 
@@ -237,20 +234,17 @@ export default function ChatWindow({
           block: "center",
         });
       }
-    }, 300); 
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [searchQuery, filteredMessages]);
 
-  // Handle file selection
   const handleFileChange = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  setSelectedFile(file);
-  setFilePreview(window.URL.createObjectURL(file)); // use filePreview
-};
-
+    const file = e.target.files[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setFilePreview(window.URL.createObjectURL(file));
+  };
 
   const removeFile = () => {
     setSelectedFile(null);
@@ -260,7 +254,6 @@ export default function ChatWindow({
   const onEmojiClick = (emojiObject) =>
     setText((prev) => prev + emojiObject.emoji);
 
-  // Send message
   const handleSend = async () => {
     if (!text.trim() && !selectedFile) return;
     if (!selectedUser && !selectedTeam) return;
@@ -286,7 +279,7 @@ export default function ChatWindow({
 
       // Emit to server for real-time
       if (selectedUser) socketRef.current.emit("privateMessage", newMessage);
-      // else if (selectedTeam) socketRef.current.emit("teamMessage", newMessage);
+      else if (selectedTeam) socketRef.current.emit("teamMessage", newMessage);
 
       setText("");
       removeFile();
@@ -314,13 +307,9 @@ export default function ChatWindow({
               const prevMsg = (searchQuery ? filteredMessages : messages)[
                 index - 1
               ];
-              const msgDate = new Date(
-                msg.created_at || msg.timestamp
-              ).toDateString();
+              const msgDate = new Date(msg.created_at || msg.timestamp).toDateString();
               const prevDate = prevMsg
-                ? new Date(
-                    prevMsg.created_at || prevMsg.timestamp
-                  ).toDateString()
+                ? new Date(prevMsg.created_at || prevMsg.timestamp).toDateString()
                 : null;
               const showDateSeparator = msgDate !== prevDate;
               messageRefs.current[key] =
@@ -361,66 +350,64 @@ export default function ChatWindow({
 
       {/* Input + File preview */}
       <div className="p-3 border-t border-gray-300 flex flex-col gap-2 bg-white">
-  {/* Input + File Preview */}
-{selectedFile && (
-  <div className="relative mb-2 p-2 border rounded-md bg-gray-100 flex items-center justify-between">
-    <div className="flex items-center gap-2 overflow-hidden">
-      {/* IMAGE */}
-      {selectedFile.type.startsWith("image/") && filePreview && (
-        <>
-          <img src={filePreview} className="max-h-20 rounded-md" alt="preview" />
-          <span className="truncate max-w-xs">{selectedFile.name}</span>
-        </>
-      )}
-
-      {/* VIDEO */}
-      {selectedFile.type.startsWith("video/") && filePreview && (
-        <>
-          <video src={filePreview} className="max-h-30 rounded-md" controls />
-          <span className="truncate max-w-xs">{selectedFile.name}</span>
-        </>
-      )}
-
-      {/* AUDIO */}
-      {selectedFile.type.startsWith("audio/") && filePreview && (
-        <>
-          <audio src={filePreview} controls className="w-64" />
-          <span className="truncate max-w-xs">{selectedFile.name}</span>
-        </>
-      )}
-
-      {/* DOCUMENTS / FILES */}
-      {!selectedFile.type.startsWith("image/") &&
-        !selectedFile.type.startsWith("video/") &&
-        !selectedFile.type.startsWith("audio/") &&
-        filePreview && (
-          <div className="flex items-center gap-2 p-1 bg-white rounded-md shadow-sm">
-            <span className="text-2xl">
-              {{
-                pdf: "📕",
-                doc: "📘",
-                docx: "📘",
-                xls: "📊",
-                xlsx: "📊",
-              }[selectedFile.name.split(".").pop()] || "📄"}
-            </span>
-            <span className="truncate max-w-xs">{selectedFile.name}</span>
+        {/* File Preview */}
+        {selectedFile && (
+          <div className="relative mb-2 p-2 border rounded-md bg-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2 overflow-hidden">
+              {selectedFile.type.startsWith("image/") && filePreview && (
+                <>
+                  <img
+                    src={filePreview}
+                    className="max-h-20 rounded-md"
+                    alt="preview"
+                  />
+                  <span className="truncate max-w-xs">{selectedFile.name}</span>
+                </>
+              )}
+              {selectedFile.type.startsWith("video/") && filePreview && (
+                <>
+                  <video
+                    src={filePreview}
+                    className="max-h-30 rounded-md"
+                    controls
+                  />
+                  <span className="truncate max-w-xs">{selectedFile.name}</span>
+                </>
+              )}
+              {selectedFile.type.startsWith("audio/") && filePreview && (
+                <>
+                  <audio src={filePreview} controls className="w-64" />
+                  <span className="truncate max-w-xs">{selectedFile.name}</span>
+                </>
+              )}
+              {!selectedFile.type.startsWith("image/") &&
+                !selectedFile.type.startsWith("video/") &&
+                !selectedFile.type.startsWith("audio/") &&
+                filePreview && (
+                  <div className="flex items-center gap-2 p-1 bg-white rounded-md shadow-sm">
+                    <span className="text-2xl">
+                      {{
+                        pdf: "📕",
+                        doc: "📘",
+                        docx: "📘",
+                        xls: "📊",
+                        xlsx: "📊",
+                      }[selectedFile.name.split(".").pop()] || "📄"}
+                    </span>
+                    <span className="truncate max-w-xs">{selectedFile.name}</span>
+                  </div>
+                )}
+            </div>
+            <button
+              onClick={removeFile}
+              className="bg-red-500 text-white rounded-full px-2 hover:bg-red-600"
+            >
+              ✕
+            </button>
           </div>
         )}
-    </div>
 
-    {/* Remove Button */}
-    <button
-      onClick={removeFile}
-      className="bg-red-500 text-white rounded-full px-2 hover:bg-red-600"
-    >
-      ✕
-    </button>
-  </div>
-)}
-
-
-
+        {/* Input + Emoji + File Upload + Send */}
         <div className="flex items-center gap-2 relative bg-white  dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
           <input
             type="text"
@@ -485,6 +472,7 @@ export default function ChatWindow({
             />
           </label>
 
+          {/* Send Button */}
           <button
             onClick={handleSend}
             disabled={!selectedUser && !selectedTeam}

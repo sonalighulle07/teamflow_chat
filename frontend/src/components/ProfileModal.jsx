@@ -4,7 +4,6 @@ import {
   FaCamera,
   FaTrash,
   FaSignOutAlt,
-  FaUserPlus,
   FaTimes,
 } from "react-icons/fa";
 import Register from "./Register";
@@ -17,25 +16,24 @@ export default function ProfileModal({
   setProfileImage,
 }) {
   if (!user) return null;
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const navigate = useNavigate();
 
   const [preview, setPreview] = useState(() => {
-  if (!user) return null;
-  const stored = localStorage.getItem(`profileImage_${user.id}`);
-  return stored || (user.profile_image ? `${URL}${user.profile_image}` : null);
-});
+    if (!user) return null;
+    const stored = localStorage.getItem(`profileImage_${user.id}`);
+    return stored || (user.profile_image ? `${URL}${user.profile_image}` : null);
+  });
 
-useEffect(() => {
-  if (!user) return setPreview(null);
+  useEffect(() => {
+    if (!user) return setPreview(null);
 
-  const stored = localStorage.getItem(`profileImage_${user.id}`);
-  if (stored) setPreview(stored);
-  else if (user.profile_image) setPreview(`${URL}${user.profile_image}`);
-  else setPreview(null);
-}, [user?.id, user?.profile_image]);
-
+    const stored = localStorage.getItem(`profileImage_${user.id}`);
+    if (stored) setPreview(stored);
+    else if (user.profile_image) setPreview(`${URL}${user.profile_image}`);
+    else setPreview(null);
+  }, [user?.id, user?.profile_image]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -53,15 +51,12 @@ useEffect(() => {
 
       const data = await res.json();
 
-     if (!data.error && data.profile_image) {
-  const newPath = `${URL}${data.profile_image}`;
-  setPreview(newPath);
-  // Update parent Header state
-  setProfileImage?.(newPath);
-  // Save in localStorage
-  localStorage.setItem(`profileImage_${user.id}`, newPath);
-}
- else {
+      if (!data.error && data.profile_image) {
+        const newPath = `${URL}${data.profile_image}`;
+        setPreview(newPath);
+        setProfileImage?.(newPath);
+        localStorage.setItem(`profileImage_${user.id}`, newPath);
+      } else {
         alert(data.message || "Failed to upload image");
       }
     } catch (err) {
@@ -111,11 +106,11 @@ useEffect(() => {
       const data = await res.json();
 
       if (data.success) {
-        //  1. Clear ALL storage completely
+        // Clear storage
         sessionStorage.clear();
         localStorage.clear();
 
-        //  2. Clear Redux user & auth state
+        // Clear Redux user & auth state
         if (window.store) {
           window.store.dispatch({ type: "user/setCurrentUser", payload: null });
           window.store.dispatch({
@@ -124,13 +119,12 @@ useEffect(() => {
           });
         }
 
-        //  3. Reset preview image
+        // Reset preview image
         setPreview(null);
         setProfileImage?.(null);
 
-        //  4. FORCE logout navigation (fresh reload)
-        window.location.href = "/register";
-
+        // Redirect to login page
+        navigate("/login");
         return;
       } else {
         alert(data.message || "Failed to delete account");
@@ -150,15 +144,12 @@ useEffect(() => {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end items-start pointer-events-none">
-      {/* Background blur overlay */}
       <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-none  "
+        className="absolute inset-0 bg-black/30 backdrop-blur-none"
         onClick={onClose}
       ></div>
 
-      {/* Panel */}
       <div className="relative mt-16 mr-4 w-72 bg-white shadow-xl rounded-xl p-5 pointer-events-auto animate-fadeIn">
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 transition"
@@ -166,7 +157,6 @@ useEffect(() => {
           <FaTimes size={18} />
         </button>
 
-        {/* Avatar */}
         <div className="flex flex-col items-center mt-3">
           <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200">
             {preview ? (
@@ -199,7 +189,6 @@ useEffect(() => {
           )}
         </div>
 
-        {/* Action Buttons */}
         <div className="mt-4 flex flex-col gap-2">
           <button
             onClick={handleRemoveImage}
@@ -220,20 +209,9 @@ useEffect(() => {
           <button
             onClick={handleDeleteAccount}
             disabled={loading}
-            className="flex items-center justify-center gap-2 py-2 px-3 rounded-md bg-gray-800 text-white hover:bg-gray-900 transition"
+            className="flex items-center justify-center gap-2 py-2 px-3 rounded-md bg-blue-400 text-white hover:bg-blue-600 transition"
           >
             <FaTrash /> Delete Account
-          </button>
-
-          <button
-            onClick={() => {
-              onClose();
-              navigate("/register");
-            }}
-            disabled={loading}
-            className="flex items-center justify-center gap-2 py-2 px-3 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition"
-          >
-            <FaUserPlus /> Add / Register Account
           </button>
         </div>
       </div>
