@@ -92,7 +92,7 @@ io.on("connection", (socket) => {
       log(`All sockets removed for user ${userId} → deleted mapping`);
     }
   };
-
+// OK
   // ---------------- REGISTER USER ----------------
   socket.on("register", ({ userId } = {}) => {
     if (!userId) return;
