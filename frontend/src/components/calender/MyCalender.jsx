@@ -278,74 +278,84 @@ export default function MyCalendar() {
         />
       </div>
  
-      {showModal && (
-        <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-50">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-[550px] max-w-3xl p-8 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-t-3xl"></div>
-            <h2 className="text-2xl font-bold text-gray-800 mt-2 mb-6 flex items-center gap-2">
-              {isEditing ? "✏️ Edit Event" : "🗓️ Add New Event"}
-            </h2>
-            <div className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter event title..."
-                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5 text-gray-800 transition-all duration-200"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Start Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5 text-gray-800 transition-all duration-200"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  End Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none rounded-xl px-4 py-2.5 text-gray-800 transition-all duration-200"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-8">
-              {isEditing && (
-                <button
-                  onClick={() => handleDeleteEvent(selectedEvent)}
-                  className="bg-red-600 hover:bg-red-700 text-white font-medium px-5 py-2.5 rounded-xl shadow-md transition-all duration-200"
-                >
-                  Delete
-                </button>
-              )}
-              <button
-                onClick={() => setShowModal(false)}
-                className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium px-5 py-2.5 rounded-xl shadow-md transition-all duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-6 py-2.5 rounded-xl shadow-md transition-all duration-200"
-              >
-                {isEditing ? "Update Event" : "Save Event"}
-              </button>
-            </div>
-          </div>
+     {showModal && (
+  <div className="fixed inset-0 bg-black/40 flex justify-center items-start pt-24 z-50">
+    <div className="bg-white rounded-xl shadow-lg w-full max-w-[450px] p-8 border border-gray-100">
+
+      {/* Header */}
+      <h2 className="text-base text-center font-semibold text-gray-700 mb-6">
+        {isEditing ? "Update Event" : "Add Event"}
+      </h2>
+
+      <div className="space-y-4 mt-4">
+        {/* Title */}
+        <div>
+          <label className="block text-sm text-gray-600 font-medium mb-1">
+            Title
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Enter event title"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md
+              placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
         </div>
-      )}
+
+        {/* Start Date */}
+        <div>
+          <label className="block text-sm text-gray-600 font-medium mb-1">
+            Start Date & Time
+          </label>
+          <input
+            type="datetime-local"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md
+              focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+        </div>
+
+        {/* End Date */}
+        <div>
+          <label className="block text-sm text-gray-600 font-medium mb-1">
+            End Date & Time
+          </label>
+          <input
+            type="datetime-local"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md
+              focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+        </div>
+      </div>
+
+      {/* Buttons */}
+      <div className="flex gap-3 pt-6">
+        <button
+          type="button"
+          onClick={() => setShowModal(false)}
+          className="flex-1 py-2 text-sm font-medium rounded-md
+            bg-gray-300 text-gray-700 hover:bg-gray-300 transition"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={handleSave}
+          className="flex-1 py-2 text-sm font-medium rounded-md
+            bg-[rgb(106,109,213)] hover:bg-[rgb(93,96,194)]
+            text-white transition"
+        >
+          {isEditing ? "Update" : "Save"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }

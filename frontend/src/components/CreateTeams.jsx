@@ -3,13 +3,12 @@ import axios from "axios";
 import { URL } from "../config";
 import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
-import { FaUsers, FaSearch, FaTimes, FaTrash, FaEdit } from "react-icons/fa";
+import { FaSearch, FaEdit, FaTrash } from "react-icons/fa";
 
 export default function CreateTeam({
   currentUser,
   showModal,
   setShowModal,
-  socket,
   existingTeam = null,
 }) {
   const { userList } = useSelector((state) => state.user || {});
@@ -21,18 +20,14 @@ export default function CreateTeam({
   const [teamNameEditMode, setTeamNameEditMode] = useState(false);
   const token = sessionStorage.getItem("chatToken");
 
-  // Fixed isAdmin to handle both user_id and id
-const isAdmin =
-  existingTeam &&
-  existingTeam.members?.some(
-    (m) =>
-      Number(m.user_id) === Number(currentUser.id) &&
-      (m.role === "owner" || m.role === "admin")
-  );
+  const isAdmin =
+    existingTeam &&
+    existingTeam.members?.some(
+      (m) =>
+        Number(m.user_id) === Number(currentUser.id) &&
+        (m.role === "owner" || m.role === "admin")
+    );
 
-
-
-  // Load initial values
   useEffect(() => {
     if (!showModal) return;
 
@@ -56,12 +51,9 @@ const isAdmin =
     );
   };
 
-  // Create team
   const handleCreateTeam = async () => {
-    if (!teamName || selectedUsers.length === 0) {
+    if (!teamName || selectedUsers.length === 0)
       return toast.error("Enter team name and select members!");
-    }
-
     setLoading(true);
     try {
       const { data: team } = await axios.post(
@@ -69,7 +61,6 @@ const isAdmin =
         { name: teamName, created_by: currentUser.id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
       const inviteUsers = selectedUsers.filter((id) => id !== currentUser.id);
       if (inviteUsers.length > 0) {
         await axios.post(
@@ -83,7 +74,6 @@ const isAdmin =
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }
-
       toast.success("Team created");
       setShowModal(false);
     } catch {
@@ -93,10 +83,8 @@ const isAdmin =
     }
   };
 
-  // Rename team
   const handleRenameTeam = async () => {
     if (!teamName.trim()) return;
-
     try {
       await axios.put(
         `${URL}/api/teams/${existingTeam.id}/rename`,
@@ -110,12 +98,9 @@ const isAdmin =
     }
   };
 
-  // Delete team
   const handleDeleteTeam = async () => {
     if (!existingTeam) return;
-
     if (!window.confirm("Are you sure you want to delete this team?")) return;
-
     try {
       await axios.delete(`${URL}/api/teams/${existingTeam.id}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -127,16 +112,11 @@ const isAdmin =
     }
   };
 
-  // Update team members
   const handleUpdateTeam = async () => {
     const added = selectedUsers.filter((id) => !initialMembers.includes(id));
     const removed = initialMembers.filter((id) => !selectedUsers.includes(id));
-
-    if (added.length === 0 && removed.length === 0) {
-      toast("No changes made");
-      return;
-    }
-
+    if (added.length === 0 && removed.length === 0)
+      return toast("No changes made");
     setLoading(true);
     try {
       if (added.length > 0) {
@@ -146,14 +126,14 @@ const isAdmin =
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }
-
       for (let uid of removed) {
         await axios.delete(
           `${URL}/api/teams/${existingTeam.id}/members/${uid}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
         );
       }
-
       toast.success("Team updated");
       setShowModal(false);
     } catch {
@@ -171,50 +151,34 @@ const isAdmin =
   return (
     <>
       {showModal && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="bg-white w-[520px] max-h-[90vh] rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex justify-center items-start pt-24 bg-black/30 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-[450px] rounded-xl shadow-xl p-6 border border-gray-200 overflow-y-auto max-h-[90vh]">
             {/* Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 bg-gray-50/60">
-              <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <FaUsers className="text-purple-600" />
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">
                 {existingTeam ? "Update Team" : "Create a Team"}
-              </h3>
-
-              <div className="flex items-center gap-4">
-                {existingTeam && isAdmin && (
-                  <>
-                    <button
-                      onClick={() => setTeamNameEditMode(true)}
-                      className="text-blue-500 hover:text-blue-700 text-lg transition"
-                      title="Edit Team Name"
-                    >
-                      <FaEdit />
-                    </button>
-
-                    <button
-                      onClick={handleDeleteTeam}
-                      className="text-red-500 hover:text-red-700 text-lg transition"
-                      title="Delete Team"
-                    >
-                      <FaTrash />
-                    </button>
-                  </>
-                )}
-
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-500 hover:text-gray-700 text-xl transition"
-                  title="Close"
-                >
-                  <FaTimes />
-                </button>
-              </div>
+              </h2>
+              {existingTeam && isAdmin && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setTeamNameEditMode(true)}
+                    className="text-indigo-600 hover:text-indigo-800 transition text-sm"
+                  >
+                    <FaEdit />
+                  </button>
+                  <button
+                    onClick={handleDeleteTeam}
+                    className="text-red-500 hover:text-red-700 transition text-sm"
+                  >
+                    <FaTrash />
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Body */}
-            <div className="px-6 py-4 overflow-y-auto">
-              {/* Team Name */}
-              <label className="block text-gray-700 mb-2 font-medium">
+            {/* Team Name */}
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-gray-600 mb-1">
                 Team Name
               </label>
               <input
@@ -223,143 +187,107 @@ const isAdmin =
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 disabled={existingTeam && !teamNameEditMode}
-                className="w-full mb-3 p-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-purple-300 focus:outline-none"
+                className="w-full px-3 py-1.5 border rounded-md border-gray-300 text-sm focus:ring-1 focus:ring-indigo-400 outline-none"
               />
-
               {teamNameEditMode && (
-                <div className="mb-4 p-3 bg-gray-100 rounded-lg flex justify-end">
+                <div className="mt-1 flex justify-end">
                   <button
                     onClick={handleRenameTeam}
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                    className="px-3 py-1 text-sm  bg-[rgb(106,109,213)] hover:bg-[rgb(93,96,194)] text-white rounded-md transition"
                   >
-                    Save Name
+                    Save
                   </button>
                 </div>
               )}
-
-              {/* Selected Users */}
-              {selectedUsers.length > 0 && (
-                <div className="mb-4 flex flex-wrap gap-2">
-                  {selectedUsers.map((id) => {
-                    const user = userList?.find((u) => u.id === id);
-                    return (
-                      <div
-                        key={id}
-                        className="flex items-center gap-2 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm shadow-sm"
-                      >
-                        <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs font-bold">
-                          {user?.username?.charAt(0)}
-                        </div>
-
-                        {user?.username}
-
-                        {id !== currentUser.id && (
-                          <>
-                            <button
-                              onClick={() => toggleUser(id)}
-                              className="ml-1 text-purple-800 hover:text-purple-900"
-                            >
-                              ×
-                            </button>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await axios.delete(
-                                    `${URL}/api/teams/${existingTeam.id}/members/${id}`,
-                                    {
-                                      headers: {
-                                        Authorization: `Bearer ${token}`,
-                                      },
-                                    }
-                                  );
-                                  toast.success("Member removed");
-                                  setSelectedUsers((prev) =>
-                                    prev.filter((x) => x !== id)
-                                  );
-                                } catch {
-                                  toast.error("Failed to remove member");
-                                }
-                              }}
-                              className="ml-2 text-red-500 hover:text-red-700"
-                              title="Remove Member"
-                            >
-                              <FaTrash />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Search Users */}
-              <label className="block text-gray-700 mb-2 font-medium">
-                Search Users
-              </label>
-              <div className="relative mb-4">
-                <FaSearch className="absolute left-3 top-3 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full p-2.5 pl-10 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-purple-300 focus:outline-none"
-                />
-              </div>
-
-              {/* User List */}
-              <div className="max-h-60 overflow-y-auto bg-gray-50 border rounded-xl p-3 shadow-inner space-y-1">
-                {filteredUsers.length === 0 ? (
-                  <p className="text-center text-gray-500 py-4">
-                    No users found.
-                  </p>
-                ) : (
-                  filteredUsers.map((u) => (
-                    <label
-                      key={u.id}
-                      className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-100 transition"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-semibold">
-                          {u.username.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="text-gray-800 text-sm">
-                          {u.username}{" "}
-                          {u.id === currentUser.id && (
-                            <span className="text-purple-600 font-medium">
-                              (You)
-                            </span>
-                          )}
-                        </span>
-                      </div>
-
-                      <input
-                        type="checkbox"
-                        checked={selectedUsers.includes(u.id)}
-                        onChange={() => toggleUser(u.id)}
-                        disabled={u.id === currentUser.id}
-                        className="accent-purple-600 w-4 h-4"
-                      />
-                    </label>
-                  ))
-                )}
-              </div>
             </div>
 
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+            {/* Selected Users */}
+            {selectedUsers.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-3">
+                {selectedUsers.map((id) => {
+                  const user = userList?.find((u) => u.id === id);
+                  return (
+                    <div
+                      key={id}
+                      className="flex items-center gap-1 px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full text-xs shadow-sm"
+                    >
+                      <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
+                        {user?.username?.charAt(0)}
+                      </div>
+                      {user?.username}
+                      {id !== currentUser.id && (
+                        <button
+                          onClick={() => toggleUser(id)}
+                          className="ml-1 text-indigo-700 hover:text-indigo-900 text-xs"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Search Users */}
+            <div className="mb-3 relative">
+              <FaSearch className="absolute left-2.5 top-2 text-gray-400 text-sm" />
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 px-3 py-1.5 border rounded-md border-gray-300 text-sm focus:ring-1 focus:ring-indigo-400 outline-none"
+              />
+            </div>
+
+            {/* User List */}
+            <div className="max-h-52 overflow-y-auto border rounded-lg p-2 bg-gray-50 space-y-1">
+              {filteredUsers.length === 0 ? (
+                <p className="text-center text-gray-500 py-2 text-xs">
+                  No users found.
+                </p>
+              ) : (
+                filteredUsers.map((u) => (
+                  <label
+                    key={u.id}
+                    className="flex items-center justify-between px-2 py-1 rounded hover:bg-gray-100 cursor-pointer text-sm transition"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-semibold">
+                        {u.username.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-gray-800 text-sm">
+                        {u.username}{" "}
+                        {u.id === currentUser.id && (
+                          <span className="text-indigo-600">(You)</span>
+                        )}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.includes(u.id)}
+                      onChange={() => toggleUser(u.id)}
+                      disabled={u.id === currentUser.id}
+                      className="accent-indigo-600 w-3 h-3"
+                    />
+                  </label>
+                ))
+              )}
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex gap-2 mt-4">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-200 transition"
+                className="flex-1 py-1.5 rounded-md bg-gray-300 text-gray-700 hover:bg-gray-400 text-sm transition"
               >
                 Cancel
               </button>
-
               <button
                 onClick={existingTeam ? handleUpdateTeam : handleCreateTeam}
                 disabled={loading}
-                className="px-5 py-2 rounded-lg text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-md font-medium transition"
+                className="flex-1 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 text-sm transition"
               >
                 {loading ? "Saving..." : "Save"}
               </button>

@@ -173,61 +173,60 @@ export default function Header({
     }
   };
 
- const renderMeetingButton = () => {
-  if (!selectedTeam || activeNav !== "Communities") return null;
+  const renderMeetingButton = () => {
+    if (!selectedTeam || activeNav !== "Communities") return null;
 
-  const buttonClass = hasJoinedMeeting
-    ? "bg-red-600 text-white hover:bg-red-700"
-    : activeMeeting
-    ? "bg-green-600 text-white hover:bg-green-700"
-    : "bg-gray-100 text-purple-600 hover:bg-purple-200";
+    const buttonClass = hasJoinedMeeting
+      ? "bg-red-600 text-white hover:bg-red-700"
+      : activeMeeting
+      ? "bg-green-600 text-white hover:bg-green-700"
+      : "bg-gray-100 text-purple-600 hover:bg-purple-200";
 
-  const iconColor = hasJoinedMeeting || activeMeeting ? "text-white" : "text-purple-600";
+    const iconColor =
+      hasJoinedMeeting || activeMeeting ? "text-white" : "text-purple-600";
 
-  const buttonText = isCreatingMeeting
-    ? "Creating..."
-    : hasJoinedMeeting
-    ? "Joined"
-    : activeMeeting
-    ? "Join Meeting"
-    : "Start Meeting";
+    const buttonText = isCreatingMeeting
+      ? "Creating..."
+      : hasJoinedMeeting
+      ? "Joined"
+      : activeMeeting
+      ? "Join Meeting"
+      : "Start Meeting";
 
-  return (
-    <button
-      className={`px-4 py-2 flex items-center gap-2 rounded-full shadow-md transition-all duration-300 disabled:opacity-50 disabled:cursor-wait ${buttonClass}`}
-      onClick={
-        hasJoinedMeeting
-          ? null
-          : activeMeeting
-          ? joinActiveMeeting
-          : startGroupCall
-      }
-      disabled={isCreatingMeeting || hasJoinedMeeting}
-    >
-      <FaVideo size={18} className={iconColor} />
-      <span className="text-sm font-medium">{buttonText}</span>
-    </button>
-  );
-};
-
+    return (
+      <button
+        className={`px-4 py-2 flex items-center gap-2 rounded-full shadow-md transition-all duration-300 disabled:opacity-50 disabled:cursor-wait ${buttonClass}`}
+        onClick={
+          hasJoinedMeeting
+            ? null
+            : activeMeeting
+            ? joinActiveMeeting
+            : startGroupCall
+        }
+        disabled={isCreatingMeeting || hasJoinedMeeting}
+      >
+        <FaVideo size={18} className={iconColor} />
+        <span className="text-sm font-medium">{buttonText}</span>
+      </button>
+    );
+  };
 
   // ----------------- Add Member Handler -----------------
- const handleOpenAddMember = () => {
-  if (!selectedTeam) return;
+  const handleOpenAddMember = () => {
+    if (!selectedTeam) return;
 
-  // Make sure members array exists
-  const membersWithRoles = selectedTeam.members?.map((m) => ({
-    user_id: m.user_id || m.id,
-    role: m.role || "member", // default to member if missing
-    username: m.username,
-    profile_image: m.profile_image,
-  })) || [];
+    // Make sure members array exists
+    const membersWithRoles =
+      selectedTeam.members?.map((m) => ({
+        user_id: m.user_id || m.id,
+        role: m.role || "member", // default to member if missing
+        username: m.username,
+        profile_image: m.profile_image,
+      })) || [];
 
-  setTeamToEdit({ ...selectedTeam, members: membersWithRoles });
-  setShowCreateTeamModal(true);
-};
-
-
+    setTeamToEdit({ ...selectedTeam, members: membersWithRoles });
+    setShowCreateTeamModal(true);
+  };
 
   const displayName =
     selectedTeam && activeNav === "Communities"
@@ -249,7 +248,7 @@ export default function Header({
       {/* Toaster for toast notifications */}
       <Toaster position="top-right" reverseOrder={false} />
 
-      <div className="flex items-center justify-between px-4 py-2 pt-[20px] bg-slate-200 shadow-md border-b border-gray-200">
+      <div className="flex items-center justify-between px-4 py-4  bg-slate-200 shadow-md border-b border-gray-200">
         {/* Left */}
         <div className="flex items-center gap-4 ml-[5px]">
           <img
@@ -257,10 +256,10 @@ export default function Header({
             alt="Logo"
             className="w-12 h-12 object-contain"
           />
-          <h2 className="font-bold text-gray-600 text-[15px]">{activeNav}</h2>
+          <h2 className="font-semibold text-gray-600 text-[18px] ml-3.5">{activeNav}</h2>
 
           {isChatVisible && (selectedTeam || selectedUser) && (
-            <div className="flex items-center gap-2 ml-[170px]">
+            <div className="flex items-center gap-2 ml-[220px]">
               {displayProfileImage ? (
                 <img
                   src={displayProfileImage}
@@ -268,11 +267,11 @@ export default function Header({
                   className="w-8 h-8 rounded-full object-cover border border-gray-300"
                 />
               ) : (
-                <div className="w-8 h-8 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold uppercase">
+                <div className="w-8 h-8    bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold uppercase  ">
                   {displayName?.[0] || "?"}
                 </div>
               )}
-              <span className="text-gray-600 font-medium text-[15px] truncate max-w-[120px]">
+              <span className="text-gray-600  font-medium text-[15px]  truncate max-w-[120px]">
                 {displayName}
               </span>
             </div>
@@ -286,13 +285,14 @@ export default function Header({
           {/* Members Dropdown */}
           {isChatVisible && selectedTeam && (
             <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setShowMembers((prev) => !prev)}
-                className="p-2 hover:bg-gray-100 rounded-full text-purple-600"
-                title="View Group Members"
-              >
-                <FaUsers size={18} />
-              </button>
+             <button
+  onClick={() => setShowMembers((prev) => !prev)}
+  className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm transform hover:scale-105"
+  title="View Group Members"
+>
+  <FaUsers size={18} />
+</button>
+
 
               {showMembers && (
                 <div className="absolute right-0 mt-3 w-64 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
@@ -416,7 +416,7 @@ export default function Header({
             <div className="relative" ref={searchRef}>
               <button
                 onClick={() => setShowSearch((prev) => !prev)}
-                                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm"
+                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm"
                 title="Search in Chat"
               >
                 <FaSearch />
@@ -447,25 +447,45 @@ export default function Header({
           )}
 
           {/* Profile Avatar */}
+          {/* Profile Avatar */}
           <div
-            className="flex flex-col items-center justify-center p-1 rounded-full cursor-pointer hover:bg-purple-100 transition-all duration-300 relative"
-            title={username}
+            className="relative group flex items-center justify-center p-1 rounded-full cursor-pointer hover:bg-white transition-all duration-300"
             onClick={() => setShowProfileModal((prev) => !prev)}
           >
-            {profileImage ? (
-              <img
-                src={profileImage}
-                alt="Profile"
-                className="h-8 w-8 rounded-full object-cover"
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold border-2 border-purple-500">
-                {username?.[0]?.toUpperCase() || "G"}
-              </div>
-            )}
-            <div className="text-black font-semibold text-xs mt-1">
-              {username}
+            {/* Avatar wrapper (important) */}
+            <div className="relative h-8 w-8">
+              {profileImage ? (
+                <img
+                  src={profileImage}
+                  alt="Profile"
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
+                  {username?.[0]?.toUpperCase() || "G"}
+                </div>
+              )}
+
+              {/* ✅ Online Badge INSIDE avatar */}
+              <span className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 border-2 border-white rounded-full flex items-center justify-center">
+                <svg
+                  className="h-2 w-2 text-white"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 011.414-1.414l2.793 2.793 6.793-6.793a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </span>
             </div>
+
+            {/* ✅ Tooltip */}
+            <span className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-xs bg-white text-gray-700 rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none   mt-19">
+              {username}
+            </span>
           </div>
         </div>
       </div>

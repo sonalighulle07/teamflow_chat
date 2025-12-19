@@ -1,11 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  FaCamera,
-  FaTrash,
-  FaSignOutAlt,
-  FaTimes,
-} from "react-icons/fa";
+import { FaCamera, FaTrash, FaSignOutAlt, FaTimes } from "react-icons/fa";
 import Register from "./Register";
 import { URL } from "../config";
 
@@ -23,7 +18,9 @@ export default function ProfileModal({
   const [preview, setPreview] = useState(() => {
     if (!user) return null;
     const stored = localStorage.getItem(`profileImage_${user.id}`);
-    return stored || (user.profile_image ? `${URL}${user.profile_image}` : null);
+    return (
+      stored || (user.profile_image ? `${URL}${user.profile_image}` : null)
+    );
   });
 
   useEffect(() => {
@@ -106,11 +103,9 @@ export default function ProfileModal({
       const data = await res.json();
 
       if (data.success) {
-        // Clear storage
         sessionStorage.clear();
         localStorage.clear();
 
-        // Clear Redux user & auth state
         if (window.store) {
           window.store.dispatch({ type: "user/setCurrentUser", payload: null });
           window.store.dispatch({
@@ -119,11 +114,9 @@ export default function ProfileModal({
           });
         }
 
-        // Reset preview image
         setPreview(null);
         setProfileImage?.(null);
 
-        // Redirect to login page
         navigate("/login");
         return;
       } else {
@@ -158,7 +151,8 @@ export default function ProfileModal({
         </button>
 
         <div className="flex flex-col items-center mt-3">
-          <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200">
+          {/* Avatar */}
+          <div className="relative w-22 h-22 rounded-full overflow-hidden border-2 border-gray-200">
             {preview ? (
               <img
                 src={preview}
@@ -170,8 +164,18 @@ export default function ProfileModal({
                 {user.username?.[0]?.toUpperCase() || ""}
               </div>
             )}
-            <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition">
-              <FaCamera size={14} />
+          </div>
+
+          {/* Name */}
+          <h2 className="mt-1 mb-2  text-lg font-semibold text-gray-700">
+            {user.full_name?.charAt(0).toUpperCase() + user.full_name?.slice(1)}
+          </h2>
+          {/* Camera + Trash buttons side by side (flat minimalist style) */}
+          <div className="mt-3 flex gap-3">
+            {/* Upload / Change Profile */}
+            <label className="flex items-center gap-1 px-3 py-1.5  cursor-pointer hover:bg-gray-100 transition   border border-gray-200 rounded-md">
+              <FaCamera size={14} className="text-gray-500" />
+              <span className="text-gray-500 text-sm font-medium">Upload</span>
               <input
                 type="file"
                 accept="image/*"
@@ -180,38 +184,38 @@ export default function ProfileModal({
                 disabled={loading}
               />
             </label>
+
+            {/* Remove / Trash */}
+            {preview && (
+              <button
+                onClick={handleRemoveImage}
+                disabled={loading}
+                className="flex items-center gap-1 px-3 py-1.5  hover:bg-gray-100 transition border border-gray-200 rounded-md"
+              >
+                <FaTrash size={14} className="text-gray-500" />
+                <span className="text-gray-500 text-sm font-medium">
+                  Remove
+                </span>
+              </button>
+            )}
           </div>
-          <h2 className="mt-3 text-lg font-semibold text-gray-800">
-            {user.full_name}
-          </h2>
-          {user.username && (
-            <p className="text-gray-500 text-sm">@{user.username}</p>
-          )}
         </div>
-
-        <div className="mt-4 flex flex-col gap-2">
-          <button
-            onClick={handleRemoveImage}
-            disabled={!preview || loading}
-            className="flex items-center justify-center gap-2 py-2 px-3 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FaTrash /> Remove Photo
-          </button>
-
+        {/* Action Buttons */}
+        <div className="mt-5 flex flex-col gap-2 ">
           <button
             onClick={onLogout}
             disabled={loading}
-            className="flex items-center justify-center gap-2 py-2 px-3 rounded-md bg-red-500 text-white hover:bg-red-600 transition"
+            className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition w-[200px] ml-6.5 text-sm"
           >
-            <FaSignOutAlt /> Sign Out
+            <FaSignOutAlt size={14} /> Sign Out
           </button>
 
           <button
             onClick={handleDeleteAccount}
             disabled={loading}
-            className="flex items-center justify-center gap-2 py-2 px-3 rounded-md bg-blue-400 text-white hover:bg-blue-600 transition"
+            className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition w-[200px] ml-6.5 mb-3 text-sm"
           >
-            <FaTrash /> Delete Account
+            <FaTrash size={14} /> Delete Account
           </button>
         </div>
       </div>
