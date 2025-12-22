@@ -88,47 +88,59 @@ export default function ProfileModal({
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (!window.confirm("This will delete your account permanently. Continue?"))
+const handleDeleteAccount = async () => {
+  if (!window.confirm("This will delete your account permanently. Continue?")) return;
+
+  setLoading(true);
+
+  try {
+    const token = sessionStorage.getItem("chatToken");
+    const res = await fetch(`${URL}/api/users/delete-account`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ userId: user.id }),
+    });
+
+    if (!res.ok) {
+      alert("You are not authorized. Please login again.");
+      navigate("/login");
       return;
-
-    setLoading(true);
-    try {
-      const res = await fetch(`${URL}/api/users/delete-account`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id }),
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        sessionStorage.clear();
-        localStorage.clear();
-
-        if (window.store) {
-          window.store.dispatch({ type: "user/setCurrentUser", payload: null });
-          window.store.dispatch({
-            type: "auth/setAuthenticated",
-            payload: false,
-          });
-        }
-
-        setPreview(null);
-        setProfileImage?.(null);
-
-        navigate("/login");
-        return;
-      } else {
-        alert(data.message || "Failed to delete account");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Error deleting account");
-    } finally {
-      setLoading(false);
     }
-  };
+
+    const data = await res.json();
+
+    if (data.success) {
+      // Clear storage
+      sessionStorage.clear();
+      localStorage.clear();
+
+      // Reset profile image and preview
+      setPreview(null);
+      setProfileImage?.(null);
+
+      // Update global store
+      if (window.store) {
+        window.store.dispatch({ type: "user/setCurrentUser", payload: null });
+        window.store.dispatch({ type: "auth/setAuthenticated", payload: false });
+      }
+
+      // Navigate to login immediately
+      navigate("/login");
+    } else {
+      alert(data.message || "Failed to delete account");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Error deleting account");
+  } finally {
+    setLoading(false);
+  }
+};
+  
+
 
   if (showRegister)
     return (

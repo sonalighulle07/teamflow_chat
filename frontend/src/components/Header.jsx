@@ -50,12 +50,20 @@ export default function Header({
   const isChatVisible = activeNav === "Chat" || activeNav === "Communities";
 
   // ----------------- Helper Functions -----------------
- function getInitials(name) {
-  if (!name) return "";
-  const parts = name.trim().split(" ").filter(Boolean);
-  const initials = parts.map((part) => part[0].toUpperCase()); // always uppercase
-  return initials.slice(0, 2).join(""); // first 2 letters
-}
+  function capitalizeWords(str) {
+    if (!str) return "";
+    return str
+      .split(" ")
+      .map((w) => w[0]?.toUpperCase() + w.slice(1))
+      .join(" ");
+  }
+
+  function getInitials(name) {
+    if (!name) return "";
+    const parts = name.trim().split(" ").filter(Boolean);
+    const initials = parts.map((part) => part[0].toUpperCase());
+    return initials.slice(0, 2).join("");
+  }
 
   function getDisplayName(user) {
     if (!user) return "";
@@ -69,14 +77,10 @@ export default function Header({
     activeUser?.first_name && activeUser?.last_name
       ? `${activeUser.first_name} ${activeUser.last_name}`
       : activeUser?.username || "Guest";
-  const username = fullName;
 
-  const displayName =
-    selectedTeam && activeNav === "Communities"
-      ? selectedTeam.name
-      : activeNav === "Chat"
-      ? getDisplayName(selectedUser)
-      : "Select a Chat";
+  const displayNameFormatted = capitalizeWords(
+    activeUser?.first_name || activeUser?.full_name || activeUser?.username || "Guest"
+  );
 
   const displayProfileImage =
     selectedUser && !selectedTeam && selectedUser.profile_image
@@ -84,15 +88,6 @@ export default function Header({
       : null;
 
   const canCall = selectedUser && !selectedTeam;
-function capitalizeWords(str) {
-  if (!str) return "";
-  return str
-    .split(" ")
-    .map((w) => w[0]?.toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-const displayNameFormatted = capitalizeWords(displayName || username);
 
   // ----------------- Click Outside Handler -----------------
   useEffect(() => {
@@ -264,184 +259,201 @@ const displayNameFormatted = capitalizeWords(displayName || username);
   };
 
   // ----------------- JSX -----------------
-  return (
-    <>
-      <Toaster position="top-right" reverseOrder={false} />
+return (
+  <>
+    <Toaster position="top-right" reverseOrder={false} />
 
-      <div className="flex items-center justify-between px-4 py-4 bg-slate-200 shadow-md border-b border-gray-200">
-        {/* Left */}
-        <div className="flex items-center gap-4 ml-[5px]">
-          <img
-            src="/logo - no background.png"
-            alt="Logo"
-            className="w-12 h-12 object-contain"
-          />
-          <h2 className="font-semibold text-gray-600 text-[18px] ml-3.5">
-            {activeNav}
-          </h2>
+    <div className="flex items-center justify-between px-4 py-4 bg-slate-200 shadow-md border-b border-gray-200">
+      {/* Left */}
+      <div className="flex items-center gap-4 ml-[5px]">
+        <img
+          src="/logo - no background.png"
+          alt="Logo"
+          className="w-12 h-12 object-contain"
+        />
+        <h2 className="font-semibold text-gray-600 text-[18px] ml-3.5">
+          {activeNav}
+        </h2>
 
-          {isChatVisible && (selectedTeam || selectedUser) && (
-            <div className="flex items-center gap-2 ml-[220px]">
-              {displayProfileImage ? (
-                <img
-                  src={displayProfileImage}
-                  alt={displayName}
-                  className="w-8 h-8 rounded-full object-cover border border-gray-300"
-                />
-              ) : (
-                <div className="w-8 h-8 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold uppercase">
-                 {getInitials(displayNameFormatted) || "?"}
-                </div>
-              )}
-              <span className="text-gray-600 font-medium text-[15px] truncate max-w-[120px]">
-                {displayNameFormatted}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Right */}
-        <div className="flex items-center gap-3">
-          {isChatVisible && renderMeetingButton()}
-
-          {/* Members Dropdown */}
-          {isChatVisible && selectedTeam && (
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setShowMembers((prev) => !prev)}
-                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm transform hover:scale-105"
-                title="View Group Members"
-              >
-                <FaUsers size={18} />
-              </button>
-
-              {showMembers && (
-                <div className="absolute right-0 mt-3 w-64 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
-                  <div className="bg-gradient-to-r from-purple-600 to-purple-500 text-white px-4 py-3 text-sm font-semibold flex items-center gap-2">
-                    <FaUsers size={14} />
-                    <span>{selectedTeam?.name} Members</span>
+        {isChatVisible && (selectedTeam || selectedUser) && (
+          <div className="flex items-center gap-2 ml-[220px]">
+            {/* Selected User Avatar & Name */}
+            {selectedUser ? (
+              <>
+                {selectedUser.profile_image ? (
+                  <img
+                    src={`${URL}${selectedUser.profile_image}`}
+                    alt={getDisplayName(selectedUser)}
+                    className="w-8 h-8 rounded-full object-cover border border-gray-300"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold uppercase">
+                    {getInitials(getDisplayName(selectedUser)) || "?"}
                   </div>
-                  <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
-                    {selectedTeamMembers?.length > 0 ? (
-                      selectedTeamMembers.map((member) => (
-                        <li
-                          key={member.user_id}
-                          className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-all"
-                        >
-                          <div className="flex items-center gap-3">
-                            {member.profile_image ? (
-                              <img
-                                src={`${URL}${member.profile_image}`}
-                                alt={member.username}
-                                className="w-9 h-9 rounded-full object-cover border border-gray-300 shadow-sm"
-                              />
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold uppercase shadow-sm">
-                                {getInitials(member.username) || "?"}
-                              </div>
-                            )}
-                            <span className="text-gray-900 text-sm font-semibold">
-                              {member.username}
-                            </span>
-                          </div>
-                          <div>
-                            {member.role === "owner" && (
-                              <FaCrown
-                                className="text-yellow-500"
-                                title="Owner"
-                                size={16}
-                              />
-                            )}
-                            {member.role === "admin" && (
-                              <FaShieldAlt
-                                className="text-purple-500"
-                                title="Admin"
-                                size={16}
-                              />
-                            )}
-                            {member.role === "member" && (
-                              <FaUser
-                                className="text-gray-400"
-                                title="Member"
-                                size={16}
-                              />
-                            )}
-                          </div>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-center text-gray-500 text-sm py-4">
-                        No members found
-                      </li>
-                    )}
-                  </ul>
+                )}
+                <span className="text-gray-600 font-medium text-[15px] truncate max-w-[120px]">
+                  {capitalizeWords(getDisplayName(selectedUser))}
+                </span>
+              </>
+            ) : selectedTeam ? (
+              <span className="text-gray-600 font-medium text-[15px] truncate">
+                {selectedTeam.name}
+              </span>
+            ) : null}
+          </div>
+        )}
+      </div>
 
-                  <button
-                    onClick={() => {
-                      setShowMembers(false);
-                      const myRole = selectedTeamMembers?.find(
-                        (m) => m.user_id === activeUser.id
-                      )?.role;
+      {/* Right */}
+      <div className="flex items-center gap-3">
+        {isChatVisible && renderMeetingButton()}
 
-                      if (myRole === "owner" || myRole === "admin") {
-                        handleOpenAddMember();
-                      } else {
-                        toast.custom((t) => (
-                          <div
-                            className={`${
-                              t.visible ? "animate-enter" : "animate-leave"
-                            } max-w-xs w-full bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2`}
-                          >
-                            <FaShieldAlt size={18} />
-                            <span className="text-sm font-medium">
-                              Only team admins can add members
-                            </span>
-                          </div>
-                        ));
-                      }
-                    }}
-                    className="w-full bg-purple-100 py-3 flex items-center justify-center gap-2 text-purple-700 font-semibold hover:bg-purple-200 border-t border-gray-100 transition-all"
-                  >
-                    <FaUserPlus size={16} />
-                    <span>Add / Remove Member</span>
-                  </button>
+        {/* Members Dropdown */}
+        {isChatVisible && selectedTeam && (
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowMembers((prev) => !prev)}
+              className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm transform hover:scale-105"
+              title="View Group Members"
+            >
+              <FaUsers size={18} />
+            </button>
+
+            {showMembers && (
+              <div className="absolute right-0 mt-3 w-64 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
+                <div className="bg-gradient-to-r from-purple-600 to-purple-500 text-white px-4 py-3 text-sm font-semibold flex items-center gap-2">
+                  <FaUsers size={14} />
+                  <span>{selectedTeam?.name} Members</span>
                 </div>
-              )}
-            </div>
-          )}
+                <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                  {selectedTeamMembers?.length > 0 ? (
+                    selectedTeamMembers.map((member) => (
+                      <li
+                        key={member.user_id}
+                        className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          {member.profile_image ? (
+                            <img
+                              src={`${URL}${member.profile_image}`}
+                              alt={member.username}
+                              className="w-9 h-9 rounded-full object-cover border border-gray-300 shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold uppercase shadow-sm">
+                              {getInitials(member.username) || "?"}
+                            </div>
+                          )}
+                          <span className="text-gray-900 text-sm font-semibold">
+                            {member.username}
+                          </span>
+                        </div>
+                        <div>
+                          {member.role === "owner" && (
+                            <FaCrown
+                              className="text-yellow-500"
+                              title="Owner"
+                              size={16}
+                            />
+                          )}
+                          {member.role === "admin" && (
+                            <FaShieldAlt
+                              className="text-purple-500"
+                              title="Admin"
+                              size={16}
+                            />
+                          )}
+                          {member.role === "member" && (
+                            <FaUser
+                              className="text-gray-400"
+                              title="Member"
+                              size={16}
+                            />
+                          )}
+                        </div>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-center text-gray-500 text-sm py-4">
+                      No members found
+                    </li>
+                  )}
+                </ul>
 
-          {/* Audio / Video Call Buttons */}
-          {isChatVisible && selectedUser && !selectedTeam && (
-            <>
-              <button
-                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm transform rotate-45"
-                title="Audio Call"
-                disabled={!canCall}
-                onClick={() => onStartCall("audio", selectedUser)}
-              >
-                <FaPhone style={{ transform: "rotate(45deg)" }} size={15} />
-              </button>
-              <button
-                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm"
-                title="Video Call"
-                disabled={!canCall}
-                onClick={() => onStartCall("video", selectedUser)}
-              >
-                <FaVideo />
-              </button>
-            </>
-          )}
+                <button
+                  onClick={() => {
+                    setShowMembers(false);
+                    const myRole = selectedTeamMembers?.find(
+                      (m) => m.user_id === activeUser.id
+                    )?.role;
 
-          {/* Search */}
-          {isChatVisible && (selectedUser || selectedTeam) && (
+                    if (myRole === "owner" || myRole === "admin") {
+                      handleOpenAddMember();
+                    } else {
+                      toast.custom((t) => (
+                        <div
+                          className={`${
+                            t.visible ? "animate-enter" : "animate-leave"
+                          } max-w-xs w-full bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2`}
+                        >
+                          <FaShieldAlt size={18} />
+                          <span className="text-sm font-medium">
+                            Only team admins can add members
+                          </span>
+                        </div>
+                      ));
+                    }
+                  }}
+                  className="w-full bg-purple-100 py-3 flex items-center justify-center gap-2 text-purple-700 font-semibold hover:bg-purple-200 border-t border-gray-100 transition-all"
+                >
+                  <FaUserPlus size={16} />
+                  <span>Add / Remove Member</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Audio / Video Call Buttons */}
+        {isChatVisible && selectedUser && !selectedTeam && (
+          <>
+            <button
+              className="p-2 hover:bg-gray-100 rounded-full text-[#735DD0] transition-all duration-200 shadow-sm transform rotate-45"
+              title="Audio Call"
+              disabled={!canCall}
+              onClick={() => onStartCall("audio", selectedUser)}
+            >
+              <FaPhone style={{ transform: "rotate(45deg)" }} size={15} />
+            </button>
+            <button
+              className="p-2 hover:bg-gray-100 rounded-full text-[#735DD0] transition-all duration-200 shadow-sm"
+              title="Video Call"
+              disabled={!canCall}
+              onClick={() => onStartCall("video", selectedUser)}
+            >
+              <FaVideo />
+            </button>
+          </>
+        )}
+
+        {/* Search */}
+        {isChatVisible && (selectedUser || selectedTeam) && (
             <div className="relative" ref={searchRef}>
               <button
-                onClick={() => setShowSearch((prev) => !prev)}
-                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm"
-                title="Search in Chat"
-              >
-                <FaSearch />
-              </button>
+  onClick={() => {
+    setShowSearch((prev) => {
+      if (prev) {
+        setSearchQuery(""); // 🔹 close hone par clear
+      }
+      return !prev;
+    });
+  }}
+  className="p-2 hover:bg-gray-100 rounded-full text-[#735DD0] transition-all duration-200 shadow-sm"
+  title="Search in Chat"
+>
+  <FaSearch />
+</button>
+
               {showSearch && (
                 <div className="absolute right-0 mt-2 w-72 bg-white/95 backdrop-blur-md border border-gray-200 rounded-2xl shadow-xl p-3 flex flex-col gap-2 z-50">
                   <label
@@ -467,75 +479,75 @@ const displayNameFormatted = capitalizeWords(displayName || username);
             </div>
           )}
 
-          {/* Profile Avatar */}
-          <div
-            className="relative group flex items-center justify-center p-1 rounded-full cursor-pointer hover:bg-white transition-all duration-300"
-            onClick={() => setShowProfileModal((prev) => !prev)}
-          >
-            <div className="relative h-8 w-8">
-              {profileImage ? (
-                <img
-                  src={profileImage}
-                  alt="Profile"
-                  className="h-8 w-8 rounded-full object-cover"
+        {/* Profile Avatar */}
+        <div
+          className="relative group flex items-center justify-center p-1 rounded-full cursor-pointer hover:bg-white transition-all duration-300"
+          onClick={() => setShowProfileModal((prev) => !prev)}
+        >
+          <div className="relative h-8 w-8">
+            {profileImage ? (
+              <img
+                src={profileImage}
+                alt="Profile"
+                className="h-8 w-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
+                {getInitials(displayNameFormatted) || "G"}
+              </div>
+            )}
+
+            <span className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 border-2 border-white rounded-full flex items-center justify-center">
+              <svg
+                className="h-2 w-2 text-white"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 011.414-1.414l2.793 2.793 6.793-6.793a1 1 0 011.414 0z"
+                  clipRule="evenodd"
                 />
-              ) : (
-               <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
-  {getInitials(displayNameFormatted) || "G"}
-</div>
-
-              )}
-              
-
-              <span className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 border-2 border-white rounded-full flex items-center justify-center">
-                <svg
-                  className="h-2 w-2 text-white"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 011.414-1.414l2.793 2.793 6.793-6.793a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </span>
-            </div>
-
-            <span className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-xs bg-white text-gray-700 rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none mt-19">
-             {displayNameFormatted}
+              </svg>
             </span>
           </div>
+
+          <span className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-xs bg-white text-gray-700 rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none mt-19">
+            {capitalizeWords(getDisplayName(activeUser)) || "Guest"}
+          </span>
         </div>
       </div>
+    </div>
 
-      {/* Profile Modal */}
-      {showProfileModal && activeUser && (
-        <ErrorBoundary>
-          <ProfileModal
-            user={activeUser}
-            onClose={() => setShowProfileModal(false)}
-            onLogout={logout}
-            setProfileImage={(img) => {
-              setProfileImage(img);
-              if (img)
-                localStorage.setItem(`profileImage_${activeUser.id}`, img);
-              else localStorage.removeItem(`profileImage_${activeUser.id}`);
-            }}
-          />
-        </ErrorBoundary>
-      )}
-
-      {/* Add / Remove Team Modal */}
-      {showCreateTeamModal && (
-        <CreateTeams
-          currentUser={activeUser}
-          showModal={showCreateTeamModal}
-          setShowModal={setShowCreateTeamModal}
-          socket={socket}
-          existingTeam={teamToEdit}
+    {/* Profile Modal */}
+    {showProfileModal && activeUser && (
+      <ErrorBoundary>
+        <ProfileModal
+          user={activeUser} // always logged-in user
+          onClose={() => setShowProfileModal(false)}
+          onLogout={logout}
+          setProfileImage={(img) => {
+            setProfileImage(img);
+            if (img)
+              localStorage.setItem(`profileImage_${activeUser.id}`, img);
+            else localStorage.removeItem(`profileImage_${activeUser.id}`);
+          }}
         />
-      )}
-    </>
-  );
+      </ErrorBoundary>
+    )}
+
+    {/* Add / Remove Team Modal */}
+    {showCreateTeamModal && (
+      <CreateTeams
+        currentUser={activeUser}
+        showModal={showCreateTeamModal}
+        setShowModal={setShowCreateTeamModal}
+        socket={socket}
+        existingTeam={teamToEdit}
+      />
+    )}
+  </>
+);
+
+
 }

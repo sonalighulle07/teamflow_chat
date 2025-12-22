@@ -66,9 +66,13 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       const lastMessagesObj = {};
-      res.data.forEach((msg) => {
-        lastMessagesObj[msg.user_id] = new Date(msg.last_message_at);
-      });
+    res.data.forEach((msg) => {
+  if (msg.last_message_at) {
+    lastMessagesObj[msg.user_id] = msg.last_message_at;
+  }
+});
+
+
       setLastMessages(lastMessagesObj);
     } catch (err) {
       console.error("Failed to fetch last messages", err);
@@ -210,8 +214,8 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
                 <div
                   className={`text-xl transition-colors ${
                     isActive
-                      ? "text-purple-500"
-                      : "text-gray-500 group-hover:text-purple-600"
+                      ? "text-[#816ed3]"
+                      : "text-gray-500 group-hover:text-[#816ed3]"
                   }`}
                 >
                   {icon}
@@ -219,8 +223,8 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
                 <span
                   className={`mt-1 text-xs font-semibold transition-colors ${
                     isActive
-                      ? "text-purple-600"
-                      : "text-gray-600 group-hover:text-purple-600"
+                      ? "text-[#816ed3]"
+                      : "text-gray-600 group-hover:text-[#816ed3]"
                   }`}
                 >
                   {label}

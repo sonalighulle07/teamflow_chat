@@ -88,6 +88,8 @@ export default function Message({
   const audioRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
   const didIReact = (emoji) => !!reactedEmojis[emoji]?.users?.[userId];
+  const [showHoverBar, setShowHoverBar] = useState(false);
+
 
   // ---- Initialize reactions state ----
   const [reactedEmojis, setReactedEmojis] = useState(() => {
@@ -219,18 +221,21 @@ export default function Message({
   }, [socket, message.id]);
 
   // ---- hover handlers ----
-  const handleMouseEnter = () => {
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    setHovered(true);
-  };
-  const handleMouseLeave = () => {
-    hoverTimeoutRef.current = setTimeout(() => {
-      setHovered(false);
-      setMenuOpen(false);
-      setShowEmojiPicker(false);
-      setMediaMenuOpen(false);
-    }, 120);
-  };
+const handleMouseEnter = () => {
+  setHovered(true); // show immediately
+  if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+
+  hoverTimeoutRef.current = setTimeout(() => {
+    setShowHoverBar(true);
+  }, 3000);
+};
+
+const handleMouseLeave = () => {
+  setHovered(false); // hide immediately
+  setShowHoverBar(false);
+  if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+};
+
   useEffect(
     () => () =>
       hoverTimeoutRef.current && clearTimeout(hoverTimeoutRef.current),
@@ -465,9 +470,9 @@ export default function Message({
     }, []);
 
     return (
-      <div className="absolute top-3 right-[5px]" ref={menuRef}>
+      <div className="absolute top-3 right-[3px] mb-2" ref={menuRef}>
         <button
-          className="p-1 text-gray-500 mr-[12px]  bg-white rounded-full hover:bg-purple-100 hover:text-purple-800 transition-all duration-150"
+          className="p-1 text-gray-500 mr-[12px]  mb-1.5 bg-white rounded-full hover:bg-gray-100 hover:text-purple-800 transition-all duration-150"
           onClick={(e) => {
             e.stopPropagation(); // prevent bubbling to parent
             setMediaMenuOpen((m) => !m);
@@ -692,7 +697,7 @@ export default function Message({
               href={fileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 p-2 text-black pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs hover:bg-purple-50 transition"
+              className="flex items-center gap-2 p-1 text-gray-700 pr-[38px] bg-white border rounded-xl shadow-sm max-w-xs hover:bg-purple-50 transition"
             >
               <span className="text-2xl">{fileIcon}</span>
               <span className="truncate">{fileName}</span>
@@ -705,34 +710,46 @@ export default function Message({
       // ---------------------- TEXT (DEFAULT) ----------------------
       default:
         return (
-          <div>
-            {message.forwarded_from && (
-              <span className="text-[12px] italic text-gray-300">
-                Forwarded
-              </span>
-            )}
+    <div>
+  {message.metadata?.type === "meeting-invite" ? (
+    <div className="mt-1">
+      {renderMeetingInvite(decryptedText, message.metadata)}
+    </div>
+  ) : (
+    <p className="break-words">
+      {highlightText(decryptedText || "")}
 
-            {message.metadata?.type === "meeting-invite" ? (
-              <div className="mt-1">
-                {renderMeetingInvite(decryptedText, message.metadata)}
-              </div>
-            ) : (
-              <p className="break-words">
-                {highlightText(decryptedText || "")}
-                {message.edited === 1 && (
-                  <span className="text-[12px] text-gray-300 ml-1">
-                    (Edited)
-                  </span>
-                )}
-              </p>
-            )}
-          </div>
+      {/* Forwarded label */}
+      {message.forwarded_from && (
+        <span
+          className={`text-[12px] ml-2 ${
+            isOwn ? "text-gray-200" : "text-gray-700"
+          }`}
+        >
+            (Forwarded)
+        </span>
+      )}
+
+      {/* Edited label */}
+      {message.edited === 1 && (
+        <span
+          className={`text-[12px] ml-2 ${
+            isOwn ? "text-gray-200" : "text-gray-700"
+          }`}
+        >
+            (Edited)
+        </span>
+      )}
+    </p>
+  )}
+</div>
+
         );
     }
   };
   const bubbleClasses = isOwn
-    ? "bg-purple-600 text-white self-end rounded-tr-none"
-    : "bg-gray-200 text-gray-900 self-start rounded-tl-none";
+    ? "bg-[#735DD0] text-white self-end rounded-tr-none"
+    : "bg-gray-100 text-gray-900 self-start rounded-tl-none";
   const getEmojiCount = (emoji) => {
     const data = reactedEmojis[emoji];
     if (!data) return 0;
@@ -741,288 +758,278 @@ export default function Message({
       : Object.keys(data.users || {}).length;
   };
 
-  return (
-    <div
-      className={`flex flex-col mb-3 max-w-[75%] relative pr-5 pl-6 ${
-        isOwn ? "items-end ml-auto" : "items-start mr-auto"
-      }`}
-    >
+ return (
+ <div
+  className={`flex flex-col mb-3 max-w-[75%] relative pr-8 pl-8 ${
+    isOwn ? "items-end ml-auto" : "items-start mr-auto"
+  }`}
+>
+  <div
+    className={`px-4 py-2 rounded-2xl text-[13px] shadow-md ${bubbleClasses} relative`}
+    onMouseEnter={handleMouseEnter}   // <-- moved here
+    onMouseLeave={handleMouseLeave}   // <-- moved here
+  >
+    {renderContent()}
+
+    {/* Hovered time like Microsoft Teams */}
+    {hovered && (
       <div
-        className={`px-4 py-2 rounded-2xl text-[15px] shadow-md ${bubbleClasses} relative`}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        className={`absolute top-1/2 transform -translate-y-1/2 text-xs text-gray-400 select-none ${
+          isOwn ? "right-full mr-2" : "left-full ml-2"
+        }`}
       >
-        {renderContent()}
-
-        {hovered && (
-          <div
-            className={`absolute -top-8 ${
-              isOwn ? "right-2" : "left-2"
-            } flex items-center gap-1.5 bg-white/90 backdrop-blur-md rounded-full shadow-md px-2 py-1 z-20 border border-gray-200 transition-all duration-200`}
-          >
-            {/* Quick Emojis (smaller size) */}
-            {["👍", "❤️", "😆", "😮", "😂"].map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => toggleReaction(emoji)}
-                className={`relative px-1.5 py-0.5 text-base flex items-center justify-center rounded-full transition-all duration-200 hover:scale-110 ${
-                  didIReact(emoji)
-                    ? "bg-gradient-to-r from-gray-200 to-gray-400 text-white"
-                    : "bg-transparent text-gray-400 hover:bg-purple-100"
-                }`}
-                title={`React ${emoji}`}
-              >
-                <span>{emoji}</span>
-                {getEmojiCount(emoji) > 0 && (
-                  <span className="absolute -top-2 -right-1 text-[9px] bg-white text-gray-700 px-1 rounded-full shadow-sm">
-                    {getEmojiCount(emoji)}
-                  </span>
-                )}
-              </button>
-            ))}
-
-            {/* Emoji Picker */}
-            <div className="relative">
-              <button
-                className="p-1 text-gray-500 hover:bg-gray-100 rounded-full transition-all duration-200 relative"
-                onClick={() => setShowEmojiPicker((s) => !s)}
-                title="Add emoji"
-              >
-                <FaRegSmile className="text-gray-500 text-lg" />
-              </button>
-              {showEmojiPicker && (
-                <div className="absolute top-8 right-0 z-30 transform scale-90 origin-top-right transition-all duration-200">
-                  <div className="rounded-xl shadow-lg border border-gray-200 bg-white/95 backdrop-blur-md">
-                    <EmojiPicker
-                      onEmojiClick={handlePickerEmoji}
-                      theme="light"
-                      width={300}
-                      height={380}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Options Menu */}
-            <div className="relative">
-              <button
-                className="p-1 text-gray-600 hover:bg-purple-100 rounded-full transition-all duration-200"
-                onClick={() => setMenuOpen((m) => !m)}
-                title="Options"
-              >
-                <FaEllipsisV className="text-purple-600 text-sm" />
-              </button>
-
-              {menuOpen && (
-                <div className="absolute right-0 top-8 w-36 bg-white/95 backdrop-blur-md border border-gray-200 rounded-lg shadow-xl z-40 animate-fadeIn transition-all duration-200">
-                  <div className="flex flex-col divide-y divide-gray-100 text-sm">
-                    {isOwn &&
-                      ["text", "image", "video", "audio", "file"].includes(
-                        message.type
-                      ) && (
-                        <button
-                          onClick={() => {
-                            setEditingMessage(message);
-                            setEditedText(message.text || "");
-                            setEditPreview(
-                              message.file_url
-                                ? getFileUrl(safeDecrypt(message.file_url))
-                                : null
-                            );
-                            setIsEditing(true);
-                          }}
-                          className="flex items-center gap-2 px-3 py-1.5 text-purple-600 hover:bg-purple-50 transition-all duration-150"
-                        >
-                          ✏️ Edit
-                        </button>
-                      )}
-                    {isOwn && (
-                      <button
-                        className="flex items-center gap-2 px-3 py-1.5 text-red-600 hover:bg-red-50 transition-all duration-150"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete?.(message.id); // ✅ use the prop function
-                          setMenuOpen(false);
-                        }}
-                      >
-                        🗑️ <span>Delete</span>
-                      </button>
-                    )}
-
-                    <button
-                      className="flex items-center gap-2 px-3 py-1.5 text-blue-600 hover:bg-blue-50 transition-all duration-150"
-                      onClick={() => {
-                        onForward?.(message);
-                        setMenuOpen(false);
-                      }}
-                    >
-                      🔄 <span>Forward</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+        {new Date(message.created_at || message.timestamp).toLocaleTimeString(
+          [],
+          { hour: "2-digit", minute: "2-digit" }
         )}
       </div>
-      {/* Reactions below bubble */}
-      <div className="mt-1">
-        {Object.keys(reactedEmojis).length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {Object.entries(reactedEmojis).map(([emoji, data]) =>
-              data.count > 0 ? (
-                <button
-                  key={emoji}
-                  onClick={() => toggleReaction(emoji)}
-                  className={`
-  px-2 py-1 rounded-full text-sm flex items-center gap-1
-  ${
+    )}
+
+    {/* Quick Emojis and Options Menu */}
+    {hovered && (
+      <div
+        className={`absolute -top-8 ${
+          isOwn ? "right-2" : "left-2"
+        } flex items-center gap-1 bg-white/90 backdrop-blur-md rounded-[10px] shadow-md px-2 py-0.5 z-20 border border-gray-200 transition-all duration-200`}
+      >
+        {/* Quick Emojis */}
+        {["👍", "❤️", "😆", "😮", "😂"].map((emoji) => (
+         <button
+  key={emoji}
+  onClick={() => toggleReaction(emoji)}
+  className={`relative px-1.5 py-0.5 text-base flex items-center justify-center rounded-full transition-all duration-200 hover:scale-110 ${
     didIReact(emoji)
-      ? "bg-gray-100 text-gray-600 hover:bg-gray-300" // active
-      : "bg-gray-100 text-gray-700 hover:bg-purple-200"
-  }  // inactive hover
+      ? "bg-gray-200 text-white" // plain solid color
+      : "bg-transparent text-gray-400 hover:bg-gray-100"
+  }`}
+  title={`React ${emoji}`}
+>
+  <span>{emoji}</span>
+  {getEmojiCount(emoji) > 0 && (
+    <span className="absolute -top-2 -right-1 text-[9px] bg-white text-gray-700 px-1 rounded-full shadow-sm">
+      {getEmojiCount(emoji)}
+    </span>
+  )}
+</button>
 
-        }`}
-                >
-                  <span>{emoji}</span> {data.count}
-                </button>
-              ) : null
-            )}
-          </div>
-        )}
-      </div>
-      <div
-        className={`flex items-center gap-2 text-xs text-gray-400 mt-1 ${
-          isOwn ? "self-end" : "self-start"
-        }`}
-      >
-        {!isOwn && message.username && (
-          <span className="font-medium text-gray-600">{message.username}</span>
-        )}
+        ))}
 
-        <span>
-          {new Date(message.created_at || message.timestamp).toLocaleTimeString(
-            [],
-            { hour: "2-digit", minute: "2-digit" }
-          )}
-        </span>
-      </div>
-
-      {/* Editing UI */}
-      {isEditing && (
-        <div
-          style={{
-            top: messagePosition?.top || "50%",
-            left: messagePosition?.left || "10px", // fallback to left side
-          }}
-          className="transform -translate-y-full w-72 bg-white border border-gray-300 rounded-2xl shadow-xl p-4 z-50 animate-slide-up transition-all duration-200 mr-32 "
-        >
-          {/* Text input for text messages */}
-          {editingMessage?.type === "text" && (
-            <textarea
-              value={editedText}
-              onChange={(e) => setEditedText(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl p-2 text-sm  h-[40px] resize-none shadow-inner focus:outline-none focus:ring-2 focus:ring-purple-300"
-              rows={3}
-              placeholder="Edit your message..."
-            />
-          )}
-
-          {/* Media preview */}
-          {editingMessage?.type !== "text" && (
-            <div className="relative mb-3">
-              {/* Current media name */}
-              {editPreview && (
-                <div className="flex items-center justify-between bg-gray-100 rounded-xl p-2 mb-2 text-sm shadow-sm">
-                  <span className="truncate">
-                    {editPreview.split("/").pop()}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setEditPreview(null);
-                      setEditFile(null);
-                    }}
-                    className="text-white bg-red-500 rounded-full px-1 py-0.5 text-xs hover:bg-red-600 transition"
-                    title="Remove Media"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
-
-              {/* Media preview thumbnails */}
-              {editPreview && editPreview.match(/\.(jpg|jpeg|png|gif)$/i) && (
-                <img
-                  src={editPreview}
-                  className="w-40 rounded-lg mb-2 shadow-md border border-gray-200"
+        {/* Emoji Picker */}
+        <div className="relative">
+          <button
+            className="p-1 text-gray-500 hover:bg-gray-100 rounded-full transition-all duration-200 relative"
+            onClick={() => setShowEmojiPicker((s) => !s)}
+            title="Add emoji"
+          >
+            <FaRegSmile className="text-gray-500 text-lg" />
+          </button>
+          {showEmojiPicker && (
+            <div className="absolute top-8 right-0 z-30 transform scale-90 origin-top-right transition-all duration-200">
+              <div className="rounded-xl shadow-lg border border-gray-200 bg-white/95 backdrop-blur-md">
+                <EmojiPicker
+                  onEmojiClick={handlePickerEmoji}
+                  theme="light"
+                  width={300}
+                  height={380}
                 />
-              )}
-              {editPreview && editPreview.match(/\.(mp4|webm|mov)$/i) && (
-                <video
-                  src={editPreview}
-                  controls
-                  className="w-44 rounded-lg mb-2 shadow-md border border-gray-200"
-                />
-              )}
-              {editPreview && editPreview.match(/\.(mp3|wav|ogg)$/i) && (
-                <audio
-                  src={editPreview}
-                  controls
-                  className="w-full mt-1 mb-2"
-                />
-              )}
-
-              {/* Add/Replace media */}
-              <label className="flex items-center gap-2 cursor-pointer text-purple-600 text-sm hover:underline">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828V16a2 2 0 11-4 0v-8a2 2 0 114 0v.172z"
-                  />
-                </svg>
-                {editPreview ? "Replace Media" : "Add Media"}
-                <input
-                  type="file"
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file && file instanceof File) {
-                      setEditFile(file);
-                      setEditPreview(URL.createObjectURL(file));
-                    }
-                  }}
-                />
-              </label>
+              </div>
             </div>
           )}
-
-          {/* Buttons */}
-          <div className="flex justify-end gap-3 mt-3">
-            <button
-              onClick={() => setIsEditing(false)}
-              className="px-3 py-1 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveMedia}
-              className="px-3 py-1 rounded-xl bg-purple-600 text-white hover:bg-purple-700 text-sm transition"
-            >
-              Save
-            </button>
-          </div>
         </div>
-      )}
-    </div>
-  );
+
+        {/* Options Menu */}
+        <div className="relative">
+          <button
+            className="p-1 text-gray-600 hover:bg-purple-100 rounded-full transition-all duration-200"
+            onClick={() => setMenuOpen((m) => !m)}
+            title="Options"
+          >
+            <FaEllipsisV className="text-gray-500 text-sm" />
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-8 w-36 bg-white/95 backdrop-blur-md border border-gray-200 rounded-lg shadow-xl z-40 animate-fadeIn transition-all duration-200">
+              <div className="flex flex-col divide-y divide-gray-100 text-sm">
+                {isOwn &&
+                  ["text", "image", "video", "audio", "file"].includes(
+                    message.type
+                  ) && (
+                    <button
+                      onClick={() => {
+                        setEditingMessage(message);
+                        setEditedText(message.text || "");
+                        setEditPreview(
+                          message.file_url
+                            ? getFileUrl(safeDecrypt(message.file_url))
+                            : null
+                        );
+                        setIsEditing(true);
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 text-purple-600 hover:bg-purple-50 transition-all duration-150"
+                    >
+                      ✏️ Edit
+                    </button>
+                  )}
+                {isOwn && (
+                  <button
+                    className="flex items-center gap-2 px-3 py-1.5 text-red-600 hover:bg-red-50 transition-all duration-150"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete?.(message.id);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    🗑️ <span>Delete</span>
+                  </button>
+                )}
+
+                <button
+                  className="flex items-center gap-2 px-3 py-1.5 text-blue-600 hover:bg-blue-50 transition-all duration-150"
+                  onClick={() => {
+                    onForward?.(message);
+                    setMenuOpen(false);
+                  }}
+                >
+                  🔄 <span>Forward</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* Reactions below bubble */}
+  <div className="mt-1">
+    {Object.keys(reactedEmojis).length > 0 && (
+      <div className="flex flex-wrap gap-1 mt-0.5">
+        {Object.entries(reactedEmojis).map(([emoji, data]) =>
+          data.count > 0 ? (
+            <button
+              key={emoji}
+              onClick={() => toggleReaction(emoji)}
+              className={`
+px-2 py-1 rounded-full text-sm flex items-center 
+${
+  didIReact(emoji)
+    ? "bg-white text-gray-400 border border-gray-200"
+    : "bg-white text-gray-400 border border-[#c8bfef]"
+}`}
+            >
+              <span>{emoji}</span> {data.count}
+            </button>
+          ) : null
+        )}
+      </div>
+    )}
+  </div>
+
+  {/* Editing UI */}
+  {isEditing && (
+    <div
+      style={{
+        top: messagePosition?.top || "50%",
+        left: messagePosition?.left || "10px",
+      }}
+      className="transform -translate-y-full w-72 bg-white border border-gray-300 rounded-2xl shadow-xl p-4 z-50 animate-slide-up transition-all duration-200 mr-32"
+    >
+        {/* Text input for text messages */}
+        {editingMessage?.type === "text" && (
+          <textarea
+            value={editedText}
+            onChange={(e) => setEditedText(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl p-2 text-sm h-[40px] resize-none shadow-inner focus:outline-none focus:ring-2 focus:ring-purple-300"
+            rows={3}
+            placeholder="Edit your message..."
+          />
+        )}
+
+        {/* Media preview */}
+        {editingMessage?.type !== "text" && (
+          <div className="relative mb-3">
+            {editPreview && (
+              <div className="flex items-center justify-between bg-gray-100 rounded-xl p-2 mb-2 text-sm shadow-sm">
+                <span className="truncate">{editPreview.split("/").pop()}</span>
+                <button
+                  onClick={() => {
+                    setEditPreview(null);
+                    setEditFile(null);
+                  }}
+                  className="text-white bg-red-500 rounded-full px-1 py-0.5 text-xs hover:bg-red-600 transition"
+                  title="Remove Media"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {editPreview && editPreview.match(/\.(jpg|jpeg|png|gif)$/i) && (
+              <img
+                src={editPreview}
+                className="w-40 rounded-lg mb-2 shadow-md border border-gray-200"
+              />
+            )}
+            {editPreview && editPreview.match(/\.(mp4|webm|mov)$/i) && (
+              <video
+                src={editPreview}
+                controls
+                className="w-44 rounded-lg mb-2 shadow-md border border-gray-200"
+              />
+            )}
+            {editPreview && editPreview.match(/\.(mp3|wav|ogg)$/i) && (
+              <audio src={editPreview} controls className="w-full mt-1 mb-2" />
+            )}
+
+            <label className="flex items-center gap-2 cursor-pointer text-purple-600 text-sm hover:underline">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828V16a2 2 0 11-4 0v-8a2 2 0 114 0v.172z"
+                />
+              </svg>
+              {editPreview ? "Replace Media" : "Add Media"}
+              <input
+                type="file"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && file instanceof File) {
+                    setEditFile(file);
+                    setEditPreview(URL.createObjectURL(file));
+                  }
+                }}
+              />
+            </label>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 mt-3">
+          <button
+            onClick={() => setIsEditing(false)}
+            className="px-3 py-1 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveMedia}
+            className="px-3 py-1 rounded-xl bg-purple-600 text-white hover:bg-purple-700 text-sm transition"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+);
+
 }

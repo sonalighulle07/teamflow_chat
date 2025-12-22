@@ -459,7 +459,7 @@ const handleFileChange = (e) => {
 
       {/* Messages */}
       <div
-        className="flex-1 p-4 bg-gray-50 border border-gray-300 rounded-lg shadow-md pb-2.5 overflow-y-auto"
+        className="flex-1 p-4 bg-white border border-gray-300 rounded-lg shadow-md pb-2.5 overflow-y-auto"
         style={{ maxHeight: "calc(100vh - 200px)" }} // adjust according to your layout
       >
         {selectedTeam ? (

@@ -299,7 +299,7 @@ export default function ChatWindow({
   return (
     <div className="flex-1 flex flex-col h-full relative">
       {/* Chat messages */}
-      <div className="flex-1 p-4 bg-gray-50 overflow-y-auto border border-gray-300 rounded-lg ">
+      <div className="flex-1 p-4 bg-white overflow-y-auto border border-gray-300 rounded-lg ">
         {selectedUser || selectedTeam ? (
           (searchQuery ? filteredMessages : messages).length > 0 ? (
             (searchQuery ? filteredMessages : messages).map((msg, index) => {

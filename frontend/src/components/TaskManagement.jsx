@@ -139,7 +139,7 @@ export default function TaskManagement() {
         <div className="fixed inset-0 bg-black/40 flex justify-center items-start pt-24 z-50">
           <div className="bg-white rounded-xl shadow-lg w-full max-w-[450px] p-8 border border-gray-100">
             {/* Header */}
-            <h2 className="text-base text-center font-semibold text-gray-700 mb-6">
+            <h2 className="text-[20px] text-center font-semibold text-gray-700 mb-6">
               {editingId ? "Update Task" : "Add Task"}
             </h2>
 
@@ -155,7 +155,7 @@ export default function TaskManagement() {
                   value={form.title}
                   onChange={handleChange}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md
-              placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500 outline-none"
+              placeholder:text-gray-900 focus:ring-1  focus:ring-indigo-400 outline-none"
                   required
                 />
               </div>
@@ -165,24 +165,27 @@ export default function TaskManagement() {
                 <label className="block text-sm text-gray-600 font-medium mb-1">
                   Assign User
                 </label>
-                <select
-                  name="assigned_to"
-                  value={form.assigned_to}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-md
-              focus:ring-2 focus:ring-indigo-500 outline-none
-              ${
-                !form.assigned_to ? "text-gray-400 bg-gray-50" : "text-gray-700"
-              }`}
-                  required
-                >
-                  <option value="">Select user</option>
-                  {userList.map((u) => (
-                    <option key={u.id} value={u.id} className="text-gray-700">
-                      {u.username}
-                    </option>
-                  ))}
-                </select>
+              <select
+  name="assigned_to"
+  value={form.assigned_to}
+  onChange={handleChange}
+  className="w-full px-3 py-2  text-sm border border-gray-300 rounded-md
+             focus:ring-1 focus:ring-indigo-400 outline-none
+             bg-white
+             hover:bg-gray-50"
+>
+  <option value="">Select user</option>
+  {userList.map((u) => (
+    <option
+      key={u.id}
+      value={u.id}
+      className="hover:bg-gray-200"
+    >
+      {u.username}
+    </option>
+  ))}
+</select>
+
               </div>
 
               {/* Due Date */}
@@ -196,7 +199,7 @@ export default function TaskManagement() {
                   value={form.due_date}
                   onChange={handleChange}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md
-              focus:ring-2 focus:ring-indigo-500 outline-none"
+             focus:ring-1 focus:ring-indigo-400 outline-none"
                 />
               </div>
 
@@ -210,7 +213,7 @@ export default function TaskManagement() {
                   value={form.status}
                   onChange={handleChange}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md
-              focus:ring-2 focus:ring-indigo-500 outline-none"
+              focus:ring-1 focus:ring-indigo-400 outline-none"
                 >
                   <option>Pending</option>
                   <option>In Progress</option>
@@ -220,16 +223,14 @@ export default function TaskManagement() {
 
               {/* Buttons */}
               <div className="flex gap-3 pt-4">
-                
-
                 <button
                   type="submit"
-className="flex-1 py-2 text-sm font-medium rounded-md
+                  className="flex-1 py-2 text-sm font-medium rounded-md
   bg-[rgb(106,109,213)] hover:bg-[rgb(93,96,194)]
   text-white transition"
->
-  {editingId ? "Update" : "Save"}
-</button>
+                >
+                  {editingId ? "Update" : "Save"}
+                </button>
 
                 <button
                   type="button"

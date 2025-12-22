@@ -60,16 +60,14 @@ function capitalizeName(name) {
 }
 
 // Only format date if lastMessage exists (day-month only)
-const lastMessageDate = lastMessage
-  ? new Date(lastMessage).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short", // change to "short" to get Jan, Feb, Mar...
-    })
-  : null;
-
-
-
-
+const lastMessageDate =
+  lastMessage && !isNaN(new Date(lastMessage).getTime())
+    ? new Date(lastMessage).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+      })
+    : null;
+    
     return (
       <li
         ref={ref}
@@ -125,13 +123,12 @@ const lastMessageDate = lastMessage
 
           {/* Avatar */}
           <div
-  className={`w-full h-full rounded-full flex items-center justify-center text-white font-semibold overflow-hidden
-    ${isSelected
-      ? "bg-gradient-to-r from-purple-700 to-purple-500 text-[14px]"
-      : item.type === "user"
-      ? "bg-gradient-to-r from-purple-700 to-purple-500 text-[14px]"
-      : "bg-purple-600"
-    }`}
+className={`w-full h-full rounded-full flex items-center justify-center text-white font-semibold overflow-hidden
+  ${isSelected || item.type === "user"
+    ? "bg-[#735DD0] text-[14px]"
+    : "bg-[#735DD0]"
+  }`}
+
 >
 
             {item.type === "user" && item.profile_image ? (
@@ -199,18 +196,19 @@ export default function UserList({
 
   return allItems.sort((a, b) => {
     const aTime = lastMessages[a.id]
-      ? new Date(lastMessages[a.id]).getTime()
-      : a.created_at
-      ? new Date(a.created_at).getTime()
-      : 0;
+  ? new Date(lastMessages[a.id]).getTime()
+  : null;
 
-    const bTime = lastMessages[b.id]
-      ? new Date(lastMessages[b.id]).getTime()
-      : b.created_at
-      ? new Date(b.created_at).getTime()
-      : 0;
+const bTime = lastMessages[b.id]
+  ? new Date(lastMessages[b.id]).getTime()
+  : null;
 
-    return bTime - aTime; // newest first
+if (aTime === null && bTime === null) return 0;
+if (aTime === null) return 1;   // a neeche
+if (bTime === null) return -1;  // b neeche
+
+return bTime - aTime;
+
   });
 }, [users, teams, lastMessages, currentUser]);
 
