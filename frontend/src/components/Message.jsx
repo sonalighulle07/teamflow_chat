@@ -778,10 +778,12 @@ const handleMouseLeave = () => {
           isOwn ? "right-full mr-2" : "left-full ml-2"
         }`}
       >
-        {new Date(message.created_at || message.timestamp).toLocaleTimeString(
-          [],
-          { hour: "2-digit", minute: "2-digit" }
-        )}
+        {new Date(message.created_at || message.timestamp).toLocaleTimeString([], {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false, // ✅ 24-hour format
+})}
+
       </div>
     )}
 
@@ -789,7 +791,7 @@ const handleMouseLeave = () => {
     {hovered && (
       <div
         className={`absolute -top-8 ${
-          isOwn ? "right-2" : "left-2"
+          isOwn ? "right-0" : "left-0"
         } flex items-center gap-1 bg-white/90 backdrop-blur-md rounded-[10px] shadow-md px-2 py-0.5 z-20 border border-gray-200 transition-all duration-200`}
       >
         {/* Quick Emojis */}
@@ -910,11 +912,11 @@ const handleMouseLeave = () => {
               key={emoji}
               onClick={() => toggleReaction(emoji)}
               className={`
-px-2 py-1 rounded-full text-sm flex items-center 
+px-1.5 py-1 rounded-full text-[12px] flex items-center 
 ${
   didIReact(emoji)
-    ? "bg-white text-gray-400 border border-gray-200"
-    : "bg-white text-gray-400 border border-[#c8bfef]"
+    ? "bg-white text-gray-500 border border-gray-200"
+    : "bg-white text-gray-500 border border-[#c8bfef]"
 }`}
             >
               <span>{emoji}</span> {data.count}
@@ -1022,7 +1024,7 @@ ${
           </button>
           <button
             onClick={handleSaveMedia}
-            className="px-3 py-1 rounded-xl bg-purple-600 text-white hover:bg-purple-700 text-sm transition"
+            className="px-3 py-1 rounded-xl bg-bg-[#735DD0] text-white hover:bg-[#735DD0] text-sm transition"
           >
             Save
           </button>

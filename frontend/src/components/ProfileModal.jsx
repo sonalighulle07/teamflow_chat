@@ -217,7 +217,7 @@ const handleDeleteAccount = async () => {
           <button
             onClick={onLogout}
             disabled={loading}
-            className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition w-[200px] ml-6.5 text-sm"
+            className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-md bg-[#7965d4] text-white hover:bg-gray-300 transition w-[200px] ml-6.5 text-sm"
           >
             <FaSignOutAlt size={14} /> Sign Out
           </button>

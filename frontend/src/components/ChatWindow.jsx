@@ -341,7 +341,7 @@ export default function ChatWindow({
             </div>
           )
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400">
+          <div className="flex-1 flex items-center justify-center text-gray-400 text-[13px]">
             Select a user or team to start chatting
           </div>
         )}
@@ -420,8 +420,8 @@ export default function ChatWindow({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyPress}
             disabled={!selectedUser && !selectedTeam}
-            className="flex-1 bg-transparent px-3 py-1 border-0 border-b-2 border-transparent focus:outline-none focus:ring-0 placeholder-gray-400
-  focus:border-transparent focus:bg-gradient-to-r focus:from-purple-400 focus:to-purple-600 focus:[background-position:0_100%] focus:[background-size:100%_2px] focus:[background-repeat:no-repeat] rounded-full"
+            className="flex-1 bg-transparent px-3 py-1 border-0 border-b-1 border-transparent focus:outline-none focus:ring-0 placeholder-gray-400
+  focus:border-transparent focus:bg-gradient-to-r focus:from-[#7d6ad2] focus:to-[#735DD0] focus:[background-position:0_100%] focus:[background-size:100%_2px] focus:[background-repeat:no-repeat] rounded-full"
           />
 
           {/* Emoji Picker */}
