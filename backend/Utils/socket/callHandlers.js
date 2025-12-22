@@ -90,6 +90,7 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
   }
  
   function joinCallRoom(callId, userId, username) {
+    console.log("##################Join call room for:",callId,userId,username+"########################");
 
     const call = activeCalls.get(callId);
     if (!call) {
@@ -106,12 +107,25 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
  
     // ensure socket is in call room (so broadcast to callId reaches them)
     socket.join(callId);
-
-
-    console.log("******************************************************************************************Setting inCall status for: ",username)
-
     User.setInCallStatus(userId);
 
+        socket.callId = callId;
+ 
+    io.to(callId).emit("call-invite-joined", { userId, username, callId });
+ 
+    const participantsArray = Array.from(call.participants.values()).map((p) => ({
+      userId: p.userId,
+      username: p.username,
+      socketId: p.socketId,
+      joinedAt: p.joinedAt,
+    }));
+ 
+    socket.to(callId).emit("participant-joined", {
+      newUser: { userId: String(userId), username },
+      callId,
+      participants: participantsArray,
+    });
+ 
     log(`User ${userId} joined ${callId} (socket ${socket.id})`);
   }
  
@@ -166,22 +180,7 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
       }
     }
   );
- 
-  socket.on("answerCall", ({ to, answer, from, fromUsername, callId } = {}) => {
-    if (callId) {
-      // when callee answers, join them into the call room
-      joinCallRoom(callId, from, fromUsername);
-      socket.callId = callId;
-    }
- 
-    log("Call Room has : ", activeCalls.get(callId));
- 
-    // relay the answer to the peer (use mapping)
-    const payload = { answer, from: String(from), fromUsername, callId };
-    ringUser(to, "callAccepted", payload);
- 
-    log(`answerCall from ${from} relayed to ${to} (callId=${callId})`);
-  });
+
  
   socket.on("cancelCall", ({ to, from, fromUsername, callId } = {}) => {
     const payload = { from: String(from), fromUsername, callId };
@@ -318,6 +317,25 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
       log("call-add-user → ringing", addedUserId, "in", callId);
     }
   );
+
+
+   
+  socket.on("answerCall", ({ to, answer, from, fromUsername, callId } = {}) => {
+    if (callId) {
+      
+      // when callee answers, join them into the call room
+      joinCallRoom(callId, from, fromUsername);
+      socket.callId = callId;
+    }
+ 
+    log("Call Room has : ", activeCalls.get(callId));
+ 
+    // relay the answer to the peer (use mapping)
+    const payload = { answer, from: String(from), fromUsername, callId };
+    ringUser(to, "callAccepted", payload);
+ 
+    log(`answerCall from ${from} relayed to ${to} (callId=${callId})`);
+  });
  
   socket.on("call-invite-joined", ({ userId, username, callId } = {}) => {
     if (!callId || !userId) {
@@ -325,36 +343,39 @@ module.exports = function callHandlers(io, socket, connectedSockets) {
       return;
     }
  
-    const call = activeCalls.get(callId);
-    if (!call) {
-      log("call-invite-joined: call not found", callId);
-      return;
-    }
+    // console.log("***********************************answerCall with callId:",username,callId+"******************************************")
+    // const call = activeCalls.get(callId);
+    // if (!call) {
+    //   log("call-invite-joined: call not found", callId);
+    //   return;
+    // }
  
-    call.participants.set(String(userId), {
-      userId: String(userId),
-      username,
-      socketId: socket.id,
-      joinedAt: Date.now(),
-    });
+    // call.participants.set(String(userId), {
+    //   userId: String(userId),
+    //   username,
+    //   socketId: socket.id,
+    //   joinedAt: Date.now(),
+    // });
  
-    socket.join(callId);
-    socket.callId = callId;
+    // socket.join(callId);
+
+    joinCallRoom(callId,userId,username)
+    // socket.callId = callId;
  
-    io.to(callId).emit("call-invite-joined", { userId, username, callId });
+    // io.to(callId).emit("call-invite-joined", { userId, username, callId });
  
-    const participantsArray = Array.from(call.participants.values()).map((p) => ({
-      userId: p.userId,
-      username: p.username,
-      socketId: p.socketId,
-      joinedAt: p.joinedAt,
-    }));
+    // const participantsArray = Array.from(call.participants.values()).map((p) => ({
+    //   userId: p.userId,
+    //   username: p.username,
+    //   socketId: p.socketId,
+    //   joinedAt: p.joinedAt,
+    // }));
  
-    socket.to(callId).emit("participant-joined", {
-      newUser: { userId: String(userId), username },
-      callId,
-      participants: participantsArray,
-    });
+    // socket.to(callId).emit("participant-joined", {
+    //   newUser: { userId: String(userId), username },
+    //   callId,
+    //   participants: participantsArray,
+    // });
  
     log("call-invite-joined", userId, "in", callId);
   });
@@ -429,9 +450,6 @@ socket.on("in-call-users-request", ({ callId } = {}, cb) => {
   }
 });
 
-
-
-
   // ============================================================
   //                WEBRTC RELAY
   // ============================================================
@@ -441,7 +459,6 @@ socket.on("in-call-users-request", ({ callId } = {}, cb) => {
       return;
     }
 
-    console.log("relaySignal 'to' in payload", { type, payload });
     const to = String(payload.to);
     const from = payload.from || socket.userId;
  

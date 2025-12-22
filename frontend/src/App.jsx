@@ -348,12 +348,11 @@ function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (isAuthenticated && userId) {
-      if (!socket.connected) connectSocket(userId);
-      socket.emit("register", { userId: String(userId) });
-    }
-  }, [isAuthenticated, userId]);
+useEffect(() => {
+  if (isAuthenticated && userId) {
+    connectSocket(userId);
+  }
+}, [isAuthenticated, userId]);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("chatUser");
