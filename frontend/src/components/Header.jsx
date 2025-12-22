@@ -27,7 +27,6 @@ export default function Header({
   setIsAuthenticated,
 }) {
   const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
-  const navigate = useNavigate();
   const [showSearch, setShowSearch] = useState(false);
   const [activeMeeting, setActiveMeeting] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -41,16 +40,61 @@ export default function Header({
   const dropdownRef = useRef(null);
   const searchRef = useRef(null);
 
+  const navigate = useNavigate();
   const { selectedUser, activeNav } = useSelector((state) => state.user);
   const { selectedTeam, selectedTeamMembers } = useSelector(
     (state) => state.team
   );
 
   const token = sessionStorage.getItem("chatToken");
-  const username = activeUser?.username || "Guest";
   const isChatVisible = activeNav === "Chat" || activeNav === "Communities";
 
-  // ----------------- Handle Click Outside -----------------
+  // ----------------- Helper Functions -----------------
+ function getInitials(name) {
+  if (!name) return "";
+  const parts = name.trim().split(" ").filter(Boolean);
+  const initials = parts.map((part) => part[0].toUpperCase()); // always uppercase
+  return initials.slice(0, 2).join(""); // first 2 letters
+}
+
+  function getDisplayName(user) {
+    if (!user) return "";
+    if (user.first_name || user.last_name) {
+      return `${user.first_name || ""} ${user.last_name || ""}`.trim();
+    }
+    return user.full_name || user.username || "";
+  }
+
+  const fullName =
+    activeUser?.first_name && activeUser?.last_name
+      ? `${activeUser.first_name} ${activeUser.last_name}`
+      : activeUser?.username || "Guest";
+  const username = fullName;
+
+  const displayName =
+    selectedTeam && activeNav === "Communities"
+      ? selectedTeam.name
+      : activeNav === "Chat"
+      ? getDisplayName(selectedUser)
+      : "Select a Chat";
+
+  const displayProfileImage =
+    selectedUser && !selectedTeam && selectedUser.profile_image
+      ? `${URL}${selectedUser.profile_image}`
+      : null;
+
+  const canCall = selectedUser && !selectedTeam;
+function capitalizeWords(str) {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((w) => w[0]?.toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+const displayNameFormatted = capitalizeWords(displayName || username);
+
+  // ----------------- Click Outside Handler -----------------
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target))
@@ -85,9 +129,7 @@ export default function Header({
       try {
         const res = await axios.get(
           `${URL}/api/teams/team/${selectedTeam.id}/active`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.data.active) {
           setActiveMeeting(null);
@@ -138,9 +180,7 @@ export default function Header({
     try {
       const response = await axios.get(
         `${URL}/api/teams/${selectedTeam.id}/meeting-link`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       const { meetingCode } = response.data;
       window.open(`${window.location.origin}/prejoin/${meetingCode}`, "_blank");
@@ -156,9 +196,7 @@ export default function Header({
     try {
       const res = await axios.get(
         `${URL}/api/teams/team/${selectedTeam.id}/active`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       const { active, meeting } = res.data;
       if (active && meeting?.meeting_code === activeMeeting.meeting_code) {
@@ -211,44 +249,26 @@ export default function Header({
     );
   };
 
-  // ----------------- Add Member Handler -----------------
+  // ----------------- Add Member -----------------
   const handleOpenAddMember = () => {
     if (!selectedTeam) return;
-
-    // Make sure members array exists
     const membersWithRoles =
       selectedTeam.members?.map((m) => ({
         user_id: m.user_id || m.id,
-        role: m.role || "member", // default to member if missing
+        role: m.role || "member",
         username: m.username,
         profile_image: m.profile_image,
       })) || [];
-
     setTeamToEdit({ ...selectedTeam, members: membersWithRoles });
     setShowCreateTeamModal(true);
   };
 
-  const displayName =
-    selectedTeam && activeNav === "Communities"
-      ? selectedTeam.name
-      : selectedUser && activeNav === "Chat"
-      ? selectedUser.username
-      : "Select a Chat";
-
-  const displayProfileImage =
-    selectedUser && !selectedTeam && selectedUser.profile_image
-      ? `${URL}${selectedUser.profile_image}`
-      : null;
-
-  const canCall = selectedUser && !selectedTeam;
-
   // ----------------- JSX -----------------
   return (
     <>
-      {/* Toaster for toast notifications */}
       <Toaster position="top-right" reverseOrder={false} />
 
-      <div className="flex items-center justify-between px-4 py-4  bg-slate-200 shadow-md border-b border-gray-200">
+      <div className="flex items-center justify-between px-4 py-4 bg-slate-200 shadow-md border-b border-gray-200">
         {/* Left */}
         <div className="flex items-center gap-4 ml-[5px]">
           <img
@@ -256,7 +276,9 @@ export default function Header({
             alt="Logo"
             className="w-12 h-12 object-contain"
           />
-          <h2 className="font-semibold text-gray-600 text-[18px] ml-3.5">{activeNav}</h2>
+          <h2 className="font-semibold text-gray-600 text-[18px] ml-3.5">
+            {activeNav}
+          </h2>
 
           {isChatVisible && (selectedTeam || selectedUser) && (
             <div className="flex items-center gap-2 ml-[220px]">
@@ -267,12 +289,12 @@ export default function Header({
                   className="w-8 h-8 rounded-full object-cover border border-gray-300"
                 />
               ) : (
-                <div className="w-8 h-8    bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold uppercase  ">
-                  {displayName?.[0] || "?"}
+                <div className="w-8 h-8 bg-blue-400 text-white rounded-full flex items-center justify-center text-xs font-semibold uppercase">
+                 {getInitials(displayNameFormatted) || "?"}
                 </div>
               )}
-              <span className="text-gray-600  font-medium text-[15px]  truncate max-w-[120px]">
-                {displayName}
+              <span className="text-gray-600 font-medium text-[15px] truncate max-w-[120px]">
+                {displayNameFormatted}
               </span>
             </div>
           )}
@@ -285,14 +307,13 @@ export default function Header({
           {/* Members Dropdown */}
           {isChatVisible && selectedTeam && (
             <div className="relative" ref={dropdownRef}>
-             <button
-  onClick={() => setShowMembers((prev) => !prev)}
-  className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm transform hover:scale-105"
-  title="View Group Members"
->
-  <FaUsers size={18} />
-</button>
-
+              <button
+                onClick={() => setShowMembers((prev) => !prev)}
+                className="p-2 hover:bg-gray-100 rounded-full text-purple-600 transition-all duration-200 shadow-sm transform hover:scale-105"
+                title="View Group Members"
+              >
+                <FaUsers size={18} />
+              </button>
 
               {showMembers && (
                 <div className="absolute right-0 mt-3 w-64 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
@@ -316,7 +337,7 @@ export default function Header({
                               />
                             ) : (
                               <div className="w-9 h-9 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold uppercase shadow-sm">
-                                {member.username?.[0] || "?"}
+                                {getInitials(member.username) || "?"}
                               </div>
                             )}
                             <span className="text-gray-900 text-sm font-semibold">
@@ -447,12 +468,10 @@ export default function Header({
           )}
 
           {/* Profile Avatar */}
-          {/* Profile Avatar */}
           <div
             className="relative group flex items-center justify-center p-1 rounded-full cursor-pointer hover:bg-white transition-all duration-300"
             onClick={() => setShowProfileModal((prev) => !prev)}
           >
-            {/* Avatar wrapper (important) */}
             <div className="relative h-8 w-8">
               {profileImage ? (
                 <img
@@ -461,12 +480,13 @@ export default function Header({
                   className="h-8 w-8 rounded-full object-cover"
                 />
               ) : (
-                <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
-                  {username?.[0]?.toUpperCase() || "G"}
-                </div>
-              )}
+               <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
+  {getInitials(displayNameFormatted) || "G"}
+</div>
 
-              {/* ✅ Online Badge INSIDE avatar */}
+              )}
+              
+
               <span className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 border-2 border-white rounded-full flex items-center justify-center">
                 <svg
                   className="h-2 w-2 text-white"
@@ -482,9 +502,8 @@ export default function Header({
               </span>
             </div>
 
-            {/* ✅ Tooltip */}
-            <span className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-xs bg-white text-gray-700 rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none   mt-19">
-              {username}
+            <span className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-xs bg-white text-gray-700 rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none mt-19">
+             {displayNameFormatted}
             </span>
           </div>
         </div>
