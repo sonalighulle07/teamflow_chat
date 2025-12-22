@@ -82,6 +82,7 @@ io.on("connection", (socket) => {
     set.delete(socketId);
     log(`Removed socket ${socketId} for user ${userId}`);
     if (set.size === 0) connectedSockets.delete(userId);
+     User.setOfflineStatus(userId)
   };
 
   socket.on("register", ({ userId } = {}) => {
@@ -97,7 +98,6 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const { userId } = socket;
     if (!userId) return;
-    if (!connectedSockets.has(userId)) User.setOfflineStatus(userId);
     removeSocketForUser(userId, socket.id);
   });
 
