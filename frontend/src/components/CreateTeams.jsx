@@ -280,7 +280,7 @@ export default function CreateTeam({
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-1.5 rounded-md bg-gray-300 text-gray-700 hover:bg-gray-400 text-sm transition"
+                className="flex-1 py-1.5 rounded-md bg-gray-300 text-gray-700 hover:bg-gray-300 text-sm transition"
               >
                 Cancel
               </button>

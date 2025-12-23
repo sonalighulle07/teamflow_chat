@@ -236,7 +236,7 @@ export default function TaskManagement() {
                   type="button"
                   onClick={() => setShowForm(false)}
                   className="flex-1 py-2 text-sm font-medium rounded-md
-              bg-gray-300 text-gray-700 hover:bg-gray-300 transition"
+              bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
                 >
                   Cancel
                 </button>

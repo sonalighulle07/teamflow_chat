@@ -429,7 +429,7 @@ export default function ChatWindow({
             <button
               type="button"
               onClick={() => setShowEmoji((prev) => !prev)}
-              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-purple-100  transition-all duration-200"
+              className="flex items-center justify-center w-8 h-8 rounded-full  transition-all duration-200"
               title="Emoji"
             >
               <svg
@@ -463,11 +463,11 @@ export default function ChatWindow({
           </div>
 
           {/* File upload */}
-          <label className="relative flex items-center justify-center w-7 h-7  rounded-full cursor-pointer hover:bg-purple-100 transition">
+          <label className="relative flex items-center justify-center w-7 h-7  rounded-full cursor-pointer  transition">
             <PaperClipIcon className="w-5 h-5  text-gray-600  hover:text-purple-700" />
             <input
               type="file"
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer "
               onChange={handleFileChange}
             />
           </label>
@@ -476,7 +476,7 @@ export default function ChatWindow({
           <button
             onClick={handleSend}
             disabled={!selectedUser && !selectedTeam}
-            className="flex items-center justify-center p-[4px] bg-white text-purple-600 rounded-full hover:bg-purple-100 transition disabled:cursor-not-allowed"
+            className="flex items-center justify-center p-[4px] bg-white text-purple-600 rounded-full  transition disabled:cursor-not-allowed"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

@@ -72,21 +72,21 @@ const CustomToolbar = ({ label, onNavigate, onView, view }) => {
   useEffect(() => setActiveView(view), [view]);
  
   const navButtonClass = (nav) =>
-    `flex items-center gap-1 px-3 py-2 rounded-lg shadow-sm transition duration-200 ${
+    `flex items-center gap-1 px-2 py-1  text-[15px] rounded-lg shadow-sm transition duration-200 ${
       activeNav === nav
         ? "bg-indigo-600 text-white hover:bg-indigo-700"
         : "bg-gray-100 text-gray-800 hover:bg-gray-200"
     }`;
  
   const viewButtonClass = (v) =>
-    `px-3 py-2 rounded-lg shadow-sm transition duration-200 ${
+    `px-2 py-1  text-[15px] rounded-lg shadow-sm transition duration-200 ${
       activeView === v
         ? "bg-indigo-600 text-white hover:bg-indigo-700"
         : "bg-gray-100 text-gray-800 hover:bg-gray-200"
     }`;
  
   return (
-    <div className="flex flex-col md:flex-row justify-between items-center mb-4 p-4 bg-white rounded-2xl shadow-lg border border-gray-200">
+    <div className="flex flex-col md:flex-row justify-between items-center mb-3 p-3 bg-white rounded-[10px] shadow-lg border border-gray-200">
       <div className="flex gap-2 mb-2 md:mb-0">
         <button
           className={navButtonClass("PREV")}
@@ -279,7 +279,7 @@ export default function MyCalendar() {
       </div>
  
      {showModal && (
-  <div className="fixed inset-0 bg-black/40 flex justify-center items-start pt-24 z-50">
+  <div className="fixed inset-0 bg-black/40 flex justify-center items-start pt-19 z-50">
     <div className="bg-white rounded-xl shadow-lg w-full max-w-[450px] p-8 border border-gray-100">
 
       {/* Header */}
@@ -298,8 +298,8 @@ export default function MyCalendar() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Enter event title"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md
-              placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="w-full px-3 py-2 mt-1 mb-1 text-sm border border-gray-300 rounded-md
+              placeholder:text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"
           />
         </div>
 
@@ -312,7 +312,7 @@ export default function MyCalendar() {
             type="datetime-local"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md
+            className="w-full px-3 py-2 mt-1 mb-1 text-sm border border-gray-300 rounded-md
               focus:ring-2 focus:ring-indigo-500 outline-none"
           />
         </div>
@@ -326,7 +326,7 @@ export default function MyCalendar() {
             type="datetime-local"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md
+            className="w-full px-3 py-2 mt-1 mb-1 text-sm border border-gray-300 rounded-md
               focus:ring-2 focus:ring-indigo-500 outline-none"
           />
         </div>
@@ -338,7 +338,7 @@ export default function MyCalendar() {
           type="button"
           onClick={() => setShowModal(false)}
           className="flex-1 py-2 text-sm font-medium rounded-md
-            bg-gray-300 text-gray-700 hover:bg-gray-300 transition"
+            bg-gray-200 text-gray-700 hover:bg-gray-300  transition"
         >
           Cancel
         </button>

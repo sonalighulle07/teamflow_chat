@@ -140,11 +140,11 @@ export default function TeamChat({
 useEffect(() => {
   if (!messagesEndRef.current) return;
 
-  // Wait for DOM to finish paint
   requestAnimationFrame(() => {
     messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
   });
-}, [messages, selectedTeam]);
+}, [messages]); // only scroll when new message comes
+
 
 
   // Scroll to first search match
@@ -439,7 +439,8 @@ const handleFileChange = (e) => {
 
 
   return (
-    <div className="flex-1 flex flex-col h-full relative">
+    <div className="flex flex-col h-screen relative">
+
       <div className="fixed top-5 right-5 flex flex-col gap-2 z-50">
         {toasts.map((t) => (
           <div
@@ -459,8 +460,8 @@ const handleFileChange = (e) => {
 
       {/* Messages */}
       <div
-        className="flex-1 p-4 bg-white border border-gray-300 rounded-lg shadow-md pb-2.5 overflow-y-auto"
-        style={{ maxHeight: "calc(100vh - 200px)" }} // adjust according to your layout
+        className="flex-1  bg-white border border-gray-300 rounded-lg shadow-md  overflow-y-auto "
+         // adjust according to your layout
       >
         {selectedTeam ? (
           filteredMessages.length > 0 ? (
@@ -540,9 +541,10 @@ const handleFileChange = (e) => {
 
       {/* Input + File */}
       {/* Input + File preview */}
-<div className="p-3 border-t border-gray-300 flex flex-col gap-2 pt-3.5 bg-white">
+<div className="sticky bottom-0 p-3 border-t border-gray-300 bg-white z-10">
+
   {selectedFile && (
-    <div className="relative mb-1 p-1 border rounded-md bg-gray-100 flex items-center justify-between">
+    <div className="mb-2 p-1 border rounded-md bg-gray-100 flex items-center justify-between">
       <div className="flex items-center gap-2 overflow-hidden">
 
         {/* IMAGE */}
@@ -593,7 +595,8 @@ const handleFileChange = (e) => {
     </div>
   )}
 
-  <div className="flex items-center gap-2 relative bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[13px] border-gray-300 dark:border-gray-700 shadow-sm">
+ <div className="flex items-center gap-2 relative bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[13px] border-gray-300 dark:border-gray-700 shadow-sm">
+
     <input
       type="text"
       placeholder={selectedTeam ? "Type a message..." : "Select a team..."}
