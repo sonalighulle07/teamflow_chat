@@ -32,9 +32,15 @@ import CreateTeam from "./components/CreateTeams";
 import TaskManagement from "./components/TaskManagement";
 import TeamInvites from "./components/TeamInvites";
 import ForwardModal from "./components/ForwardModal";
+// Super Admin
+import SuperAdminLayout from "./Super_Admin/SuperAdminLayout";
+import SuperAdminDashboard from "./Super_Admin/pages/Dashboard";
+import Organizations from "./Super_Admin/components/Organization"; // adjust path
+import Plans from "./Super_Admin/components/Plans"; 
+
 
 // Super Admin
-import SuperAdminDashboard from "./components/superadmin/SuperAdminDashboard";
+
 import SecureRoutes from "./components/SecureRoutes";
 
 // Org Admin
@@ -85,27 +91,26 @@ function AppRoutes({
 
   return (
     <Routes>
-      {/* SUPER ADMIN */}
-      <Route
-        path="/super-admin"
-        element={
-          !isAuthenticated ? (
-            <Navigate to="/login" replace />
-          ) : currentUser === null ? (
-            <div className="flex h-screen items-center justify-center text-gray-600 text-xl">
-              Loading account...
-            </div>
-          ) : (
-            <SecureRoutes
-              isAuthenticated={isAuthenticated}
-              role={currentUser.role}
-              allowedRoles={["super_admin"]}
-            >
-              <SuperAdminDashboard />
-            </SecureRoutes>
-          )
-        }
-      />
+<Route
+  path="/super-admin"
+  element={
+    <SecureRoutes
+      isAuthenticated={isAuthenticated}
+      role={currentUser?.role}
+      allowedRoles={["super_admin"]}
+    >
+      <SuperAdminLayout />
+    </SecureRoutes>
+  }
+>
+  <Route index element={<SuperAdminDashboard />} />
+  <Route path="dashboard" element={<SuperAdminDashboard />} />
+  <Route path="organizations" element={<Organizations />} />
+  <Route path="plans" element={<Plans />} />
+
+</Route>
+
+      
 <Route path="/admin" element={<Navigate to="/org-admin/dashboard" replace />} />
 
       {/* ORG ADMIN */}

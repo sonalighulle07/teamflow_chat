@@ -21,17 +21,13 @@ function getInitials(name) {
   return first + second;
 }
 
-
-
 // Memoized UserItem with forwardRef
 const UserItem = memo(
   forwardRef(({ item, isSelected, onClick, searchQuery, lastMessage }, ref) => {
-   const name =
-  item.type === "user"
-    ? capitalizeName(item.full_name || "")
-    : capitalizeName(item.name || "");
-
-
+    const name =
+      item.type === "user"
+        ? capitalizeName(item.full_name || "")
+        : capitalizeName(item.name || "");
 
     // Highlight search matches
     const highlightMatch = (text) => {
@@ -51,23 +47,25 @@ const UserItem = memo(
     };
 
     // Capitalize first letter of each word (first + last name)
-function capitalizeName(name) {
-  if (!name) return "";
-  return name
-    .split(" ")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
-}
+    function capitalizeName(name) {
+      if (!name) return "";
+      return name
+        .split(" ")
+        .map(
+          (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+        )
+        .join(" ");
+    }
 
-// Only format date if lastMessage exists (day-month only)
-const lastMessageDate =
-  lastMessage && !isNaN(new Date(lastMessage).getTime())
-    ? new Date(lastMessage).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-      })
-    : null;
-    
+    // Only format date if lastMessage exists (day-month only)
+    const lastMessageDate =
+      lastMessage && !isNaN(new Date(lastMessage).getTime())
+        ? new Date(lastMessage).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+          })
+        : null;
+
     return (
       <li
         ref={ref}
@@ -101,7 +99,7 @@ const lastMessageDate =
                     fill="white"
                     className="w-2 h-2"
                   >
-                    <path d="M6.62 10.79a15.054 15.054 0 006.59 6.59l2.2-2.2a1 1 0 011-.24 11.72 11.72 0 003.68.59 1 1 0 011 1V21a1 1 0 01-1 1A18 18 0 013 6a1 1 0 011-1h3.37a1 1 0 011 1 11.72 11.72 0 00.59 3.68 1 1 0 01-.24 1z"/>
+                    <path d="M6.62 10.79a15.054 15.054 0 006.59 6.59l2.2-2.2a1 1 0 011-.24 11.72 11.72 0 003.68.59 1 1 0 011 1V21a1 1 0 01-1 1A18 18 0 013 6a1 1 0 011-1h3.37a1 1 0 011 1 11.72 11.72 0 00.59 3.68 1 1 0 01-.24 1z" />
                   </svg>
                 </div>
               )}
@@ -114,7 +112,11 @@ const lastMessageDate =
                     fill="white"
                     className="w-2 h-2"
                   >
-                    <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" />
+                    <path
+                      d="M18 6L6 18M6 6l12 12"
+                      stroke="white"
+                      strokeWidth="2"
+                    />
                   </svg>
                 </div>
               )}
@@ -123,14 +125,13 @@ const lastMessageDate =
 
           {/* Avatar */}
           <div
-className={`w-full h-full rounded-full flex items-center justify-center text-white font-semibold overflow-hidden
-  ${isSelected || item.type === "user"
-    ? "bg-[#735DD0] text-[14px]"
-    : "bg-[#735DD0]"
+            className={`w-full h-full rounded-full flex items-center justify-center text-white font-semibold overflow-hidden
+  ${
+    isSelected || item.type === "user"
+      ? "bg-[#735DD0] text-[14px]"
+      : "bg-[#735DD0]"
   }`}
-
->
-
+          >
             {item.type === "user" && item.profile_image ? (
               <img
                 src={
@@ -149,20 +150,21 @@ className={`w-full h-full rounded-full flex items-center justify-center text-whi
 
         {/* Name + last message */}
         <div className="flex flex-col truncate">
-          <span className="text-gray-600 font-[10px]">{highlightMatch(name)}</span>
+          <span className="text-gray-600 font-[10px]">
+            {highlightMatch(name)}
+          </span>
 
           {/* Only show date if available */}
           {lastMessageDate && (
-            <span className="text-xs text-gray-500 truncate">{lastMessageDate}</span>
+            <span className="text-xs text-gray-500 truncate">
+              {lastMessageDate}
+            </span>
           )}
         </div>
       </li>
     );
   })
 );
-
-
-
 
 export default function UserList({
   users = [],
@@ -173,8 +175,7 @@ export default function UserList({
   selectedUser,
   selectedTeam,
   lastMessages = {},
-  currentUser
-  
+  currentUser,
 }) {
   const listRef = useRef(null);
   const itemRefs = useRef({});
@@ -185,32 +186,31 @@ export default function UserList({
   };
 
   // Merge and sort users/teams by last message date
- const displayedItems = useMemo(() => {
-  const allUsers = users
-    .filter(u => u.id !== currentUser?.id) // exclude logged-in user
-    .map((u) => ({ ...u, type: "user" }));
+  const displayedItems = useMemo(() => {
+    const allUsers = users
+      .filter((u) => u.id !== currentUser?.id) // exclude logged-in user
+      .map((u) => ({ ...u, type: "user" }));
 
-  const allTeams = teams.map((t) => ({ ...t, type: "team" }));
+    const allTeams = teams.map((t) => ({ ...t, type: "team" }));
 
-  const allItems = [...allUsers, ...allTeams];
+    const allItems = [...allUsers, ...allTeams];
 
-  return allItems.sort((a, b) => {
-    const aTime = lastMessages[a.id]
-  ? new Date(lastMessages[a.id]).getTime()
-  : null;
+    return allItems.sort((a, b) => {
+      const aTime = lastMessages[a.id]
+        ? new Date(lastMessages[a.id]).getTime()
+        : null;
 
-const bTime = lastMessages[b.id]
-  ? new Date(lastMessages[b.id]).getTime()
-  : null;
+      const bTime = lastMessages[b.id]
+        ? new Date(lastMessages[b.id]).getTime()
+        : null;
 
-if (aTime === null && bTime === null) return 0;
-if (aTime === null) return 1;   // a neeche
-if (bTime === null) return -1;  // b neeche
+      if (aTime === null && bTime === null) return 0;
+      if (aTime === null) return 1; // a neeche
+      if (bTime === null) return -1; // b neeche
 
-return bTime - aTime;
-
-  });
-}, [users, teams, lastMessages, currentUser]);
+      return bTime - aTime;
+    });
+  }, [users, teams, lastMessages, currentUser]);
 
   // Scroll to first search match
   useEffect(() => {
@@ -246,7 +246,8 @@ return bTime - aTime;
       {displayedItems.map((item) => {
         let isSelected = false;
         if (item.type === "user") isSelected = selectedUser?.id === item.id;
-        else if (item.type === "team") isSelected = selectedTeam?.id === item.id;
+        else if (item.type === "team")
+          isSelected = selectedTeam?.id === item.id;
 
         const key = item.type === "user" ? item.id : `team-${item.id}`;
         const lastMessage = lastMessages[item.id] || null;

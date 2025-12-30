@@ -758,7 +758,7 @@ export default function Message({
 
   return (
     <div
-      className={`flex flex-col mb-3 max-w-[75%] relative pr-8 pl-8 ${
+      className={`flex flex-col  mb-3 max-w-[75%] relative pr-8 pl-8  ${
         isOwn ? "items-end ml-auto" : "items-start mr-auto"
       }`}
     >
@@ -924,6 +924,25 @@ ${
           </div>
         )}
       </div>
+      <div
+  className={`flex items-center gap-2 text-xs text-gray-400 mt-1 ${
+    isOwn ? "self-end" : "self-start"
+  }`}
+>
+  {!isOwn && message.username && (
+    <span className="font-medium text-gray-600">{message.username}</span>
+  )}
+
+  {/* Message Status Indicators */}
+  {isOwn && (
+    <span className="ml-1">
+      {message.status === "sent" && "✓"}
+      {message.status === "delivered" && "✓✓"}
+      {message.status === "read" && <span className="text-blue-500">✓✓</span>}
+    </span>
+  )}
+</div>
+
 
       {/* Editing UI */}
       {isEditing && (

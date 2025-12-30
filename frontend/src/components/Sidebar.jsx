@@ -214,8 +214,8 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
                 <div
                   className={`text-xl transition-colors ${
                     isActive
-                      ? "text-[#816ed3]"
-                      : "text-gray-500 group-hover:text-[#816ed3]"
+                      ? "text-[#8F91ED]"
+                      : "text-gray-500 group-hover:text-[#8F91ED]"
                   }`}
                 >
                   {icon}

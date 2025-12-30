@@ -89,3 +89,13 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+exports.getUsersCount = async (req, res) => {
+  try {
+    const [[{ count }]] = await pool.query("SELECT COUNT(*) AS count FROM users");
+    res.json({ count });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

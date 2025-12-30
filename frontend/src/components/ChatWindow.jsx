@@ -307,9 +307,13 @@ export default function ChatWindow({
               const prevMsg = (searchQuery ? filteredMessages : messages)[
                 index - 1
               ];
-              const msgDate = new Date(msg.created_at || msg.timestamp).toDateString();
+              const msgDate = new Date(
+                msg.created_at || msg.timestamp
+              ).toDateString();
               const prevDate = prevMsg
-                ? new Date(prevMsg.created_at || prevMsg.timestamp).toDateString()
+                ? new Date(
+                    prevMsg.created_at || prevMsg.timestamp
+                  ).toDateString()
                 : null;
               const showDateSeparator = msgDate !== prevDate;
               messageRefs.current[key] =
@@ -394,7 +398,9 @@ export default function ChatWindow({
                         xlsx: "📊",
                       }[selectedFile.name.split(".").pop()] || "📄"}
                     </span>
-                    <span className="truncate max-w-xs">{selectedFile.name}</span>
+                    <span className="truncate max-w-xs">
+                      {selectedFile.name}
+                    </span>
                   </div>
                 )}
             </div>

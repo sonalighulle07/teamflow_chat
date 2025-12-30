@@ -4,7 +4,6 @@ const pool = require("../config/db");
 //     ORGANIZATION CONTROLLER
 // =============================
 
-// Check domain availability
 exports.checkDomain = async (req, res) => {
   try {
     const { domain } = req.query;
@@ -17,18 +16,17 @@ exports.checkDomain = async (req, res) => {
       });
     }
 
-    const [existing] = await pool.query(
-      "SELECT id FROM organizations WHERE domain = ? LIMIT 1",
-      [domain]
+    const [rows] = await pool.query(
+      "SELECT id FROM organizations WHERE domain = ? AND is_deleted = 0 LIMIT 1",
+      [domain.toLowerCase()]
     );
 
-    if (existing.length > 0) {
-      return res.json({ success: true, available: false });
-    }
-
-    res.json({ success: true, available: true });
+    res.json({
+      success: true,
+      available: rows.length === 0,
+    });
   } catch (err) {
-    console.log("Domain Check Error:", err);
+    console.error("Domain Check Error:", err);
     res.status(500).json({
       success: false,
       available: false,
@@ -37,11 +35,21 @@ exports.checkDomain = async (req, res) => {
   }
 };
 
-// Create new organization
-// SUPER ADMIN - CREATE ORGANIZATION
+// -----------------------------
+// Create organization
+// SUPER ADMIN
+// -----------------------------
 exports.createOrganization = async (req, res) => {
   try {
-    const { name, email, contact, address, admin_user_id } = req.body;
+    const {
+      name,
+      email,
+      contact,
+      address,
+      admin_user_id,
+      status,
+      plan,
+    } = req.body;
 
     if (!name || !email) {
       return res.status(400).json({
@@ -50,10 +58,8 @@ exports.createOrganization = async (req, res) => {
       });
     }
 
-    // Extract domain from email
+    // Extract domain
     const domain = email.split("@")[1]?.toLowerCase();
-
-    // Domain must exist
     if (!domain) {
       return res.status(400).json({
         success: false,
@@ -61,9 +67,9 @@ exports.createOrganization = async (req, res) => {
       });
     }
 
-    // Domain must be unique
+    // Check domain uniqueness
     const [existing] = await pool.query(
-      "SELECT id FROM organizations WHERE domain = ? LIMIT 1",
+      "SELECT id FROM organizations WHERE domain = ? AND is_deleted = 0 LIMIT 1",
       [domain]
     );
 
@@ -74,30 +80,40 @@ exports.createOrganization = async (req, res) => {
       });
     }
 
-    // Create organization
+    // Insert organization
     const [result] = await pool.query(
-      `INSERT INTO organizations 
-        (name, address, email, contact, domain, admin_user_id, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [name, address || null, email, contact || null, domain, admin_user_id || null, "active"]
+      `INSERT INTO organizations
+       (name, email, contact, address, domain, admin_user_id, status, plan, is_deleted)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      [
+        name,
+        email,
+        contact || null,
+        address || null,
+        domain,
+        admin_user_id || null,
+        (status || "active").toLowerCase(),
+        (plan || "starter").toLowerCase(),
+      ]
     );
 
     res.json({
       success: true,
-      message: "Organization created",
+      message: "Organization created successfully",
       organization_id: result.insertId,
     });
-
   } catch (err) {
-    console.error("Create Org Error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Create Organization Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
-
-
-
+// -----------------------------
 // Get all organizations
+// -----------------------------
 exports.getAllOrganizations = async (req, res) => {
   try {
     let { q = "", page = 1, limit = 10 } = req.query;
@@ -105,53 +121,59 @@ exports.getAllOrganizations = async (req, res) => {
     page = Number(page);
     limit = Number(limit);
     const offset = (page - 1) * limit;
-
-    // Search filter
     const search = `%${q}%`;
 
     const [rows] = await pool.query(
-      `SELECT * 
-       FROM organizations 
-       WHERE name LIKE ? 
-          OR email LIKE ? 
-          OR domain LIKE ?
-          OR contact LIKE ?
+      `SELECT *
+       FROM organizations
+       WHERE is_deleted = 0
+         AND (
+           name LIKE ?
+           OR email LIKE ?
+           OR domain LIKE ?
+           OR contact LIKE ?
+         )
        ORDER BY id DESC
        LIMIT ? OFFSET ?`,
       [search, search, search, search, limit, offset]
     );
 
-    // Count total
-    const [countRows] = await pool.query(
-      `SELECT COUNT(*) AS total 
-       FROM organizations 
-       WHERE name LIKE ? 
-          OR email LIKE ? 
-          OR domain LIKE ?
-          OR contact LIKE ?`,
+    const [[count]] = await pool.query(
+      `SELECT COUNT(*) AS total
+       FROM organizations
+       WHERE is_deleted = 0
+         AND (
+           name LIKE ?
+           OR email LIKE ?
+           OR domain LIKE ?
+           OR contact LIKE ?
+         )`,
       [search, search, search, search]
     );
 
     res.json({
       success: true,
       organizations: rows,
-      total: countRows[0].total,
+      total: count.total,
     });
-
   } catch (err) {
-    console.log("Search Error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Get Organizations Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
-
-// Get organization details  (ONLY ONE VERSION)
+// -----------------------------
+// Get organization details
+// -----------------------------
 exports.getOrganizationDetails = async (req, res) => {
   try {
     const orgId = req.params.id;
 
     const [orgRows] = await pool.query(
-      "SELECT * FROM organizations WHERE id = ? LIMIT 1",
+      "SELECT * FROM organizations WHERE id = ? AND is_deleted = 0 LIMIT 1",
       [orgId]
     );
 
@@ -162,52 +184,50 @@ exports.getOrganizationDetails = async (req, res) => {
       });
     }
 
-    const organization = orgRows[0]; // <-- includes contact field
+    const organization = orgRows[0];
 
-    // If no admin assigned
     if (!organization.admin_user_id) {
       return res.json({
         success: true,
         organization,
-        admin: null
+        admin: null,
       });
     }
 
-    // Fetch admin details
     const [adminRows] = await pool.query(
-      `SELECT id, name, email, phone FROM users WHERE id = ? LIMIT 1`,
+      "SELECT id, name, email, phone FROM users WHERE id = ? LIMIT 1",
       [organization.admin_user_id]
     );
 
     res.json({
       success: true,
       organization,
-      admin: adminRows[0] || null
+      admin: adminRows[0] || null,
     });
-
   } catch (err) {
-    console.log("Org Details Error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Organization Details Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
-
-
+// -----------------------------
 // Update organization
-// Update organization
+// -----------------------------
 exports.updateOrganization = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, contact, address, status } = req.body;
+    const { name, email, contact, address, status, plan } = req.body;
 
-    if (!name || !email || !contact || !address) {
+    if (!name || !email) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
+        message: "Name & email required",
       });
     }
 
-    // Extract domain safely
     const domain = email.split("@")[1]?.toLowerCase();
     if (!domain) {
       return res.status(400).json({
@@ -216,92 +236,124 @@ exports.updateOrganization = async (req, res) => {
       });
     }
 
-    // Check if new domain already exists for another org
     const [duplicate] = await pool.query(
-      `SELECT id FROM organizations 
-       WHERE domain = ? AND id != ? 
+      `SELECT id FROM organizations
+       WHERE domain = ? AND id != ? AND is_deleted = 0
        LIMIT 1`,
       [domain, id]
     );
 
     if (duplicate.length > 0) {
-      return res.json({
+      return res.status(400).json({
         success: false,
         message: "Another organization already uses this domain",
       });
     }
 
-    // Update
     await pool.query(
       `UPDATE organizations
-       SET name = ?, email = ?, contact = ?, address = ?, domain = ?, status = ?
-       WHERE id = ?`,
-      [name, email, contact, address, domain, status || "active", id]
+       SET name = ?, email = ?, contact = ?, address = ?,
+           domain = ?, status = ?, plan = ?
+       WHERE id = ? AND is_deleted = 0`,
+      [
+        name,
+        email,
+        contact || null,
+        address || null,
+        domain,
+        (status || "active").toLowerCase(),
+        (plan || "starter").toLowerCase(),
+        id,
+      ]
     );
 
     res.json({
       success: true,
       message: "Organization updated successfully",
     });
-
   } catch (err) {
     console.error("Update Organization Error:", err);
-    res.status(500).json({ success: false, message: "Update failed" });
+    res.status(500).json({
+      success: false,
+      message: "Update failed",
+    });
   }
 };
 
-
-
-// Delete organization
+// -----------------------------
+// Delete organization (SOFT DELETE)
+// -----------------------------
 exports.deleteOrganization = async (req, res) => {
-  const orgId = req.params.id;
-
   try {
-    await pool.query("START TRANSACTION");
+    const orgId = req.params.id;
 
-    // 1. Delete chats involving users of this org
-    await pool.query(`
-      DELETE c FROM chats c
-      JOIN users u ON c.sender_id = u.id OR c.receiver_id = u.id
-      WHERE u.organization_id = ?
-    `, [orgId]);
-
-    // 2. Delete team messages
-    await pool.query(`
-      DELETE tm FROM team_messages tm
-      JOIN teams t ON tm.team_id = t.id
-      WHERE t.organization_id = ?
-    `, [orgId]);
-
-    // 3. Delete team members
-    await pool.query(`
-      DELETE tm FROM team_members tm
-      JOIN teams t ON tm.team_id = t.id
-      WHERE t.organization_id = ?
-    `, [orgId]);
-
-    // 4. Delete teams
-    await pool.query(`DELETE FROM teams WHERE organization_id = ?`, [orgId]);
-
-    // 5. Delete users
-    await pool.query(`DELETE FROM users WHERE organization_id = ?`, [orgId]);
-
-    // 6. Delete organization
-    await pool.query(`DELETE FROM organizations WHERE id = ?`, [orgId]);
-
-    await pool.query("COMMIT");
+    await pool.query(
+      "UPDATE organizations SET is_deleted = 1 WHERE id = ?",
+      [orgId]
+    );
 
     res.json({
       success: true,
-      message: "Organization and all related data deleted successfully",
+      message: "Organization deleted successfully",
     });
-
   } catch (err) {
-    console.error("Cascade Delete Error:", err);
-    await pool.query("ROLLBACK");
-    res.status(500).json({ success: false, message: "Delete failed" });
+    console.error("Delete Organization Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Delete failed",
+    });
   }
 };
 
 
+// -----------------------------
+// Total Organizations
+// -----------------------------
+exports.getTotalOrganizations = async (req, res) => {
+  try {
+    const [[{ count }]] = await pool.query(
+      "SELECT COUNT(*) AS count FROM organizations WHERE is_deleted = 0"
+    );
+    res.json({ count });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// -----------------------------
+// Organization Activity %
+// -----------------------------
+exports.getOrganizationActivity = async (req, res) => {
+  try {
+    const [[{ active }]] = await pool.query(
+      "SELECT COUNT(*) AS active FROM organizations WHERE status='active' AND is_deleted=0"
+    );
+    const [[{ total }]] = await pool.query(
+      "SELECT COUNT(*) AS total FROM organizations WHERE is_deleted=0"
+    );
+    const activePercentage = total ? Math.round((active / total) * 100) : 0;
+    res.json({ activePercentage });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// -----------------------------
+// Organizations by Package
+// -----------------------------
+exports.getOrganizationsByPackage = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT plan, COUNT(*) AS count FROM organizations WHERE is_deleted=0 GROUP BY plan"
+    );
+    const data = { starter: 0, pro: 0, enterprise: 0 };
+    rows.forEach(r => { data[r.plan.toLowerCase()] = r.count; });
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 

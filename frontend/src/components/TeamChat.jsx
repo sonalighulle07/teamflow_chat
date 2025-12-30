@@ -460,7 +460,7 @@ const handleFileChange = (e) => {
 
       {/* Messages */}
       <div
-        className="flex-1  bg-white border border-gray-300 rounded-lg shadow-md  overflow-y-auto "
+        className="flex-1 bg-white border border-gray-300 rounded-lg shadow-md overflow-y-auto pt-20"
          // adjust according to your layout
       >
         {selectedTeam ? (
@@ -499,29 +499,29 @@ const handleFileChange = (e) => {
                     className="flex flex-col items-start gap-1"
                   >
                     <Message
-                      message={{
-                        ...msg,
-                        username:
-                          msg.sender_id !== currentUser.id
-                            ? selectedTeamMembers?.find(
-                                (u) =>
-                                  Number(u.user_id) === Number(msg.sender_id)
-                              )?.username
-                            : undefined,
-                      }}
-                      searchQuery={searchQuery}
-                      highlightText={highlightText}
-                      isOwn={msg.sender_id === currentUser.id}
-                      socket={socketRef.current}
-                      onForward={(m) => setForwardMsg(m)}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      chatType="team"
-                      teamId={selectedTeam.id}
-                      setMessages={setMessages}
-                      token={token}
-                      onReact={handleReaction}
-                    />
+                                          message={{
+                                            ...msg,
+                                            username:
+                                              msg.sender_id !== currentUser.id
+                                                ? selectedTeamMembers?.find(
+                                                    (u) =>
+                                                      Number(u.user_id) === Number(msg.sender_id)
+                                                  )?.username
+                                                : undefined,
+                                          }}
+                                          searchQuery={searchQuery}
+                                          highlightText={highlightText}
+                                          isOwn={msg.sender_id === currentUser.id}
+                                          socket={socketRef.current}
+                                          onForward={(m) => setForwardMsg(m)}
+                                          onEdit={handleEdit}
+                                          onDelete={handleDelete}
+                                          chatType="team"
+                                          teamId={selectedTeam.id}
+                                          setMessages={setMessages}
+                                          token={token}
+                                          onReact={handleReaction}
+                                        />
                   </div>
                 </React.Fragment>
               );
