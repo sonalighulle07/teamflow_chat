@@ -49,11 +49,11 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <>
+ <div className="h-[calc(100vh-64px)] overflow-y-auto p-4 hide-scrollbar">
       <h1 className="text-[16px] text-gray-600 mb-6">Dashboard</h1>
 
       {/* Top Cards */}
-      <div className="flex flex-wrap  -ml-[10px]">
+      <div className="flex flex-wrap -ml-[10px]">
         {/* First Card */}
         <div className="ml-[10px] mb-3">
           <StatCard
@@ -83,15 +83,15 @@ export default function Dashboard() {
               Organization Activity
             </p>
 
-            <div className="flex items-center justify-between mb-4  ">
+            <div className="flex items-center justify-between mb-4">
               {/* Active */}
-              <div className="flex items-center gap-3 ">
+              <div className="flex items-center gap-3">
                 <span className="w-5 h-5 mb-13 rounded-full ml-6 border-2 border-green-400 flex items-center justify-center">
-                  <span className="w-2.5 h-2.5 rounded-full  bg-green-500"></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
                 </span>
                 <div>
                   <p className="text-sm text-gray-600">Active Orgs</p>
-                  <p className="text-[20px]  text-gray-600 mt-1.5 mb-1.5">
+                  <p className="text-[20px] text-gray-600 mt-1.5 mb-1.5">
                     {stats.orgActivity}%
                   </p>
                   <p className="text-xs text-gray-400">823</p>
@@ -110,7 +110,7 @@ export default function Dashboard() {
               {/* Inactive */}
               <div className="flex items-center gap-3">
                 <span className="w-5 h-5 mb-13 rounded-full border-2 border-[#A4A4A4] flex items-center justify-center">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#A4A4A4] "></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#A4A4A4]"></span>
                 </span>
                 <div>
                   <p className="text-sm mr-6 text-gray-600">Inactive Orgs</p>
@@ -139,11 +139,10 @@ export default function Dashboard() {
 
       {/* Packages Section */}
       <div className="bg-white rounded-[6px] p-6 shadow-sm border border-gray-200 mb-6">
-        <h2 className="mb-5 text-[16px] text-gray-700  ">
+        <h2 className="mb-5 text-[16px] text-gray-700">
           Organizations by packages
         </h2>
 
-        {/* Scrollable container */}
         <div className="flex flex-wrap -ml-[10px] max-h-[400px] overflow-y-auto mb-[-20px]">
           <div className="ml-[10px] mb-4 flex-1 min-w-[200px]">
             <PackageCard
@@ -165,13 +164,10 @@ export default function Dashboard() {
             <PackageCard
               title="Enterprise"
               value={packages.enterprise}
-              icon={
-                <img src="/si_green.png" className="w-8 h-8 mb-9" />
-              }
+              icon={<img src="/si_green.png" className="w-8 h-8 mb-9" />}
             />
           </div>
 
-          {/* New additional package */}
           <div className="ml-[20px] mb-4 flex-1 min-w-[200px]">
             <PackageCard
               title="Custom"
@@ -184,6 +180,6 @@ export default function Dashboard() {
 
       {/* Organization Chart */}
       <OrganizationChart />
-    </>
+    </div>
   );
 }

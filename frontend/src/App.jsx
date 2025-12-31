@@ -36,8 +36,7 @@ import ForwardModal from "./components/ForwardModal";
 import SuperAdminLayout from "./Super_Admin/SuperAdminLayout";
 import SuperAdminDashboard from "./Super_Admin/pages/Dashboard";
 import Organizations from "./Super_Admin/components/Organization"; // adjust path
-import Plans from "./Super_Admin/components/Plans"; 
-
+import Plans from "./Super_Admin/components/Plans";
 
 // Super Admin
 
@@ -91,27 +90,28 @@ function AppRoutes({
 
   return (
     <Routes>
-<Route
-  path="/super-admin"
-  element={
-    <SecureRoutes
-      isAuthenticated={isAuthenticated}
-      role={currentUser?.role}
-      allowedRoles={["super_admin"]}
-    >
-      <SuperAdminLayout />
-    </SecureRoutes>
-  }
->
-  <Route index element={<SuperAdminDashboard />} />
-  <Route path="dashboard" element={<SuperAdminDashboard />} />
-  <Route path="organizations" element={<Organizations />} />
-  <Route path="plans" element={<Plans />} />
+      <Route
+        path="/super-admin"
+        element={
+          <SecureRoutes
+            isAuthenticated={isAuthenticated}
+            role={currentUser?.role}
+            allowedRoles={["super_admin"]}
+          >
+            <SuperAdminLayout />
+          </SecureRoutes>
+        }
+      >
+        <Route index element={<SuperAdminDashboard />} />
+        <Route path="dashboard" element={<SuperAdminDashboard />} />
+        <Route path="organizations" element={<Organizations />} />
+        <Route path="plans" element={<Plans />} />
+      </Route>
 
-</Route>
-
-      
-<Route path="/admin" element={<Navigate to="/org-admin/dashboard" replace />} />
+      <Route
+        path="/admin"
+        element={<Navigate to="/org-admin/dashboard" replace />}
+      />
 
       {/* ORG ADMIN */}
       <Route
@@ -140,7 +140,10 @@ function AppRoutes({
           path="teams"
           element={<OrganizationAdminTeamsModule adminId={currentUser?.id} />}
         />
-        <Route path="organizations" element={<div>Organization Settings</div>} />
+        <Route
+          path="organizations"
+          element={<div>Organization Settings</div>}
+        />
         <Route path="messages" element={<div>Messages</div>} />
       </Route>
 
@@ -149,7 +152,13 @@ function AppRoutes({
         path="/login"
         element={
           isAuthenticated ? (
-            <Navigate to={location.state?.from || "/"} replace />
+            currentUser?.role === "super_admin" ? (
+              <Navigate to="/super-admin/dashboard" replace />
+            ) : currentUser?.role === "org_admin" ? (
+              <Navigate to="/org-admin/dashboard" replace />
+            ) : (
+              <Navigate to="/" replace />
+            )
           ) : (
             <Login onLogin={handleAuthSuccess} />
           )
@@ -325,7 +334,11 @@ function AppRoutes({
                 />
               )}
 
-              <ToastContainer position="top-right" autoClose={3000} theme="colored" />
+              <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                theme="colored"
+              />
             </div>
           )
         }
@@ -353,11 +366,11 @@ function App() {
     }
   }, []);
 
-useEffect(() => {
-  if (isAuthenticated && userId) {
-    connectSocket(userId);
-  }
-}, [isAuthenticated, userId]);
+  useEffect(() => {
+    if (isAuthenticated && userId) {
+      connectSocket(userId);
+    }
+  }, [isAuthenticated, userId]);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("chatUser");

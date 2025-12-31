@@ -22,7 +22,8 @@ export default function Sidebar() {
         <Link
           to="/super-admin/dashboard"
           className={`flex items-center gap-3 px-4 py-2 rounded-xl w-full ${
-            location.pathname === "/super-admin/dashboard"
+            location.pathname === "/super-admin/dashboard" ||
+            location.pathname === "/super-admin"
               ? "bg-[#D9D9D966] text-[#1924FF]"
               : "text-gray-700 hover:bg-[#F2F2F2]"
           }`}

@@ -33,10 +33,7 @@ export default function ViewOrganizationModal({ orgId, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/20"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
 
       <div className="relative w-full max-w-[400px] bg-white rounded-lg shadow-xl p-6">
         <h3 className="text-lg font-medium text-gray-600 mb-5 ml-3.5">
@@ -47,25 +44,44 @@ export default function ViewOrganizationModal({ orgId, onClose }) {
           <p className="text-sm text-gray-400">Loading...</p>
         ) : (
           <div className="grid grid-cols-2 gap-y-3 mr-2 ml-3  text-sm text-gray-600">
-            <p><span className="font-medium ">Name :</span> {org.name}</p>
-            <p><span className="font-medium">Email :</span> {org.email}</p>
+            <p>
+              <span className="font-medium ">Name :</span> {org.name}
+            </p>
+            <p>
+              <span className="font-medium">Email :</span> {org.email}
+            </p>
 
-            <p><span className="font-medium">Domain :</span> {org.domain}</p>
-            <p><span className="font-medium">Package :</span> {org.plan}</p>
+            <p>
+              <span className="font-medium">Domain :</span> {org.domain}
+            </p>
+            <p>
+              <span className="font-medium">Package :</span> {org.plan}
+            </p>
 
-            <p><span className="font-medium">Status :</span> 
+            <p>
+              <span className="font-medium">Status :</span>
               <span
                 className={`inline-block w-2 h-2 rounded-full mr-1 ml-2 ${
                   org.status === "active" ? "bg-green-500" : "bg-red-500"
                 }`}
               />
-              <span className={org.status === "active" ? "text-green-500" : "text-red-500"}>
+              <span
+                className={
+                  org.status === "active" ? "text-green-500" : "text-red-500"
+                }
+              >
                 {org.status.charAt(0).toUpperCase() + org.status.slice(1)}
               </span>
             </p>
 
-            <p><span className="font-medium">Start date :</span> {org.startDate || "-"}</p>
-            <p><span className="font-medium">Expiry date:</span> {org.expiryDate || "-"}</p>
+            <p>
+              <span className="font-medium">Start date :</span>{" "}
+              {org.startDate || "-"}
+            </p>
+            <p>
+              <span className="font-medium">Expiry date:</span>{" "}
+              {org.expiryDate || "-"}
+            </p>
           </div>
         )}
 

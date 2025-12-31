@@ -1,11 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import {
-  HiOutlineEye,
-  HiOutlinePencil,
-  HiOutlineTrash,
-} from "react-icons/hi";
+import { HiOutlineEye, HiOutlinePencil, HiOutlineTrash } from "react-icons/hi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch } from "react-icons/fi";
+import CreatePlanModal from "./CreatePlanModal";
 
 const plansData = [
   { id: 1, plan: "Starter" },
@@ -19,6 +16,8 @@ export default function Plans() {
   const [searchText, setSearchText] = useState("");
   const [showModal, setShowModal] = useState(false);
   const searchRef = useRef(null);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterPlan, setFilterPlan] = useState("");
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -85,7 +84,11 @@ export default function Plans() {
                 setPage(1); // reset page on search
               }}
               className={`pl-10 pr-4 py-1 w-full max-w-xs text-sm text-gray-700 rounded-md border
-                ${searchText ? "border-blue-500 ring-1 ring-blue-500" : "border-gray-300"}
+                ${
+                  searchText
+                    ? "border-blue-500 ring-1 ring-blue-500"
+                    : "border-gray-300"
+                }
                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all`}
             />
             <span
@@ -98,7 +101,10 @@ export default function Plans() {
           </div>
 
           {/* Filter Button */}
-          <button className="px-3 py-0.5 border border-gray-300 rounded-md text-gray-500 hover:bg-gray-100">
+          <button
+            onClick={() => setShowFilter(true)}
+            className="px-3 py-0.5 border border-gray-300 rounded-md text-gray-500 hover:bg-gray-100"
+          >
             Filter
           </button>
 
@@ -115,7 +121,7 @@ export default function Plans() {
       {/* Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
         <table className="w-full text-sm border-collapse">
-          <thead className="bg-blue-100 text-gray-500">
+          <thead className="bg-[#D4E5FF] text-left text-gray-500 text-sm">
             <tr>
               <th className="px-4 py-3 text-left">Sr. no.</th>
               <th className="px-4 py-3 text-left">Plan Name</th>
@@ -129,9 +135,14 @@ export default function Plans() {
           <tbody className="text-gray-700">
             {filteredData.length > 0 ? (
               filteredData.map((plan, idx) => (
-                <tr key={plan.id} className={idx % 2 === 1 ? "bg-gray-100" : ""}>
+                <tr
+                  key={plan.id}
+                  className={idx % 2 === 1 ? "bg-gray-100" : ""}
+                >
                   <td className="px-4 py-3">{(page - 1) * limit + idx + 1}</td>
-                  <td className="px-4 py-3">{highlightMatch(plan.plan, searchText)}</td>
+                  <td className="px-4 py-3">
+                    {highlightMatch(plan.plan, searchText)}
+                  </td>
                   <td className="px-4 py-3">30</td>
                   <td className="px-4 py-3">₹12,000</td>
                   <td className="px-4 py-3">60</td>
@@ -144,21 +155,24 @@ export default function Plans() {
                       }
                       className="text-gray-600 hover:text-gray-600 ml-3 font-extrabold"
                     >
-                      <BsThreeDotsVertical size={16} />
+                      <BsThreeDotsVertical size={17} />
                     </button>
 
                     {openMenuId === plan.id && (
                       <div className="absolute right-2 top-8 z-20 w-32 bg-white rounded-md shadow-md">
                         <button className="flex items-center gap-2 px-3 py-1 w-full hover:bg-gray-100 border-b border-gray-200">
-                          <HiOutlineEye className="text-blue-600 h-4 w-4" /> View
+                          <HiOutlineEye className="text-blue-600 h-4 w-4" />{" "}
+                          View
                         </button>
 
                         <button className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100 border-b border-gray-200">
-                          <HiOutlinePencil className="text-gray-600 h-4 w-4" /> Edit
+                          <HiOutlinePencil className="text-gray-600 h-4 w-4" />{" "}
+                          Edit
                         </button>
 
                         <button className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100">
-                          <HiOutlineTrash className="text-gray-600 h-4 w-4" /> Delete
+                          <HiOutlineTrash className="text-gray-600 h-4 w-4" />{" "}
+                          Delete
                         </button>
                       </div>
                     )}
@@ -177,20 +191,22 @@ export default function Plans() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-between items-center mt-4 p-4 border-t border-gray-200 text-gray-600 text-sm">
+          <div className="flex justify-between items-center mt-4 p-4 text-gray-600 text-sm">
             <div>
               Showing {(page - 1) * limit + 1} to{" "}
               {(page - 1) * limit + filteredData.length} of{" "}
-              {data.filter((plan) =>
-                plan.plan.toLowerCase().includes(searchText.toLowerCase())
-              ).length}{" "}
+              {
+                data.filter((plan) =>
+                  plan.plan.toLowerCase().includes(searchText.toLowerCase())
+                ).length
+              }{" "}
               entries
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-6">
               <button
                 disabled={page === 1}
                 onClick={() => setPage(page - 1)}
-                className="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
+                className="px-3 py-1 border  border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
               >
                 Previous
               </button>
@@ -200,7 +216,7 @@ export default function Plans() {
                   onClick={() => setPage(i + 1)}
                   className={`px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 ${
                     page === i + 1
-                      ? "bg-blue-500 text-white border-blue-500"
+                      ? "bg-gray-100 text-gray-600 border-gray-100"
                       : "bg-white text-gray-600"
                   }`}
                 >
@@ -219,16 +235,52 @@ export default function Plans() {
         )}
       </div>
 
-      {/* Optional Modal for Create */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-md shadow-md w-full max-w-sm">
-            <h3 className="text-lg font-medium mb-4">Create Plan</h3>
+      <CreatePlanModal show={showModal} onClose={() => setShowModal(false)} />
+      {/* Filter Modal */}
+      {showFilter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Overlay */}
+          <div
+            className="absolute inset-0 bg-black/20"
+            onClick={() => setShowFilter(false)}
+          />
+
+          {/* Card */}
+          <div className="relative w-[360px] bg-white rounded-2xl px-6 py-6 shadow-lg">
+            {/* Header */}
+            <div className="text-center mb-6 relative">
+              <h2 className="text-lg text-gray-600 font-medium">
+                Filter Plans
+              </h2>
+              <button
+                onClick={() => setShowFilter(false)}
+                className="absolute right-0 top-0 text-gray-400 text-xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Dropdown */}
+            <div className="mb-6">
+              <label className="block text-sm text-gray-500 mb-2">Plans</label>
+              <select
+                value={filterPlan}
+                onChange={(e) => setFilterPlan(e.target.value)}
+                className="w-full bg-white text-gray-700 text-sm border border-gray-300 px-3 py-2 rounded-md outline-none"
+              >
+                <option value="">Select plan</option>
+                <option value="Starter">Starter</option>
+                <option value="Advanced">Advanced</option>
+                <option value="Enterprise">Enterprise</option>
+              </select>
+            </div>
+
+            {/* Apply button */}
             <button
-              onClick={() => setShowModal(false)}
-              className="px-3 py-1 bg-blue-500 text-white rounded-md"
+              onClick={() => setShowFilter(false)}
+              className="w-[100px] h-[30px] bg-blue-400 text-white rounded-xl text-sm font-medium"
             >
-              Close
+              Apply
             </button>
           </div>
         </div>

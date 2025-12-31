@@ -27,7 +27,7 @@ const yAxisTicks = [
 
 export default function OrganizationChart() {
   return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 mb-10">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-[16px] text-gray-700  ">Organization Growth</h2>
@@ -41,7 +41,7 @@ export default function OrganizationChart() {
       </div>
 
       {/* Chart */}
-      <div className="h-[260px] border-gray-200">
+      <div className="w-full h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
@@ -56,7 +56,7 @@ export default function OrganizationChart() {
               label={{
                 value: "Year",
                 position: "insideBottom",
-                offset: -15,
+                offset: -20,
                 fill: "#9CA3AF",
                 fontSize: 14,
               }}

@@ -23,12 +23,17 @@ export default function Organization() {
   const [searchText, setSearchText] = useState("");
   const [editingOrg, setEditingOrg] = useState(null);
   const [viewOrgId, setViewOrgId] = useState(null);
-
   const token = localStorage.getItem("token");
   const limit = 10;
-
   const rowRefs = useRef({});
   const searchRef = useRef(null);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filter, setFilter] = useState({
+    status: [],
+    plan: "",
+    startDate: "",
+    endDate: "",
+  });
 
   // Fetch organizations
   const fetchOrganizations = async (q = searchText, p = page) => {
@@ -124,14 +129,12 @@ export default function Organization() {
   };
 
   return (
-    <div className="flex-1 p-6 bg-gray-50 min-h-screen relative">
+    <div className="flex-1 p-6 bg-gray-50 h-screen overflow-y-hidden relative">
       {/* Breadcrumb */}
       <div className="text-gray-600 mb-4">Dashboard &bull; Organization</div>
-
       {/* Header */}
       <div className="flex justify-between items-center mb-5">
         <h2 className="text-lg text-gray-500">Organization</h2>
-
         <div className="flex gap-4 items-center">
           {/* Search Field */}
           <div className="relative" ref={searchRef}>
@@ -148,13 +151,17 @@ export default function Organization() {
               className={`absolute left-3 top-1/2 -translate-y-1/2 ${
                 searchText ? "text-blue-600" : "text-gray-400"
               }`}
+      
             >
               <FiSearch />
             </span>
           </div>
 
           {/* Filter Button */}
-          <button className="px-3 py-0.5 border border-gray-300 rounded-md text-gray-500 hover:bg-gray-100">
+          <button
+            onClick={() => setShowFilter(true)}
+            className="px-3 py-0.5 border border-gray-300 rounded-md text-gray-500 hover:bg-gray-100"
+          >
             Filter
           </button>
 
@@ -169,20 +176,20 @@ export default function Organization() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
+      <div className="bg-white rounded-lg shadow-sm overflow-x-auto max-h-[70vh] overflow-y-auto">
         {loading ? (
           <p className="p-4 text-gray-500 text-sm">Loading...</p>
         ) : (
           <table className="min-w-full w-full border-collapse">
-            <thead className="bg-blue-100 text-left text-gray-500 text-sm">
+            <thead className="bg-[#D4E5FF] text-left text-gray-500 text-sm">
               <tr>
-                <th className="px-4 py-2">Sr.No</th>
-                <th className="px-4 py-2">Name</th>
-                <th className="px-4 py-2">Domain</th>
-                <th className="px-4 py-2">Email</th>
-                <th className="px-4 py-2">Plan</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">Action</th>
+                <th className="px-4 py-3">Sr.No</th>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Domain</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Plan</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
             <tbody className="text-gray-700 text-sm">
@@ -219,7 +226,10 @@ export default function Organization() {
                                 : "bg-red-500"
                             }`}
                           ></span>
-                          <span>{org.status}</span>
+                          <span>
+                            {org.status.charAt(0).toUpperCase() +
+                              org.status.slice(1)}
+                          </span>
                         </span>
                       </td>
                       <td className="relative px-4 py-3">
@@ -231,7 +241,7 @@ export default function Organization() {
                           }
                           className="text-gray-600 hover:text-gray-600 ml-3 font-extrabold"
                         >
-                          <HiDotsVertical size={16} />
+                          <HiDotsVertical size={17} />
                         </button>
 
                         {editingOrg?.id === org.id && (
@@ -239,11 +249,11 @@ export default function Organization() {
                             <button
                               className="flex items-center gap-2 px-3 py-1 w-full hover:bg-gray-100 border-b border-gray-200"
                               onClick={() => {
-                                setViewOrgId(org.id); // open view modal
-                                setEditingOrg(null); // close dropdown
+                                setViewOrgId(org.id);
+                                setEditingOrg(null);
                               }}
                             >
-                              <HiOutlineEye className="text-blue-600 h-4 w-4" />{" "}
+                              <HiOutlineEye className="text-blue-600 h-4 w-4" />
                               View
                             </button>
 
@@ -252,10 +262,10 @@ export default function Organization() {
                               onClick={() => {
                                 setEditingOrg(null);
                                 setShowModal(true);
-                                setEditingOrg(org); // open edit form modal
+                                setEditingOrg(org);
                               }}
                             >
-                              <HiOutlinePencil className="text-gray-600 h-4 w-4" />{" "}
+                              <HiOutlinePencil className="text-gray-600 h-4 w-4" />
                               Edit
                             </button>
 
@@ -263,11 +273,22 @@ export default function Organization() {
                               className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100"
                               onClick={() => {
                                 handleDelete(org.id);
-                                setEditingOrg(null); // close dropdown
+                                setEditingOrg(null);
                               }}
                             >
-                              <HiOutlineTrash className="text-gray-600 h-4 w-4" />{" "}
+                              <HiOutlineTrash className="text-gray-600 h-4 w-4" />
                               Delete
+                            </button>
+                            <button
+                              className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100 border-b border-gray-200"
+                              onClick={() => {
+                                // send mail action
+                                handleSendMail(org.email);
+                                setEditingOrg(null);
+                              }}
+                            >
+                              <HiOutlineMail className="text-gray-600 h-4 w-4" />
+                              Send Mail
                             </button>
                           </div>
                         )}
@@ -351,6 +372,148 @@ export default function Organization() {
           orgId={viewOrgId}
           onClose={() => setViewOrgId(null)}
         />
+      )}
+      {showFilter && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">
+          {/* Overlay */}
+          <div
+            className="absolute inset-0 bg-black/20"
+            onClick={() => setShowFilter(false)}
+          />
+
+          {/* Card */}
+          <div className="relative w-[420px] bg-white rounded-xl shadow-md px-8 py-2">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[17px] text-gray-500 font-normal pt-3 ">
+                Filter
+              </h3>
+              <button
+                onClick={() => setShowFilter(false)}
+                className="text-gray-400 text-xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Status */}
+            <div className="mb-6">
+              <p className="text-sm text-gray-500 mb-2 m">Status</p>
+              <div className="flex gap-8 text-sm text-gray-500">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 border-gray-300 rounded"
+                    checked={filter.status.includes("active")}
+                    onChange={(e) =>
+                      setFilter((f) => ({
+                        ...f,
+                        status: e.target.checked
+                          ? [...f.status, "active"]
+                          : f.status.filter((s) => s !== "active"),
+                      }))
+                    }
+                  />
+                  Active
+                </label>
+
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 border-gray-300 rounded"
+                    checked={filter.status.includes("inactive")}
+                    onChange={(e) =>
+                      setFilter((f) => ({
+                        ...f,
+                        status: e.target.checked
+                          ? [...f.status, "inactive"]
+                          : f.status.filter((s) => s !== "inactive"),
+                      }))
+                    }
+                  />
+                  Inactive
+                </label>
+              </div>
+            </div>
+
+            {/* Plans */}
+            <div className="mb-6">
+              <p className="text-sm text-gray-500 mb-2">Plans</p>
+              <select
+                value={filter.plan}
+                onChange={(e) => setFilter({ ...filter, plan: e.target.value })}
+                className="w-[220px] h-[30px]  border border-gray-300 rounded-full
+                pl-4  text-sm text-gray-400 outline-none appearance-auto"
+              >
+                <option value=""></option>
+                <option value="basic">Starter</option>
+                <option value="pro">Pro</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+
+            {/* Dates */}
+            <div className="flex items-center gap-6 mb-8">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Start date:</p>
+                <input
+                  type="date"
+                  value={filter.startDate}
+                  onChange={(e) =>
+                    setFilter({ ...filter, startDate: e.target.value })
+                  }
+                  className="w-[160px] h-[34px] border border-gray-300 rounded-lg px-3
+                 text-sm text-gray-400
+                 [&::-webkit-calendar-picker-indicator]:opacity-50
+                 [&::-webkit-calendar-picker-indicator]:invert-[0.4]"
+                />
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500 mb-1">End date:</p>
+                <input
+                  type="date"
+                  value={filter.endDate}
+                  onChange={(e) =>
+                    setFilter({ ...filter, endDate: e.target.value })
+                  }
+                  className="w-[160px] h-[34px] border border-gray-300 rounded-lg px-3
+                 text-sm text-gray-400
+                 [&::-webkit-calendar-picker-indicator]:opacity-50
+                 [&::-webkit-calendar-picker-indicator]:invert-[0.4]"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-5 mb-2">
+              <button
+                onClick={() => {
+                  setFilter({
+                    status: [],
+                    plan: "",
+                    startDate: "",
+                    endDate: "",
+                  });
+                  setShowFilter(false);
+                }}
+                className="h-[30px] px-6 border border-gray-300 rounded-lg text-sm text-gray-400"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowFilter(false);
+                  fetchOrganizations();
+                }}
+                className="h-[30px] px-8 bg-blue-600 text-white rounded-lg text-sm"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`

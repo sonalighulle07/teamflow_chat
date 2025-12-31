@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { URL } from "../../config";
-
 import { toast } from "react-toastify";
 
 export default function CreateOrganizationForm({ organization, onSuccess }) {
@@ -13,8 +12,8 @@ export default function CreateOrganizationForm({ organization, onSuccess }) {
     status: "Active",
     plan: "Starter",
   });
-
   const [loading, setLoading] = useState(false);
+//consistancy is important at the well place flase setLoading setError useState at the pl
   const [error, setError] = useState("");
   const [statusOpen, setStatusOpen] = useState(false);
 
@@ -71,6 +70,7 @@ export default function CreateOrganizationForm({ organization, onSuccess }) {
           autoClose: 3000,
           theme: "colored",
         });
+      
       } else {
         await axios.post(`${URL}/super-admin/organizations`, form, {
           headers: {
@@ -104,7 +104,8 @@ export default function CreateOrganizationForm({ organization, onSuccess }) {
       setLoading(false);
     }
   };
-
+//input class for here height  caoording to high quality is the [art purple class according to the view tu mithn ghat ka pani
+//piya o re oiya ooooooiye re tumse na jsur re basra hain a according to content around the 40pc now i am happy with 40px const its about you 
   const inputClass =
     "flex items-center bg-white border border-gray-200 rounded-lg px-3 py-2 text-[#5B5B5B] text-sm placeholder-[#5B5B5B] w-full outline-none";
 
@@ -212,7 +213,7 @@ export default function CreateOrganizationForm({ organization, onSuccess }) {
               {/* Placeholder with circular icon */}
               <span className="flex items-center text-sm text-[#5B5B5B]">
                 <img
-                  src="/public/fontisto_radio-btn-active.png" // replace with your icon
+                  src="/fontisto_radio-btn-active.png" // replace with your icon
                   alt="icon"
                   className="w-4 h-4 rounded-full mr-2"
                 />

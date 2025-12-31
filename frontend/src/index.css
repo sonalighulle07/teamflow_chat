@@ -52,6 +52,16 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   border-radius: 4px;
 }
 
+/* Hide scrollbar but still scrollable */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE 10+ */
+  scrollbar-width: none; /* Firefox */
+}
+
+
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
