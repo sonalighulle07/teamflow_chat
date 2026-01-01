@@ -12,193 +12,119 @@ export default function CreateOrganizationForm({ organization, onSuccess }) {
     status: "Active",
     plan: "Starter",
   });
+
   const [loading, setLoading] = useState(false);
-//consistancy is important at the well place flase setLoading setError useState at the pl
   const [error, setError] = useState("");
   const [statusOpen, setStatusOpen] = useState(false);
 
-  useEffect(() => {
-    if (organization) {
-      setForm({
-        name: organization.name || "",
-        email: organization.email || "",
-        contact: organization.contact || "",
-        address: organization.address || "",
-        status:
-          organization.status?.charAt(0).toUpperCase() +
-            organization.status?.slice(1) || "Active",
-        plan:
-          organization.plan?.charAt(0).toUpperCase() +
-            organization.plan?.slice(1) || "Starter",
-      });
-    } else {
-      setForm({
-        name: "",
-        email: "",
-        contact: "",
-        address: "",
-        status: "Active",
-        plan: "Starter",
-      });
-    }
-  }, [organization]);
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const token = localStorage.getItem("token");
-
-      if (organization) {
-        await axios.put(
-          `${URL}/super-admin/organizations/${organization.id}`,
-          form,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        toast.success("Organization updated successfully!", {
-          autoClose: 3000,
-          theme: "colored",
-        });
-      
-      } else {
-        await axios.post(`${URL}/super-admin/organizations`, form, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-        toast.success("Organization created successfully!", {
-          autoClose: 3000,
-          theme: "colored",
-        });
-      }
-
-      setForm({
-        name: "",
-        email: "",
-        contact: "",
-        address: "",
-        status: "Active",
-        plan: "Starter",
-      });
-
-      if (onSuccess) setTimeout(onSuccess, 100);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to save organization");
-      toast.error(
-        err.response?.data?.message || "Failed to save organization",
-        { autoClose: 3000, theme: "colored" }
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-//input class for here height  caoording to high quality is the [art purple class according to the view tu mithn ghat ka pani
-//piya o re oiya ooooooiye re tumse na jsur re basra hain a according to content around the 40pc now i am happy with 40px const its about you 
   const inputClass =
-    "flex items-center bg-white border border-gray-200 rounded-lg px-3 py-2 text-[#5B5B5B] text-sm placeholder-[#5B5B5B] w-full outline-none";
+    "flex items-center h-[40px] bg-white border border-gray-200 rounded-lg px-3 text-sm text-[#5B5B5B] w-full";
 
   return (
-    <div className="flex justify-center items-start">
-      <div className="w-full max-w-md bg-[#F2F2F2] p-9 rounded-[15px] border border-[#E4E4E4]">
-        <h2 className="text-center text-gray-600 text-lg font-medium mb-5">
+    <div className="flex justify-center">
+      <div className="w-full max-w-4xl bg-[#F2F2F2] p-8 rounded-[15px] border border-[#E4E4E4]">
+        <h2 className="text-center text-gray-600 text-lg font-medium mb-6">
           {organization ? "Edit Organization" : "Create Organization"}
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
+        <form className="grid grid-cols-2 gap-4 ">
+          {/* Organization Name */}
           <div>
-            <label className="block text-gray-600 mb-1 text-sm">
+            <label className="text-sm text-gray-600 mb-1 block">
               Organization Name
             </label>
             <div className={inputClass}>
               <img
                 src="/octicon_organization-24.png"
                 className="w-4 h-4 mr-2"
-                alt="icon"
               />
               <input
                 type="text"
                 name="name"
                 value={form.name}
-                onChange={handleChange}
                 placeholder="Enter name"
-                required
-                className="w-full outline-none placeholder-[#5B5B5B]"
+                className="w-full outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Username */}
+          <div>
+            <label className="text-sm text-gray-600 mb-1 block">Username</label>
+            <div className={inputClass}>
+              <img src="/octicon_organization-24.png" className="w-4 h-4 mr-2" />
+              <input
+                type="text"
+                placeholder="Enter username"
+                className="w-full outline-none"
               />
             </div>
           </div>
 
           {/* Email */}
           <div>
-            <label className="block text-gray-600 mb-1 text-sm">
+            <label className="text-sm text-gray-600 mb-1 block">
               Organization Email
             </label>
             <div className={inputClass}>
               <img
                 src="/material-symbols_mail-outline-rounded.png"
                 className="w-4 h-4 mr-2"
-                alt="icon"
               />
               <input
                 type="email"
                 name="email"
                 value={form.email}
-                onChange={handleChange}
                 placeholder="Enter email"
-                required
-                className="w-full outline-none placeholder-[#5B5B5B]"
+                className="w-full outline-none"
               />
             </div>
           </div>
 
           {/* Contact */}
           <div>
-            <label className="block text-gray-600 mb-1 text-sm">Contact</label>
+            <label className="text-sm text-gray-600 mb-1 block">Contact</label>
             <div className={inputClass}>
               <img
                 src="/material-symbols_call-outline-sharp.png"
                 className="w-4 h-4 mr-2"
-                alt="icon"
               />
               <input
                 type="text"
                 name="contact"
                 value={form.contact}
-                onChange={handleChange}
                 placeholder="Enter phone number"
-                className="w-full outline-none placeholder-[#5B5B5B]"
+                className="w-full outline-none"
               />
             </div>
           </div>
 
           {/* Address */}
           <div>
-            <label className="block text-gray-600 mb-1 text-sm">Address</label>
+            <label className="text-sm text-gray-600 mb-1 block">Address</label>
             <div className={inputClass}>
-              <img
-                src="/akar-icons_location.png"
-                className="w-4 h-4 mr-2"
-                alt="icon"
-              />
+              <img src="/akar-icons_location.png" className="w-4 h-4 mr-2" />
               <input
                 type="text"
                 name="address"
                 value={form.address}
-                onChange={handleChange}
                 placeholder="Enter address"
-                className="w-full outline-none placeholder-[#5B5B5B]"
+                className="w-full outline-none"
+              />
+            </div>
+          </div>
+
+          {/* User Role */}
+          <div>
+            <label className="text-sm text-gray-600 mb-1 block">
+              User Role
+            </label>
+            <div className={inputClass}>
+              <img src="/octicon_organization-24.png" className="w-4 h-4 mr-2" />
+              <input
+                type="text"
+                placeholder="Enter user role"
+                className="w-full outline-none"
               />
             </div>
           </div>
@@ -269,54 +195,54 @@ export default function CreateOrganizationForm({ organization, onSuccess }) {
 
           {/* Plan */}
           <div>
-            <label className="block text-gray-600 mb-1 text-sm">Plans</label>
+            <label className="text-sm text-gray-600 mb-1 block">Plans</label>
+
+            <select className={inputClass} value={form.plan}>
+              
+              <option>Starter</option>
+              <option>Pro</option>
+              <option>Enterprise</option>
+            </select>
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className="text-sm text-gray-600 mb-1 block">Password</label>
             <div className={inputClass}>
-              <img
-                src="/layers-line.png"
-                className="w-4 h-4 mr-2"
-                alt="icon"
+              <img src="/octicon_organization-24.png" className="w-4 h-4 mr-2" />
+              <input
+                type="password"
+                placeholder="Enter password"
+                className="w-full outline-none"
               />
-              <select
-                name="plan"
-                value={form.plan}
-                onChange={handleChange}
-                className="w-full bg-white outline-none text-[#5B5B5B] text-sm"
-              >
-                <option value="Starter">Starter</option>
-                <option value="Advanced">Pro</option>
-                <option value="Enterprise">Enterprise</option>
-              </select>
             </div>
           </div>
 
-          {error && <p className="text-red-500 text-center text-sm">{error}</p>}
-
-          <div className="flex gap-2">
-            {/* Main Create/Update button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-[#1924FF] text-white py-2 rounded-lg text-sm hover:opacity-90 disabled:opacity-50"
-            >
-              {loading
-                ? organization
-                  ? "Updating..."
-                  : "Creating..."
-                : organization
-                ? "Update"
-                : "Create"}
-            </button>
-
-            {/* Send Mail button */}
-            <button
-              type="button"
-              onClick={() => console.log("Send mail clicked")} // replace with your send mail logic
-              className="flex-1 bg-[#F2F2F2] text-gray-500 font-semibold py-2 rounded-lg text-sm border border-gray-400 hover:bg-[#eeecec]"
-            >
-              Send Mail
-            </button>
+          {/* Confirm Password */}
+          <div>
+            <label className="text-sm text-gray-600 mb-1 block">
+              Confirm Password
+            </label>
+            <div className={inputClass}>
+              <img src="/octicon_organization-24.png" className="w-4 h-4 mr-2" />
+              <input
+                type="password"
+                placeholder="Confirm password"
+                className="w-full outline-none"
+              />
+            </div>
           </div>
         </form>
+
+        {/* Buttons */}
+        <div className="flex justify-center ml-25 gap-4 mt-8">
+          <button className="bg-[#999EFA] text-white px-8 py-2 rounded-lg text-sm">
+            Save
+          </button>
+          <button className="bg-[#999EFA] text-white px-8 py-2 rounded-lg text-sm">
+            Save & Send mail
+          </button>
+        </div>
       </div>
     </div>
   );

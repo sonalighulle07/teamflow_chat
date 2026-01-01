@@ -10,8 +10,6 @@ import React, {
 // API URL
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-// Utility to get initials
-// Utility to get initials with capital letters
 // Utility to get initials with capital letters
 function getInitials(name) {
   if (!name) return "";

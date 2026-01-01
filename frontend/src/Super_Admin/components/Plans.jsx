@@ -3,12 +3,42 @@ import { HiOutlineEye, HiOutlinePencil, HiOutlineTrash } from "react-icons/hi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch } from "react-icons/fi";
 import CreatePlanModal from "./CreatePlanModal";
+import ViewPlanModal from "./ViewPlanModal";
+
 
 const plansData = [
-  { id: 1, plan: "Starter" },
-  { id: 2, plan: "Advanced" },
-  { id: 3, plan: "Enterprise" },
+  {
+    id: 1,
+    plan: "Starter",
+    days: 30,
+    price: 12000,
+    size: 60,
+    status: "active",
+    startDate: "2026-01-01",
+    expiryDate: "2026-12-31",
+  },
+  {
+    id: 2,
+    plan: "Advanced",
+    days: 60,
+    price: 24000,
+    size: 120,
+    status: "inactive",
+    startDate: "2026-01-15",
+    expiryDate: "2026-12-31",
+  },
+  {
+    id: 3,
+    plan: "Enterprise",
+    days: 90,
+    price: 50000,
+    size: 300,
+    status: "active",
+    startDate: "2026-02-01",
+    expiryDate: "2026-12-31",
+  },
 ];
+
 
 export default function Plans() {
   const [data] = useState(plansData);
@@ -18,6 +48,10 @@ export default function Plans() {
   const searchRef = useRef(null);
   const [showFilter, setShowFilter] = useState(false);
   const [filterPlan, setFilterPlan] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+
+  const [open, setOpen] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -159,16 +193,30 @@ export default function Plans() {
                     </button>
 
                     {openMenuId === plan.id && (
-                      <div className="absolute right-2 top-8 z-20 w-32 bg-white rounded-md shadow-md">
-                        <button className="flex items-center gap-2 px-3 py-1 w-full hover:bg-gray-100 border-b border-gray-200">
+                      <div className="absolute left-[-15px] top-8 z-20 w-28 bg-white rounded-md shadow-md">
+                        <button
+                          className="flex items-center gap-2 px-3 py-1 w-full hover:bg-gray-100 border-b border-gray-200"
+                          onClick={() => {
+                            setSelectedPlan(plan);
+                            setShowViewModal(true);
+                            setOpenMenuId(null); // close menu
+                          }}
+                        >
                           <HiOutlineEye className="text-blue-600 h-4 w-4" />{" "}
                           View
                         </button>
 
-                        <button className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100 border-b border-gray-200">
-                          <HiOutlinePencil className="text-gray-600 h-4 w-4" />{" "}
-                          Edit
-                        </button>
+                        <button
+  className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100 border-b border-gray-200"
+  onClick={() => {
+    setSelectedPlan(plan); // set plan to edit
+    setShowModal(true);    // open modal
+    setOpenMenuId(null);   // close menu
+  }}
+>
+  <HiOutlinePencil className="text-gray-600 h-4 w-4" /> Edit
+</button>
+
 
                         <button className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100">
                           <HiOutlineTrash className="text-gray-600 h-4 w-4" />{" "}
@@ -191,7 +239,7 @@ export default function Plans() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-between items-center mt-4 p-4 text-gray-600 text-sm">
+          <div className="flex justify-between items-center mt-8 p-4 text-gray-600 text-sm">
             <div>
               Showing {(page - 1) * limit + 1} to{" "}
               {(page - 1) * limit + filteredData.length} of{" "}
@@ -246,12 +294,10 @@ export default function Plans() {
           />
 
           {/* Card */}
-          <div className="relative w-[360px] bg-white rounded-2xl px-6 py-6 shadow-lg">
+          <div className="relative w-[360px] bg-white rounded-[8px] px-6 py-6 shadow-lg border border-[#C4C4C4]">
             {/* Header */}
             <div className="text-center mb-6 relative">
-              <h2 className="text-lg text-gray-600 font-medium">
-                Filter Plans
-              </h2>
+              <h2 className="text-lg text-gray-600 mr-70 font-sm">Filter</h2>
               <button
                 onClick={() => setShowFilter(false)}
                 className="absolute right-0 top-0 text-gray-400 text-xl"
@@ -261,30 +307,83 @@ export default function Plans() {
             </div>
 
             {/* Dropdown */}
-            <div className="mb-6">
+            <div className="mb-6 relative">
               <label className="block text-sm text-gray-500 mb-2">Plans</label>
-              <select
-                value={filterPlan}
-                onChange={(e) => setFilterPlan(e.target.value)}
-                className="w-full bg-white text-gray-700 text-sm border border-gray-300 px-3 py-2 rounded-md outline-none"
+
+              {/* Select */}
+              <div
+                onClick={() => setOpen(!open)}
+                className="w-full bg-white text-gray-400 text-sm
+               border border-gray-300 px-4 py-2
+               rounded-full cursor-pointer
+               flex items-center justify-between"
               >
-                <option value="">Select plan</option>
-                <option value="Starter">Starter</option>
-                <option value="Advanced">Advanced</option>
-                <option value="Enterprise">Enterprise</option>
-              </select>
+                <span>{filterPlan || "Select plan"}</span>
+
+                {/* Arrow */}
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform ${
+                    open ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+
+              {/* Options */}
+              {open && (
+                <div
+                  className="absolute z-20 mt-2 w-full bg-white
+                 border border-gray-300
+                 rounded-xl shadow-md overflow-hidden"
+                >
+                  {["Starter", "Advanced", "Enterprise"].map(
+                    (plan, index, arr) => (
+                      <div
+                        key={plan}
+                        onClick={() => {
+                          setFilterPlan(plan);
+                          setOpen(false);
+                        }}
+                        className={`px-4 py-2 text-sm text-gray-600 cursor-pointer
+                hover:bg-gray-100
+                ${index !== arr.length - 1 ? "border-b border-gray-200" : ""}`}
+                      >
+                        {plan}
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Apply button */}
             <button
               onClick={() => setShowFilter(false)}
-              className="w-[100px] h-[30px] bg-blue-400 text-white rounded-xl text-sm font-medium"
+              className="w-[100px] h-[30px] bg-[#0673F0] hover:bg-[#056de3]  text-white rounded-[6px]  text-sm font-medium ml-53"
             >
               Apply
             </button>
           </div>
         </div>
       )}
+      {/* View Modal */}
+{showViewModal && (
+  <ViewPlanModal
+    plan={selectedPlan}
+    onClose={() => setShowViewModal(false)}
+  />
+)}
+
     </div>
+    
   );
 }
