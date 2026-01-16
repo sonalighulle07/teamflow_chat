@@ -532,7 +532,7 @@ const handleFileChange = (e) => {
             </div>
           )
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-[14px]">
+          <div className="flex-1 flex items-center justify-center text-gray-400 text-sm mt-5">
             Select a team to start chatting
           </div>
         )}
@@ -541,7 +541,7 @@ const handleFileChange = (e) => {
 
       {/* Input + File */}
       {/* Input + File preview */}
-<div className="sticky bottom-0 p-3 border-t border-gray-300 bg-white z-10">
+<div className="sticky bottom-0 p-3 border-t border-gray-100 bg-white z-10">
 
   {selectedFile && (
     <div className="mb-2 p-1 border rounded-md bg-gray-100 flex items-center justify-between">
@@ -595,7 +595,7 @@ const handleFileChange = (e) => {
     </div>
   )}
 
- <div className="flex items-center gap-2 relative bg-white dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[13px] border-gray-300 dark:border-gray-700 shadow-sm">
+ <div className="flex items-center gap-2 relative bg-white dark:bg-gray-900 px-3 py-1 rounded-[8px] border text-[13px] border-gray-300 dark:border-gray-600 shadow-sm">
 
     <input
       type="text"

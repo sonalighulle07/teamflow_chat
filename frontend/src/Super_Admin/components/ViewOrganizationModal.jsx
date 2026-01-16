@@ -6,7 +6,7 @@ export default function ViewOrganizationModal({ orgId, onClose }) {
   const [org, setOrg] = useState(null);
   const [loading, setLoading] = useState(true);
   const token = localStorage.getItem("token");
-
+  
   useEffect(() => {
     if (!orgId) return;
 
@@ -35,17 +35,17 @@ export default function ViewOrganizationModal({ orgId, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/20" onClick={onClose} />
 
-      <div className="relative w-full max-w-[400px] bg-white rounded-lg shadow-xl p-6">
-        <h3 className="text-lg font-medium text-gray-600 mb-5 ml-3.5">
+      <div className="relative w-full max-w-[400px] bg-white rounded-lg shadow-xl p-7  ">
+        <h3 className="text-lg font-medium text-gray-600 mb-5 ">
           Organization Details
         </h3>
 
         {loading ? (
           <p className="text-sm text-gray-400">Loading...</p>
         ) : (
-          <div className="grid grid-cols-2 gap-y-3 mr-2 ml-3  text-sm text-gray-600">
+          <div className="grid grid-cols-2 gap-y-3 gap-x-5 flex-nowrap text-sm text-gray-600">
             <p>
-              <span className="font-medium ">Name :</span> {org.name}
+              <span className="font-medium">Name :</span> {org.name}
             </p>
             <p>
               <span className="font-medium">Email :</span> {org.email}
@@ -76,11 +76,15 @@ export default function ViewOrganizationModal({ orgId, onClose }) {
 
             <p>
               <span className="font-medium">Start date :</span>{" "}
-              {org.startDate || "-"}
+              {org.plan_start_date
+                ? new Date(org.plan_start_date).toLocaleDateString("en-GB")
+                : "-"}
             </p>
             <p>
-              <span className="font-medium">Expiry date:</span>{" "}
-              {org.expiryDate || "-"}
+              <span className="font-medium">Expiry date :</span>{" "}
+              {org.plan_end_date
+                ? new Date(org.plan_end_date).toLocaleDateString("en-GB")
+                : "-"}
             </p>
           </div>
         )}

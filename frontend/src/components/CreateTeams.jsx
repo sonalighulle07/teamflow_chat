@@ -111,7 +111,7 @@ export default function CreateTeam({
       toast.error("Failed to delete team");
     }
   };
- 
+
   const handleUpdateTeam = async () => {
     const added = selectedUsers.filter((id) => !initialMembers.includes(id));
     const removed = initialMembers.filter((id) => !selectedUsers.includes(id));
@@ -151,15 +151,15 @@ export default function CreateTeam({
   return (
     <>
       {showModal && (
-        <div className="fixed inset-0 z-50 flex justify-center items-start pt-24 bg-black/30 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-[450px] rounded-xl shadow-xl p-6 border border-gray-200 overflow-y-auto max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex justify-center items-start pt-20 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-[450px] p-8 border border-gray-100 overflow-y-auto max-h-[90vh]">
             {/* Header */}
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">
+            <div className="flex justify-between  items-center mb-6">
+              <h2 className="text-[19px] font-semibold ml-32  text-gray-600">
                 {existingTeam ? "Update Team" : "Create a Team"}
               </h2>
               {existingTeam && isAdmin && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => setTeamNameEditMode(true)}
                     className="text-indigo-600 hover:text-indigo-800 transition text-sm"
@@ -175,11 +175,10 @@ export default function CreateTeam({
                 </div>
               )}
             </div>
-           
 
             {/* Team Name */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+            <div className="mb-4">
+              <label className="block text-sm text-gray-500 mb-1">
                 Team Name
               </label>
               <input
@@ -188,13 +187,13 @@ export default function CreateTeam({
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 disabled={existingTeam && !teamNameEditMode}
-                className="w-full px-3 py-1.5 border rounded-md border-gray-300 text-sm focus:ring-1 focus:ring-indigo-400 outline-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder:text-gray-400 focus:ring-1 focus:ring-indigo-400 outline-none"
               />
               {teamNameEditMode && (
-                <div className="mt-1 flex justify-end">
+                <div className="mt-2 flex justify-end">
                   <button
                     onClick={handleRenameTeam}
-                    className="px-3 py-1 text-sm  bg-[rgb(106,109,213)] hover:bg-[rgb(93,96,194)] text-white rounded-md transition"
+                    className="px-3 py-1 bg-[rgb(106,109,213)] hover:bg-[rgb(93,96,194)] text-white text-sm rounded-md transition"
                   >
                     Save
                   </button>
@@ -204,16 +203,16 @@ export default function CreateTeam({
 
             {/* Selected Users */}
             {selectedUsers.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-3">
+              <div className="flex flex-wrap gap-2 mb-4">
                 {selectedUsers.map((id) => {
                   const user = userList?.find((u) => u.id === id);
                   return (
                     <div
                       key={id}
-                      className="flex items-center gap-1 px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full text-xs shadow-sm"
+                      className="flex items-center gap-2 px-2 py-1 bg-indigo-50 text-indigo-800 rounded-full text-xs shadow-sm"
                     >
-                      <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
-                        {user?.username?.charAt(0)}
+                      <div className="w-5 h-5 rounded-full bg-[rgb(106,109,213)] hover:bg-[rgb(93,96,194)] text-white flex items-center justify-center text-[10px] font-bold">
+                        {user?.username?.charAt(0).toUpperCase()}
                       </div>
                       {user?.username}
                       {id !== currentUser.id && (
@@ -231,21 +230,21 @@ export default function CreateTeam({
             )}
 
             {/* Search Users */}
-            <div className="mb-3 relative">
-              <FaSearch className="absolute left-2.5 top-2 text-gray-400 text-sm" />
+            <div className="mb-4 relative">
+              <FaSearch className="absolute left-3 top-2.5 text-gray-400 text-sm" />
               <input
                 type="text"
                 placeholder="Search users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 px-3 py-1.5 border rounded-md border-gray-300 text-sm focus:ring-1 focus:ring-indigo-400 outline-none"
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder:text-gray-400 focus:ring-1 focus:ring-indigo-400 outline-none"
               />
             </div>
 
             {/* User List */}
-            <div className="max-h-52 overflow-y-auto border rounded-lg p-2 bg-gray-50 space-y-1">
+            <div className="max-h-52 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50 space-y-1 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
               {filteredUsers.length === 0 ? (
-                <p className="text-center text-gray-500 py-2 text-xs">
+                <p className="text-center text-gray-500 py-2 text-sm">
                   No users found.
                 </p>
               ) : (
@@ -255,13 +254,13 @@ export default function CreateTeam({
                     className="flex items-center justify-between px-2 py-1 rounded hover:bg-gray-100 cursor-pointer text-sm transition"
                   >
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-semibold">
+                      <div className="w-6 h-6 rounded-full bg-[rgb(106,109,213)] hover:bg-[rgb(93,96,194)] text-white flex items-center justify-center text-[10px] font-semibold">
                         {u.username.charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-gray-800 text-sm">
+                      <span className="text-gray-500 text-sm">
                         {u.username}{" "}
                         {u.id === currentUser.id && (
-                          <span className="text-indigo-600">(You)</span>
+                          <span className="text-[rgb(93,96,194)]">(You)</span>
                         )}
                       </span>
                     </div>
@@ -270,7 +269,7 @@ export default function CreateTeam({
                       checked={selectedUsers.includes(u.id)}
                       onChange={() => toggleUser(u.id)}
                       disabled={u.id === currentUser.id}
-                      className="accent-indigo-600 w-3 h-3"
+                      className="accent-[rgb(93,96,194)] w-3 h-3"
                     />
                   </label>
                 ))
@@ -278,17 +277,17 @@ export default function CreateTeam({
             </div>
 
             {/* Footer Buttons */}
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-1.5 rounded-md bg-gray-300 text-gray-700 hover:bg-gray-300 text-sm transition"
+                className="flex-1 py-2 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={existingTeam ? handleUpdateTeam : handleCreateTeam}
                 disabled={loading}
-                className="flex-1 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 text-sm transition"
+                className="flex-1 py-2 text-sm font-medium rounded-md bg-[rgb(106,109,213)] hover:bg-[rgb(93,96,194)] text-white transition"
               >
                 {loading ? "Saving..." : "Save"}
               </button>

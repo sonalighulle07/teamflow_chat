@@ -51,11 +51,11 @@ export default function CreateMeetingModal({ userId }) {
   };
 
   const inputStyle =
-    "w-full mb-4 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+    "w-full mb-4 px-3 py-2 border text-[14px] border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
 
  return (
-  <div className="w-full max-w-xl mx-auto bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-    <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">
+  <div className="w-full max-w-xl mx-auto bg-white rounded-xl shadow-lg p-8 border border-gray-200">
+    <h2 className="text-xl font-semibold text-center mb-4 text-gray-700  pb-2">
       Create a Meeting
     </h2>
 
@@ -91,7 +91,7 @@ export default function CreateMeetingModal({ userId }) {
       <select
         value={type}
         onChange={(e) => setType(e.target.value)}
-        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none"
+        className="w-full px-3 py-2  text-gray-500 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none"
       >
         <option value="video">Video Meeting</option>
         <option value="audio">Audio Meeting</option>

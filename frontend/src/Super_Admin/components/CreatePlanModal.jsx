@@ -1,18 +1,20 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
 
-export default function CreatePlanModal({ show, onClose, plan }) {
+export default function CreatePlanModal({ show, onClose, plan, onSaved }) {
   const [formData, setFormData] = useState({
     name: "",
     days: "",
     price: "",
     size: "",
   });
+  const [loading, setLoading] = useState(false);
 
   // Pre-fill form if editing
   useEffect(() => {
     if (plan) {
       setFormData({
-        name: plan.plan || "",
+        name: plan.name || "",
         days: plan.days || "",
         price: plan.price || "",
         size: plan.size || "",
@@ -27,13 +29,24 @@ export default function CreatePlanModal({ show, onClose, plan }) {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = () => {
-    if (plan) {
-      console.log("Update plan:", formData);
-    } else {
-      console.log("Create plan:", formData);
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      if (plan) {
+        // Update existing plan
+        await axios.put(`/api/plans/update/${plan.id}`, formData);
+      } else {
+        // Create new plan
+        await axios.post("/api/plans/create", formData);
+      }
+      onSaved?.(); // Callback to refresh plan list in parent
+      onClose();
+    } catch (err) {
+      console.error("Plan save error:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "Failed to save plan");
+    } finally {
+      setLoading(false);
     }
-    onClose();
   };
 
   if (!show) return null;
@@ -44,11 +57,11 @@ export default function CreatePlanModal({ show, onClose, plan }) {
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
 
       {/* Card */}
-      <div className="relative w-[460px] bg-[#F2F2F2] border border-[#c8c7c7] rounded-[12px] px-10 py-8">
+      <div className="relative w-[460px] bg-[#F2F2F2] border border-[#E4E4E4] rounded-[12px] px-10 py-8">
         {/* Header */}
         <div className="relative text-center mb-6">
           <h2 className="text-[18px] text-[#696969]">
-            {plan ? "Edit Plan" : "Create Plan"}
+            {plan ? "Edit Plan Details" : "Create Plan"}
           </h2>
           <button
             onClick={onClose}
@@ -59,92 +72,71 @@ export default function CreatePlanModal({ show, onClose, plan }) {
         </div>
 
         {/* Name */}
-        <div className="mb-4">
-          <label className="block text-sm text-gray-600 mb-1">Name</label>
-          <div className="flex items-center gap-2 bg-white h-[40px] rounded-[8px] px-3">
-            <img
-              src="/octicon_organization-24.png"
-              alt=""
-              className="w-5.5 h-5.5 opacity-60"
-            />
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Enter name"
-              className="w-full text-sm text-gray-500 outline-none placeholder:text-[#b5b3b3]"
-            />
-          </div>
-        </div>
+        <InputField
+          label="Name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder="Enter name"
+          icon="/Icons/octicon_organization-24.png"
+        />
 
         {/* Days */}
-        <div className="mb-4">
-          <label className="block text-sm text-gray-600 mb-1">Days</label>
-          <div className="flex items-center gap-2 bg-white h-[40px] rounded-[8px] px-3">
-            <img
-              src="/lineicons_calendar-days.png"
-              alt=""
-              className="w-6 h-6 opacity-60"
-            />
-            <input
-              type="number"
-              name="days"
-              value={formData.days}
-              onChange={handleChange}
-              placeholder="Enter days"
-              className="w-full text-sm text-gray-500 outline-none placeholder:text-[#b5b3b3]"
-            />
-          </div>
-        </div>
+        <InputField
+          label="Days"
+          name="days"
+          value={formData.days}
+          onChange={handleChange}
+          placeholder="Enter days"
+          type="number"
+          icon="/Icons/lineicons_calendar-days.png"
+        />
 
         {/* Price */}
-        <div className="mb-4">
-          <label className="block text-sm text-gray-600 mb-1">Price</label>
-          <div className="flex items-center gap-2 bg-white h-[40px] rounded-[8px] px-3">
-            <img
-              src="/si_money_price.png"
-              alt=""
-              className="w-6 h-6 opacity-60"
-            />
-            <input
-              type="number"
-              name="price"
-              value={formData.price}
-              onChange={handleChange}
-              placeholder="Enter price"
-              className="w-full text-sm text-gray-500 outline-none placeholder:text-[#b5b3b3]"
-            />
-          </div>
-        </div>
+        <InputField
+          label="Price"
+          name="price"
+          value={formData.price}
+          onChange={handleChange}
+          placeholder="Enter price"
+          type="number"
+          icon="/Icons/si_money_price.png"
+        />
 
         {/* Media Size */}
-        <div className="mb-6">
-          <label className="block text-sm text-gray-600 mb-1">Media size</label>
-          <div className="flex items-center gap-2 bg-white h-[40px] rounded-[8px] px-3">
-            <img
-              src="/material-symbols_perm-media-outline-rounded.png"
-              alt=""
-              className="w-5.5 h-5.5 opacity-60"
-            />
-            <input
-              type="text"
-              name="size"
-              value={formData.size}
-              onChange={handleChange}
-              placeholder="Enter media size"
-              className="w-full text-sm text-[#878686] outline-none placeholder:text-[#b5b3b3]"
-            />
-          </div>
-        </div>
+        <InputField
+          label="Media size"
+          name="size"
+          value={formData.size}
+          onChange={handleChange}
+          placeholder="Enter media size"
+          icon="/Icons/material-symbols_perm-media-outline-rounded.png"
+        />
 
         {/* Save Button */}
         <button
           onClick={handleSubmit}
-          className="w-full h-[44px] bg-[#999EFA] hover:bg-[#8c92ff] text-white rounded-xl text-[17px]"
+          disabled={loading}
+          className={`w-full h-[44px] ${loading ? "bg-gray-400" : "bg-[#999EFA] hover:bg-[#8c92ff]"} text-white rounded-xl text-[16px]`}
         >
-          {plan ? "Update" : "Save"}
+          {loading ? "Saving..." : plan ? "Update" : "Save"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// Reusable input component
+function InputField({ label, icon, ...props }) {
+  return (
+    <div className="mb-4">
+      <label className="block text-sm text-gray-600 mb-1">{label}</label>
+      <div className="flex items-center gap-2 bg-white h-[40px] rounded-[8px] px-3">
+        {icon && <img src={icon} alt="" className="w-6 h-6 opacity-60" />}
+        <input
+          className="w-full text-sm text-gray-500 outline-none placeholder:text-[#b5b3b3]"
+          {...props}
+        />
       </div>
     </div>
   );

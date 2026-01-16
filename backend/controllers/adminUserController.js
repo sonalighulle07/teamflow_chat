@@ -96,13 +96,26 @@ exports.updateUser = async (req, res) => {
     const { userId } = req.params;
     const { full_name, email, contact, username, role } = req.body;
 
-    // Validate required fields
     if (!full_name || !email || !contact || !username) {
-      return res.status(400).json({ success: false, error: "Full Name, Email, Contact, and Username are required." });
+      return res.status(400).json({
+        success: false,
+        error: "Full Name, Email, Contact, and Username are required.",
+      });
     }
 
-    // Build query depending on whether role is provided
-    let query = `UPDATE users SET full_name = ?, email = ?, contact = ?, username = ?`;
+    // ✅ ADD THIS
+    const allowedRoles = ["user", "org_admin"];
+    if (role && !allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid role value",
+      });
+    }
+
+    let query = `
+      UPDATE users 
+      SET full_name = ?, email = ?, contact = ?, username = ?
+    `;
     const params = [full_name, email, contact, username];
 
     if (role) {
@@ -113,7 +126,6 @@ exports.updateUser = async (req, res) => {
     query += ` WHERE id = ?`;
     params.push(userId);
 
-    // Execute the update
     await db.execute(query, params);
 
     res.json({ success: true, message: "User/Admin updated successfully" });
@@ -122,3 +134,4 @@ exports.updateUser = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+

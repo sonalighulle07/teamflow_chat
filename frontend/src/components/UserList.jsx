@@ -45,10 +45,12 @@ const UserItem = memo(
     };
 
     // Capitalize first letter of each word (first + last name)
+    // Capitalize first letter of each word (First + Last name)
     function capitalizeName(name) {
       if (!name) return "";
       return name
-        .split(" ")
+        .trim()
+        .split(/\s+/)
         .map(
           (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
         )
@@ -68,8 +70,8 @@ const UserItem = memo(
       <li
         ref={ref}
         onClick={() => onClick(item)}
-        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1 text-gray-400 text-[14px]
-          ${isSelected ? "bg-white shadow-md" : "hover:bg-white hover:shadow"}`}
+        className={`flex items-center pl-7 gap-4 p-2 rounded-lg cursor-pointer transition-all duration-150 mb-1 text-gray-400 text-[14px]
+          ${isSelected ? "bg-white shadow-md " : "hover:bg-white hover:shadow "}`}
       >
         {/* Avatar Wrapper */}
         <div className="relative w-9 h-9 flex-shrink-0">
@@ -126,7 +128,7 @@ const UserItem = memo(
             className={`w-full h-full rounded-full flex items-center justify-center text-white font-semibold overflow-hidden
   ${
     isSelected || item.type === "user"
-      ? "bg-[#735DD0] text-[14px]"
+      ? "bg-[#735DD0] text-[13px]"
       : "bg-[#735DD0]"
   }`}
           >
@@ -230,7 +232,7 @@ export default function UserList({
 
   if (!displayedItems.length) {
     return (
-      <div className="flex h-full items-center justify-center text-gray-500 font-medium">
+      <div className="flex h-full items-center justify-center text-sm text-gray-500">
         No users or teams found 👥
       </div>
     );

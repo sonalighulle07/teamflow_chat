@@ -8,19 +8,17 @@ import {
   FaTasks,
 } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
+import { silentFetchUsers } from "../Store/Features/Users/userThunks";
+import { silentFetchTeams } from "../Store/Features/Teams/teamThunk";
+import { setSelectedTeam } from "../Store/Features/Teams/teamSlice";
 import {
   setSelectedUser,
   setActiveNav,
 } from "../Store/Features/Users/userSlice";
-
-import { silentFetchUsers } from "../Store/Features/Users/userThunks";
-import { silentFetchTeams } from "../Store/Features/Teams/teamThunk";
-
 import {
   fetchTeams,
   fetchTeamMembers,
 } from "../Store/Features/Teams/teamThunk";
-import { setSelectedTeam } from "../Store/Features/Teams/teamSlice";
 import axios from "axios";
 import UserList from "./UserList";
 import { URL } from "../config";
@@ -39,23 +37,23 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   // -----------------------
   // Fetch users/teams periodically
   // -----------------------
- useEffect(() => {
-  if (!currentUser?.organization_id) return;
+  useEffect(() => {
+    if (!currentUser?.organization_id) return;
 
-  if (activeNav === "Chat") {
-    dispatch(silentFetchUsers());
+    if (activeNav === "Chat") {
+      dispatch(silentFetchUsers());
 
-    const interval = setInterval(() => dispatch(silentFetchUsers()), 5000);
-    return () => clearInterval(interval);
-  }
+      const interval = setInterval(() => dispatch(silentFetchUsers()), 5000);
+      return () => clearInterval(interval);
+    }
 
-  if (activeNav === "Communities") {
-    dispatch(silentFetchTeams());
+    if (activeNav === "Teams") {
+      dispatch(silentFetchTeams());
 
-    const interval = setInterval(() => dispatch(silentFetchTeams()), 5000);
-    return () => clearInterval(interval);
-  }
-}, [activeNav, currentUser, dispatch]);
+      const interval = setInterval(() => dispatch(silentFetchTeams()), 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeNav, currentUser, dispatch]);
 
   // -----------------------
   // Fetch last messages
@@ -66,12 +64,11 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       const lastMessagesObj = {};
-    res.data.forEach((msg) => {
-  if (msg.last_message_at) {
-    lastMessagesObj[msg.user_id] = msg.last_message_at;
-  }
-});
-
+      res.data.forEach((msg) => {
+        if (msg.last_message_at) {
+          lastMessagesObj[msg.user_id] = msg.last_message_at;
+        }
+      });
 
       setLastMessages(lastMessagesObj);
     } catch (err) {
@@ -142,7 +139,6 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
     return () => socket.off("privateMessage");
   }, [socket, currentUser]);
 
-
   // -----------------------
   // Selection handlers
   // -----------------------
@@ -183,13 +179,12 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
     return list;
   }, [teamList, searchQuery, lastTeamMessages]);
 
-  
   // -----------------------
   // Sidebar nav items
   const navItems = [
     { icon: <FaCommentDots />, label: "Chat" },
     { icon: <FaVideo />, label: "Meet" },
-    { icon: <FaUsers />, label: "Communities" },
+    { icon: <FaUsers />, label: "Teams" },
     { icon: <FaCalendar />, label: "Calendar" },
     { icon: <FaTasks />, label: "Tasks" },
   ];
@@ -197,7 +192,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar navigation */}
-      <div className="flex flex-col justify-between w-20 min-w-[5rem] bg-slate-200 shadow-md px-4 py-6 flex-shrink-0">
+      <div className="flex flex-col justify-between w-21 min-w-[5rem] bg-slate-200 shadow-md px-4 py-6 flex-shrink-0">
         <div className="flex flex-col items-center gap-6">
           {navItems.map(({ icon, label }) => {
             const isActive = activeNav === label;
@@ -207,8 +202,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
                 className="group relative flex flex-col items-center cursor-pointer"
                 onClick={() => {
                   dispatch(setActiveNav(label));
-                  if (label === "Communities" && onCommunitiesClick)
-                    onCommunitiesClick();
+                  if (label === "T" && onCommunitiesClick) onCommunitiesClick();
                 }}
               >
                 <div
@@ -235,8 +229,8 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
         </div>
       </div>
 
-      {/* Panel (only Chat or Communities) */}
-      {["Chat", "Communities"].includes(activeNav) && (
+      {/* Panel (only Chat or Teams) */}
+      {["Chat", "Teams"].includes(activeNav) && (
         <div className="w-68 min-w-[250px] bg-gray-100 border-l border-gray-300 flex flex-col overflow-hidden">
           {/* Search input */}
           <div className="p-2">
@@ -249,10 +243,10 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
                 placeholder={`Search ${
                   activeNav === "Chat" ? "users" : "teams"
                 }...`}
-                className="w-full pl-10 pr-3 py-1.5 rounded bg-white border border-gray-300 text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full pl-10 pr-3 py-1.5 rounded bg-white border border-gray-300 text-sm placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
-            {activeNav === "Communities" && (
+            {activeNav === "Teams" && (
               <button
                 onClick={() => setShowModal(true)}
                 className="mt-2 w-full bg-blue-400 text-white py-1.5 rounded-lg hover:bg-blue-700 transition-colors text-sm"
@@ -268,8 +262,8 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
             {!loading && !error && (
               <UserList
                 users={activeNav === "Chat" ? filteredUsers : []}
-                teams={activeNav === "Communities" ? filteredTeams : []}
-               currentUser={currentUser} 
+                teams={activeNav === "Teams" ? filteredTeams : []}
+                currentUser={currentUser}
                 selectedUser={selectedUser}
                 selectedTeam={selectedTeam}
                 searchQuery={searchQuery}
@@ -281,8 +275,7 @@ export default function Sidebar({ setShowModal, onCommunitiesClick, socket }) {
             {!loading &&
               !error &&
               ((activeNav === "Chat" && filteredUsers.length === 0) ||
-                (activeNav === "Communities" &&
-                  filteredTeams.length === 0)) && (
+                (activeNav === "Teams" && filteredTeams.length === 0)) && (
                 <p className="p-4 text-sm text-gray-500">
                   No {activeNav === "Chat" ? "users" : "teams"} found
                 </p>

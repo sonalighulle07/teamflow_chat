@@ -1,113 +1,140 @@
 import { useState, useRef, useEffect } from "react";
+import axios from "axios";
 import { HiOutlineEye, HiOutlinePencil, HiOutlineTrash } from "react-icons/hi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch } from "react-icons/fi";
 import CreatePlanModal from "./CreatePlanModal";
 import ViewPlanModal from "./ViewPlanModal";
-
-
-const plansData = [
-  {
-    id: 1,
-    plan: "Starter",
-    days: 30,
-    price: 12000,
-    size: 60,
-    status: "active",
-    startDate: "2026-01-01",
-    expiryDate: "2026-12-31",
-  },
-  {
-    id: 2,
-    plan: "Advanced",
-    days: 60,
-    price: 24000,
-    size: 120,
-    status: "inactive",
-    startDate: "2026-01-15",
-    expiryDate: "2026-12-31",
-  },
-  {
-    id: 3,
-    plan: "Enterprise",
-    days: 90,
-    price: 50000,
-    size: 300,
-    status: "active",
-    startDate: "2026-02-01",
-    expiryDate: "2026-12-31",
-  },
-];
-
+import { toast } from "react-toastify";
+import { URL } from "../../config";
 
 export default function Plans() {
-  const [data] = useState(plansData);
+  const [plans, setPlans] = useState([]);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const searchRef = useRef(null);
-  const [showFilter, setShowFilter] = useState(false);
-  const [filterPlan, setFilterPlan] = useState("");
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const searchRef = useRef(null);
+  const menuRef = useRef(null);
 
-  const [open, setOpen] = useState(false);
+  // Filter modal
+  const [planNames, setPlanNames] = useState([]);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterPlan, setFilterPlan] = useState("");
 
-  // Pagination state
+  // Pagination
   const [page, setPage] = useState(1);
-  const limit = 2; // items per page
-  const totalPages = Math.ceil(
-    data.filter((plan) =>
-      plan.plan.toLowerCase().includes(searchText.toLowerCase())
-    ).length / limit
+  const [rowsPerPage, setRowsPerPage] = useState(5); // Added rows per page
+  const limit = rowsPerPage;
+
+  // Fetch plans
+  const fetchPlans = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${URL}/api/plans/list`);
+      setPlans(res.data.success ? res.data.data : []);
+    } catch (err) {
+      console.error("Fetch plans error:", err);
+      toast.error("Failed to fetch plans");
+      setPlans([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  // Delete plan
+  const handleDelete = async (planId) => {
+    if (!confirm("Are you sure you want to delete this plan?")) return;
+
+    try {
+      await axios.delete(`${URL}/api/plans/delete/${planId}`);
+      setPlans((prev) => prev.filter((p) => p.id !== planId));
+      toast.success("Plan deleted successfully");
+    } catch (err) {
+      console.error("Delete plan error:", err);
+      toast.error("Failed to delete plan");
+    }
+  };
+
+  useEffect(() => {
+    const fetchPlanNames = async () => {
+      try {
+        const res = await axios.get(`${URL}/api/plans/names`);
+        if (res.data.success) {
+          setPlanNames(res.data.data);
+        }
+      } catch (err) {
+        console.error("Fetch plan names error:", err);
+      }
+    };
+
+    fetchPlanNames();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutsideMenu = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpenMenuId(null); // close the menu
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutsideMenu);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutsideMenu);
+  }, []);
+
+  // Filtered & paginated plans
+  let filteredPlans = plans.filter((plan) =>
+    plan.name.toLowerCase().includes(searchText.toLowerCase())
   );
 
-  // Highlight matched search text
+  if (filterPlan) {
+    filteredPlans = filteredPlans.filter((plan) => plan.name === filterPlan);
+  }
+
+  const totalPages = Math.ceil(filteredPlans.length / limit);
+  const paginatedPlans = filteredPlans.slice((page - 1) * limit, page * limit);
+
+  // Highlight search match
   const highlightMatch = (text, query) => {
     if (!query) return text;
-    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`(${escapedQuery})`, "gi");
-    const parts = text.split(regex);
-    return parts.map((part, idx) =>
+    const regex = new RegExp(`(${query})`, "gi");
+    return text.split(regex).map((part, i) =>
       regex.test(part) ? (
-        <span key={idx} className="bg-yellow-200 px-1 rounded">
+        <span key={i} className="bg-yellow-200 px-1 rounded">
           {part}
         </span>
       ) : (
-        <span key={idx}>{part}</span>
+        part
       )
     );
   };
 
-  // Filtered and paginated data
-  const filteredData = data
-    .filter((plan) =>
-      plan.plan.toLowerCase().includes(searchText.toLowerCase())
-    )
-    .slice((page - 1) * limit, page * limit);
-
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setSearchText(""); // clear search
+    const handleClickOutside = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchText("");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="text-gray-600 mb-4">Dashboard • Plans</div>
 
-      {/* Header with Search, Filter, Create */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-5">
         <h2 className="text-lg text-gray-500">Plans</h2>
-
         <div className="flex gap-4 items-center">
-          {/* Search Field */}
           <div className="relative" ref={searchRef}>
             <input
               type="text"
@@ -115,26 +142,15 @@ export default function Plans() {
               value={searchText}
               onChange={(e) => {
                 setSearchText(e.target.value);
-                setPage(1); // reset page on search
+                setPage(1);
               }}
-              className={`pl-10 pr-4 py-1 w-full max-w-xs text-sm text-gray-700 rounded-md border
-                ${
-                  searchText
-                    ? "border-blue-500 ring-1 ring-blue-500"
-                    : "border-gray-300"
-                }
-                focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all`}
+              className="pl-9 pr-4 py-1 w-full max-w-xs text-sm text-gray-700 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
-            <span
-              className={`absolute left-3 top-1/2 -translate-y-1/2 ${
-                searchText ? "text-blue-600" : "text-gray-400"
-              }`}
-            >
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
               <FiSearch />
             </span>
           </div>
 
-          {/* Filter Button */}
           <button
             onClick={() => setShowFilter(true)}
             className="px-3 py-0.5 border border-gray-300 rounded-md text-gray-500 hover:bg-gray-100"
@@ -142,46 +158,76 @@ export default function Plans() {
             Filter
           </button>
 
-          {/* Create Button */}
           <button
             onClick={() => setShowModal(true)}
-            className="px-3 py-0.5 bg-[#3B82F6] text-white rounded-md hover:bg-[#1b6ff6]"
+            className="px-3 py-1 bg-[#3B82F6] text-white rounded-md hover:bg-[#1b6ff6]"
           >
             + Create
           </button>
+          <div className="flex items-center gap-1.5">
+            <label className="text-gray-500 text-sm">Show:</label>
+            <div className="relative">
+              <select
+                value={rowsPerPage}
+                onChange={(e) => {
+                  setRowsPerPage(parseInt(e.target.value));
+                  setPage(1);
+                }}
+                className="h-[28px] pl-2 pr-7 border border-gray-300 rounded-md text-sm text-gray-500 bg-white appearance-none cursor-pointer"
+              >
+                {[5, 10, 20, 50].map((num) => (
+                  <option key={num} value={num}>
+                    {num}
+                  </option>
+                ))}
+              </select>
+              {/* Custom arrow */}
+              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                <svg
+                  className="w-3.5 h-3.5 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
+     <div className="overflow-y-auto max-h-[60vh] custom-scrollbar border border-gray-200 rounded-md bg-white">
+
         <table className="w-full text-sm border-collapse">
-          <thead className="bg-[#D4E5FF] text-left text-gray-500 text-sm">
+          <thead className="bg-[#D4E5FF] text-left text-gray-500 text-sm sticky top-0 z-10">
             <tr>
-              <th className="px-4 py-3 text-left">Sr. no.</th>
-              <th className="px-4 py-3 text-left">Plan Name</th>
-              <th className="px-4 py-3 text-left">Days</th>
-              <th className="px-4 py-3 text-left">Price</th>
-              <th className="px-4 py-3 text-left">Size</th>
-              <th className="px-4 py-3 text-left">Action</th>
+              <th className="px-4 py-3">Sr. No.</th>
+              <th className="px-4 py-3 ">Plan Name</th>
+              <th className="px-4 py-3">Days</th>
+              <th className="px-4 py-3">Price</th>
+              <th className="px-4 py-3">Size</th>
+              <th className="px-4 py-3">Action</th>
             </tr>
           </thead>
 
-          <tbody className="text-gray-700">
-            {filteredData.length > 0 ? (
-              filteredData.map((plan, idx) => (
-                <tr
-                  key={plan.id}
-                  className={idx % 2 === 1 ? "bg-gray-100" : ""}
-                >
+          <tbody>
+            {paginatedPlans.length ? (
+              paginatedPlans.map((plan, idx) => (
+                <tr key={plan.id} className={idx % 2 ? "bg-gray-100 text-gray-600" : " text-gray-600"}>
                   <td className="px-4 py-3">{(page - 1) * limit + idx + 1}</td>
                   <td className="px-4 py-3">
-                    {highlightMatch(plan.plan, searchText)}
+                    {highlightMatch(plan.name, searchText)}
                   </td>
-                  <td className="px-4 py-3">30</td>
-                  <td className="px-4 py-3">₹12,000</td>
-                  <td className="px-4 py-3">60</td>
-
-                  {/* Action Menu */}
+                  <td className="px-4 py-3">{plan.days}</td>
+                  <td className="px-4 py-3">₹{plan.price}</td>
+                  <td className="px-4 py-3">{plan.size}</td>
                   <td className="relative px-4 py-3">
                     <button
                       onClick={() =>
@@ -193,13 +239,16 @@ export default function Plans() {
                     </button>
 
                     {openMenuId === plan.id && (
-                      <div className="absolute left-[-15px] top-8 z-20 w-28 bg-white rounded-md shadow-md">
+                      <div
+                        ref={menuRef} // <-- attach ref
+                        className="absolute left-[-15px] top-8 z-20 w-28 bg-white rounded-md shadow-md"
+                      >
                         <button
                           className="flex items-center gap-2 px-3 py-1 w-full hover:bg-gray-100 border-b border-gray-200"
                           onClick={() => {
-                            setSelectedPlan(plan);
+                            setSelectedPlan(plan.id);
                             setShowViewModal(true);
-                            setOpenMenuId(null); // close menu
+                            setOpenMenuId(null);
                           }}
                         >
                           <HiOutlineEye className="text-blue-600 h-4 w-4" />{" "}
@@ -207,18 +256,21 @@ export default function Plans() {
                         </button>
 
                         <button
-  className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100 border-b border-gray-200"
-  onClick={() => {
-    setSelectedPlan(plan); // set plan to edit
-    setShowModal(true);    // open modal
-    setOpenMenuId(null);   // close menu
-  }}
->
-  <HiOutlinePencil className="text-gray-600 h-4 w-4" /> Edit
-</button>
+                          className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100 border-b border-gray-200"
+                          onClick={() => {
+                            setSelectedPlan(plan);
+                            setShowModal(true);
+                            setOpenMenuId(null);
+                          }}
+                        >
+                          <HiOutlinePencil className="text-gray-600 h-4 w-4" />{" "}
+                          Edit
+                        </button>
 
-
-                        <button className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100">
+                        <button
+                          className="flex items-center gap-2 px-3 py-2 w-full hover:bg-gray-100"
+                          onClick={() => handleDelete(plan.id)}
+                        >
                           <HiOutlineTrash className="text-gray-600 h-4 w-4" />{" "}
                           Delete
                         </button>
@@ -238,66 +290,61 @@ export default function Plans() {
         </table>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-between items-center mt-8 p-4 text-gray-600 text-sm">
-            <div>
-              Showing {(page - 1) * limit + 1} to{" "}
-              {(page - 1) * limit + filteredData.length} of{" "}
-              {
-                data.filter((plan) =>
-                  plan.plan.toLowerCase().includes(searchText.toLowerCase())
-                ).length
-              }{" "}
-              entries
-            </div>
-            <div className="flex gap-6">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage(page - 1)}
-                className="px-3 py-1 border  border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
-              >
-                Previous
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPage(i + 1)}
-                  className={`px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 ${
-                    page === i + 1
-                      ? "bg-gray-100 text-gray-600 border-gray-100"
-                      : "bg-white text-gray-600"
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-              <button
-                disabled={page === totalPages}
-                onClick={() => setPage(page + 1)}
-                className="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
+        <div className="flex justify-between items-center mt-2 px-4 py-2 text-gray-600 text-sm border-t border-gray-200 bg-gray-50 flex-wrap gap-2">
+          <div>
+            Showing {(page - 1) * limit + 1} to{" "}
+            {Math.min(page * limit, filteredPlans.length)} of{" "}
+            {filteredPlans.length} entries
           </div>
-        )}
+
+          <div className="flex gap-2 flex-wrap">
+            {/* Previous */}
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(page - 1)}
+              className="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
+            >
+              Previous
+            </button>
+
+            {/* Page Numbers */}
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i + 1)}
+                className={`px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 ${
+                  page === i + 1
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white text-gray-600"
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+
+            {/* Next */}
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage(page + 1)}
+              className="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
-      <CreatePlanModal show={showModal} onClose={() => setShowModal(false)} />
       {/* Filter Modal */}
       {showFilter && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Overlay */}
           <div
             className="absolute inset-0 bg-black/20"
             onClick={() => setShowFilter(false)}
           />
 
-          {/* Card */}
           <div className="relative w-[360px] bg-white rounded-[8px] px-6 py-6 shadow-lg border border-[#C4C4C4]">
-            {/* Header */}
             <div className="text-center mb-6 relative">
-              <h2 className="text-lg text-gray-600 mr-70 font-sm">Filter</h2>
+              <h2 className="text-lg text-gray-600 font-sm">Filter</h2>
               <button
                 onClick={() => setShowFilter(false)}
                 className="absolute right-0 top-0 text-gray-400 text-xl"
@@ -306,24 +353,16 @@ export default function Plans() {
               </button>
             </div>
 
-            {/* Dropdown */}
             <div className="mb-6 relative">
               <label className="block text-sm text-gray-500 mb-2">Plans</label>
-
-              {/* Select */}
               <div
-                onClick={() => setOpen(!open)}
-                className="w-full bg-white text-gray-400 text-sm
-               border border-gray-300 px-4 py-2
-               rounded-full cursor-pointer
-               flex items-center justify-between"
+                onClick={() => setFilterOpen(!filterOpen)}
+                className="w-full bg-white text-gray-400 text-sm border border-gray-300 px-4 py-2 rounded-full cursor-pointer flex items-center justify-between"
               >
                 <span>{filterPlan || "Select plan"}</span>
-
-                {/* Arrow */}
                 <svg
                   className={`w-4 h-4 text-gray-400 transition-transform ${
-                    open ? "rotate-180" : ""
+                    filterOpen ? "rotate-180" : ""
                   }`}
                   fill="none"
                   stroke="currentColor"
@@ -338,52 +377,81 @@ export default function Plans() {
                 </svg>
               </div>
 
-              {/* Options */}
-              {open && (
-                <div
-                  className="absolute z-20 mt-2 w-full bg-white
-                 border border-gray-300
-                 rounded-xl shadow-md overflow-hidden"
-                >
-                  {["Starter", "Advanced", "Enterprise"].map(
-                    (plan, index, arr) => (
+              {filterOpen && (
+                <div className="absolute z-20 mt-2 w-full bg-white border border-gray-300 rounded-xl shadow-md overflow-hidden">
+                  {planNames.length ? (
+                    planNames.map((plan) => (
                       <div
-                        key={plan}
+                        key={plan.id}
                         onClick={() => {
-                          setFilterPlan(plan);
-                          setOpen(false);
+                          setFilterPlan(plan.name);
+                          setFilterOpen(false);
+                          setPage(1);
                         }}
-                        className={`px-4 py-2 text-sm text-gray-600 cursor-pointer
-                hover:bg-gray-100
-                ${index !== arr.length - 1 ? "border-b border-gray-200" : ""}`}
+                        className="px-4 py-2 text-sm text-gray-600 cursor-pointer hover:bg-gray-100 border-b border-gray-200 last:border-b-0"
                       >
-                        {plan}
+                        {plan.name}
                       </div>
-                    )
+                    ))
+                  ) : (
+                    <div className="px-4 py-2 text-sm text-gray-500">
+                      No plans available
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Apply button */}
-            <button
-              onClick={() => setShowFilter(false)}
-              className="w-[100px] h-[30px] bg-[#0673F0] hover:bg-[#056de3]  text-white rounded-[6px]  text-sm font-medium ml-53"
-            >
-              Apply
-            </button>
+            {/* Buttons */}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setFilterPlan(""); // Clear filter
+                  setShowFilter(false);
+                  setPage(1);
+                }}
+                className="h-[30px] px-6 border border-gray-300 rounded-[6px] text-sm text-gray-500 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => setShowFilter(false)}
+                className="w-[100px] h-[30px] bg-[#0673F0] hover:bg-[#056de3] text-white rounded-[6px] text-sm font-medium"
+              >
+                Apply
+              </button>
+            </div>
           </div>
         </div>
       )}
-      {/* View Modal */}
-{showViewModal && (
-  <ViewPlanModal
-    plan={selectedPlan}
-    onClose={() => setShowViewModal(false)}
-  />
-)}
 
+      {/* Modals */}
+      <CreatePlanModal
+        show={showModal}
+        plan={selectedPlan}
+        onClose={() => {
+          setShowModal(false);
+          setSelectedPlan(null);
+        }}
+        onSaved={() => {
+          fetchPlans();
+          toast.success("Plan saved successfully");
+        }}
+      />
+
+      {showViewModal && (
+        <ViewPlanModal
+          planId={selectedPlan}
+          onClose={() => setShowViewModal(false)}
+        />
+      )}
+
+      {loading && (
+        <div className="absolute top-0 left-0 w-full h-full bg-white/70 flex items-center justify-center">
+          Loading...
+        </div>
+      )}
     </div>
-    
   );
 }

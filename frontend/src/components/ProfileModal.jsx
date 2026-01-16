@@ -157,9 +157,9 @@ const handleDeleteAccount = async () => {
       <div className="relative mt-16 mr-4 w-72 bg-white shadow-xl rounded-xl p-5 pointer-events-auto animate-fadeIn">
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 transition"
+          className="absolute top-4  right-4 text-gray-400 hover:text-gray-600 transition"
         >
-          <FaTimes size={18} />
+          <FaTimes size={15} />
         </button>
 
         <div className="flex flex-col items-center mt-3">

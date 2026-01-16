@@ -37,9 +37,6 @@ import SuperAdminLayout from "./Super_Admin/SuperAdminLayout";
 import SuperAdminDashboard from "./Super_Admin/pages/Dashboard";
 import Organizations from "./Super_Admin/components/Organization"; // adjust path
 import Plans from "./Super_Admin/components/Plans";
-
-// Super Admin
-
 import SecureRoutes from "./components/SecureRoutes";
 
 // Org Admin
@@ -48,6 +45,7 @@ import AdminOrgAdminsPage from "./components/Admin_Panel/AdminOrgAdminsPage";
 import OrgAdminLayout from "./components/Admin_Panel/OrgAdminLayout";
 import Dashboard from "./components/Admin_Panel/Dashboard";
 import OrganizationAdminTeamsModule from "./components/Admin_Panel/OrganizationAdminTeamsModule";
+import OrganizationSettings from "./components/Admin_Panel/OrganizationSettings";
 
 import ProtectedRoute from "./utils/ProtectedRoute";
 import { URL } from "./config";
@@ -108,12 +106,13 @@ function AppRoutes({
         <Route path="plans" element={<Plans />} />
       </Route>
 
+      {/* Redirect /admin to org-admin/dashboard */}
       <Route
         path="/admin"
         element={<Navigate to="/org-admin/dashboard" replace />}
       />
 
-      {/* ORG ADMIN */}
+      {/* ORG ADMIN ROUTES */}
       <Route
         path="/org-admin"
         element={
@@ -126,24 +125,32 @@ function AppRoutes({
           </SecureRoutes>
         }
       >
+        {/* Dashboard */}
         <Route index element={<Dashboard />} />
         <Route path="dashboard" element={<Dashboard />} />
+
+        {/* Users */}
         <Route
           path="users"
           element={<AdminOrgUsersPage orgId={currentUser?.organization_id} />}
         />
+
+        {/* Admins */}
         <Route
           path="admins"
           element={<AdminOrgAdminsPage orgId={currentUser?.organization_id} />}
         />
+
+        {/* Teams */}
         <Route
           path="teams"
           element={<OrganizationAdminTeamsModule adminId={currentUser?.id} />}
         />
-        <Route
-          path="organizations"
-          element={<div>Organization Settings</div>}
-        />
+
+        {/* Organization Settings */}
+        <Route path="organizations" element={<OrganizationSettings />} />
+
+        {/* Messages */}
         <Route path="messages" element={<div>Messages</div>} />
       </Route>
 
@@ -220,7 +227,7 @@ function AppRoutes({
               <div className="flex flex-1 overflow-hidden w-full">
                 <Sidebar
                   setShowModal={setShowModal}
-                  activeNav={activeNav} // ✅ activeNav defined
+                  activeNav={activeNav} //  activeNav defined full here
                   onCommunitiesClick={onCommunitiesClick}
                 />
 
@@ -240,7 +247,7 @@ function AppRoutes({
                     />
                   )}
 
-                  {activeNav === "Communities" && (
+                  {activeNav === "Teams" && (
                     <div className="relative flex-1">
                       <TeamInvites
                         socket={socket}
@@ -333,12 +340,6 @@ function AppRoutes({
                   cancelInvite={call.cancelInviteFor}
                 />
               )}
-
-              <ToastContainer
-                position="top-right"
-                autoClose={3000}
-                theme="colored"
-              />
             </div>
           )
         }
@@ -412,6 +413,15 @@ function App() {
 
   return (
     <Router>
+      {/* Always mounted ToastContainer */}
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        newestOnTop
+        theme="colored"
+        style={{ zIndex: 99999 }}
+      />
+
       <AppRoutes
         isAuthenticated={isAuthenticated}
         currentUser={currentUser}

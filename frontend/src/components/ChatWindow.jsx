@@ -340,7 +340,7 @@ export default function ChatWindow({
               );
             })
           ) : (
-            <div className="text-center text-gray-400 mt-10">
+            <div className="text-center text-sm text-gray-400 ">
               No messages yet
             </div>
           )
@@ -353,7 +353,7 @@ export default function ChatWindow({
       </div>
 
       {/* Input + File preview */}
-      <div className="p-3 border-t border-gray-300 flex flex-col gap-2 bg-white">
+      <div className="p-3 border-t border-gray-100 flex flex-col gap-2 bg-white">
         {/* File Preview */}
         {selectedFile && (
           <div className="relative mb-2 p-2 border rounded-md bg-gray-100 flex items-center justify-between">
@@ -414,7 +414,7 @@ export default function ChatWindow({
         )}
 
         {/* Input + Emoji + File Upload + Send */}
-        <div className="flex items-center gap-2 relative bg-white  dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-[15px] border-gray-300 dark:border-gray-700 shadow-sm">
+        <div className="flex items-center gap-2 relative bg-white  dark:bg-gray-900 px-3 py-1 rounded-[10px] border text-sm border-gray-300 dark:border-gray-700 shadow-sm">
           <input
             type="text"
             placeholder={

@@ -15,6 +15,7 @@ export default function Dashboard() {
     starter: 0,
     pro: 0,
     enterprise: 0,
+    advanced: 0,
   });
 
   const token = localStorage.getItem("token");
@@ -25,58 +26,81 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    // Total Organizations
     fetch(`${URL}/super-admin/dashboard/total-organizations`, { headers })
       .then((res) => res.json())
       .then((data) =>
         setStats((prev) => ({ ...prev, totalOrganizations: data.count }))
       );
 
+    // Total Users
     fetch(`${URL}/super-admin/dashboard/total-users`, { headers })
       .then((res) => res.json())
       .then((data) =>
         setStats((prev) => ({ ...prev, totalUsers: data.count }))
       );
 
+    // Organization Activity
+    // Fetch Organization Activity
     fetch(`${URL}/super-admin/dashboard/org-activity`, { headers })
       .then((res) => res.json())
       .then((data) =>
-        setStats((prev) => ({ ...prev, orgActivity: data.activePercentage }))
+        setStats((prev) => ({
+          ...prev,
+          totalOrganizations: data.totalOrgs,
+          orgActivity: data.activePercentage,
+          activeOrgs: data.activeOrgs,
+          inactiveOrgs: data.inactiveOrgs,
+        }))
       );
+  }, []);
+  useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        const res = await fetch(`${URL}/super-admin/dashboard/packages`, {
+          headers,
+        });
+        const data = await res.json();
+        console.log("Data received from backend:", data); // <-- Check what backend returns
 
-    fetch(`${URL}/super-admin/dashboard/packages`, { headers })
-      .then((res) => res.json())
-      .then((data) => setPackages(data));
+        setPackages(data); // <-- store all packages as received from backend
+      } catch (err) {
+        console.error("Error fetching packages:", err);
+      }
+    };
+
+    fetchPackages();
   }, []);
 
   return (
- <div className="h-[calc(100vh-64px)] overflow-y-auto p-4 hide-scrollbar">
+    <div className="h-[calc(100vh-64px)] overflow-y-auto p-4 hide-scrollbar">
       <h1 className="text-[16px] text-gray-600 mb-6">Dashboard</h1>
 
       {/* Top Cards */}
       <div className="flex flex-wrap -ml-[10px]">
-        {/* First Card */}
+        {/* Total Organizations */}
         <div className="ml-[10px] mb-3">
           <StatCard
             title="Total Organization"
             desc="Registered organizations on the platform"
             value={stats.totalOrganizations}
-            icon={<img src="/Frame 249.png" className="" />}
+            icon={<img src="/Icons/Frame 249.png" className="" />}
             square
           />
         </div>
 
-        {/* Second Card */}
+        {/* Total Users */}
         <div className="ml-[25px] mb-6">
           <StatCard
             title="Total Users"
             desc="Users across all organizations"
             value={stats.totalUsers}
-            icon={<img src="/Frame 250.png" className="" />}
+            icon={<img src="/Icons/Frame 250.png" className="" />}
             square
           />
         </div>
 
-        {/* Third Card */}
+        {/* Organization Activity */}
         <div className="ml-[25px] mb-6 flex-1">
           <div className="bg-white rounded-[6px] p-6 shadow-sm border border-gray-200 h-[194px]">
             <p className="text-[15px] text-gray-700 mb-4 ml-6">
@@ -94,7 +118,9 @@ export default function Dashboard() {
                   <p className="text-[20px] text-gray-600 mt-1.5 mb-1.5">
                     {stats.orgActivity}%
                   </p>
-                  <p className="text-xs text-gray-400">823</p>
+                  <p className="text-xs text-gray-500 ml-1.5">
+                    {stats.activeOrgs}
+                  </p>
                 </div>
               </div>
 
@@ -117,7 +143,9 @@ export default function Dashboard() {
                   <p className="text-[22px] mt-1.5 mb-1.5 text-gray-700">
                     {100 - stats.orgActivity}%
                   </p>
-                  <p className="text-xs text-gray-400">234</p>
+                  <p className="text-xs text-gray-500 ml-2">
+                    {stats.inactiveOrgs}
+                  </p>
                 </div>
               </div>
             </div>
@@ -129,7 +157,7 @@ export default function Dashboard() {
                 style={{ width: `${stats.orgActivity}%` }}
               />
               <div
-                className="bg-gray-500"
+                className="bg-[#A4A4A4]"
                 style={{ width: `${100 - stats.orgActivity}%` }}
               />
             </div>
@@ -143,38 +171,28 @@ export default function Dashboard() {
           Organizations by packages
         </h2>
 
-        <div className="flex flex-wrap -ml-[10px] max-h-[400px] overflow-y-auto mb-[-20px]">
-          <div className="ml-[10px] mb-4 flex-1 min-w-[200px]">
-            <PackageCard
-              title="Starter"
-              value={packages.starter}
-              icon={<img src="/si_money-orange.png" className="w-8 h-8 mb-9" />}
-            />
-          </div>
-
-          <div className="ml-[20px] mb-4 flex-1 min-w-[200px]">
-            <PackageCard
-              title="Pro"
-              value={packages.pro}
-              icon={<img src="/si_money.png" className="w-8 h-8 mb-9" />}
-            />
-          </div>
-
-          <div className="ml-[20px] mb-4 flex-1 min-w-[200px]">
-            <PackageCard
-              title="Enterprise"
-              value={packages.enterprise}
-              icon={<img src="/si_green.png" className="w-8 h-8 mb-9" />}
-            />
-          </div>
-
-          <div className="ml-[20px] mb-4 flex-1 min-w-[200px]">
-            <PackageCard
-              title="Custom"
-              value={packages.custom || 0}
-              icon={<img src="/si_money.png" className="w-8 h-8 mb-9" />}
-            />
-          </div>
+        {/* Scrollable container for package cards */}
+        <div
+          className="flex flex-wrap -ml-[10px] max-h-[130px] overflow-y-auto pr-2 scrollbar-rounded"
+          style={{
+            scrollbarWidth: "thin",
+            scrollbarColor: "#ACACAC #EDEDED",
+          }}
+        >
+          {Object.entries(packages).map(([packageName, count], index) => (
+            <div
+              key={packageName}
+              className="ml-[20px] mb-6 flex-none w-[200px]"
+            >
+              <PackageCard
+                title={
+                  packageName.charAt(0).toUpperCase() + packageName.slice(1)
+                }
+                value={count}
+                icon={<img src="\Icons\si_money.png" className="w-8 h-8 " />}
+              />
+            </div>
+          ))}
         </div>
       </div>
 

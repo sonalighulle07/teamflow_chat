@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "@fortawesome/fontawesome-free/css/all.min.css";
-/* Background fade-in */
 
+/* Background fade-in */
 body {
   overflow-x: hidden;
   overflow-y: hidden;
@@ -33,14 +33,16 @@ body {
 .animate-toast {
   animation: toastAnim 2s ease forwards;
 }
+
 /* Hide default password reveal icon in input fields */
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear,
 input[type="password"]::-webkit-password-toggle-button,
 input[type="password"]::-webkit-credentials-auto-fill-button {
-    display: none !important;
+  display: none !important;
 }
 
+/* Scrollbar styles */
 ::-webkit-scrollbar {
   width: 4px;
 }
@@ -61,39 +63,32 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   scrollbar-width: none; /* Firefox */
 }
 
-
+/* Modal and fade animations */
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
 @keyframes modal-scale {
   from { transform: scale(0.95); }
   to { transform: scale(1); }
 }
-
 .animate-fade-in {
   animation: fade-in 0.25s ease-out forwards;
 }
-
 .animate-modal-scale {
   animation: modal-scale 0.25s ease-out forwards;
 }
+
+/* FadeIn duplicate removed and corrected */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(3px); }
+  from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out;
 }
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-/* @tailwind base;
-@tailwind components;
-@tailwind utilities;
 
-body {
-  @apply bg-[#F3F6FB] text-slate-700;
-} */
+/* Global focus removal */
+*:focus {
+  outline: none; /* plain CSS way */
+}

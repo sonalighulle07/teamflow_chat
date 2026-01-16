@@ -38,7 +38,8 @@ exports.getOrganizationAdmins = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT id, full_name, email, username, role, organization_id FROM users ORDER BY id DESC"
+     "SELECT id, full_name, email, username, contact, role, organization_id FROM users ORDER BY id DESC"
+
     );
 
     res.json({ success: true, users: rows });

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FaSmile, FaEllipsisV } from "react-icons/fa";
+import { FaEllipsisV } from "react-icons/fa";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-toastify";
 import CryptoJS from "crypto-js";
@@ -87,9 +87,10 @@ export default function Message({
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
   const audioRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
-  const didIReact = (emoji) => !!reactedEmojis[emoji]?.users?.[userId];
-  const [showHoverBar, setShowHoverBar] = useState(false);
+  const userId = currentUser?.id;
 
+  const [showHoverBar, setShowHoverBar] = useState(false);
+  const didIReact = (emoji) => !!reactedEmojis[emoji]?.users?.[userId];
   // ---- Initialize reactions state ----
   const [reactedEmojis, setReactedEmojis] = useState(() => {
     let decrypted = safeDecrypt(message.reactions);
@@ -279,7 +280,6 @@ export default function Message({
     audioRef.current.muted = newMuted;
     setIsMuted(newMuted);
   };
-  const userId = currentUser?.id;
 
   const toggleReaction = (emoji) => {
     if (!userId) return;
@@ -925,24 +925,25 @@ ${
         )}
       </div>
       <div
-  className={`flex items-center gap-2 text-xs text-gray-400 mt-1 ${
-    isOwn ? "self-end" : "self-start"
-  }`}
->
-  {!isOwn && message.username && (
-    <span className="font-medium text-gray-600">{message.username}</span>
-  )}
+        className={`flex items-center gap-2 text-xs text-gray-400 mt-1 ${
+          isOwn ? "self-end" : "self-start"
+        }`}
+      >
+        {!isOwn && message.username && (
+          <span className="font-medium text-gray-600">{message.username}</span>
+        )}
 
-  {/* Message Status Indicators */}
-  {isOwn && (
-    <span className="ml-1">
-      {message.status === "sent" && "✓"}
-      {message.status === "delivered" && "✓✓"}
-      {message.status === "read" && <span className="text-blue-500">✓✓</span>}
-    </span>
-  )}
-</div>
-
+        {/* Message Status Indicators */}
+        {isOwn && (
+          <span className="ml-1">
+            {message.status === "sent" && "✓"}
+            {message.status === "delivered" && "✓✓"}
+            {message.status === "read" && (
+              <span className="text-blue-500">✓✓</span>
+            )}
+          </span>
+        )}
+      </div>
 
       {/* Editing UI */}
       {isEditing && (
@@ -1036,7 +1037,6 @@ ${
                 />
               </label>
             </div>
-            
           )}
 
           <div className="flex justify-end gap-3 mt-3">

@@ -10,6 +10,8 @@ const { superAdminOnly } = require("../middlewares/superAdminMiddleware");
 // =======================
 // ORGANIZATIONS ROUTES
 // =======================
+
+// Check if a domain is available
 router.get(
   "/organizations/check-domain",
   authenticateToken,
@@ -17,6 +19,7 @@ router.get(
   organizationController.checkDomain
 );
 
+// Get all organizations with plan and admin info
 router.get(
   "/organizations",
   authenticateToken,
@@ -24,6 +27,7 @@ router.get(
   organizationController.getAllOrganizations
 );
 
+// Create a new organization (and org-admin)
 router.post(
   "/organizations",
   authenticateToken,
@@ -31,6 +35,7 @@ router.post(
   organizationController.createOrganization
 );
 
+// Update organization details
 router.put(
   "/organizations/:id",
   authenticateToken,
@@ -38,6 +43,7 @@ router.put(
   organizationController.updateOrganization
 );
 
+// Soft delete an organization
 router.delete(
   "/organizations/:id",
   authenticateToken,
@@ -45,6 +51,7 @@ router.delete(
   organizationController.deleteOrganization
 );
 
+// Get single organization details (with plan & admin info)
 router.get(
   "/organizations/:id/details",
   authenticateToken,
@@ -55,6 +62,8 @@ router.get(
 // =======================
 // DASHBOARD STATS ROUTES
 // =======================
+
+// Get total organizations count
 router.get(
   "/dashboard/total-organizations",
   authenticateToken,
@@ -62,6 +71,7 @@ router.get(
   organizationController.getTotalOrganizations
 );
 
+// Get organization activity stats
 router.get(
   "/dashboard/org-activity",
   authenticateToken,
@@ -69,6 +79,7 @@ router.get(
   organizationController.getOrganizationActivity
 );
 
+// Get organizations grouped by plan
 router.get(
   "/dashboard/packages",
   authenticateToken,
@@ -76,16 +87,19 @@ router.get(
   organizationController.getOrganizationsByPackage
 );
 
+// Get total users count
 router.get(
   "/dashboard/total-users",
   authenticateToken,
   superAdminOnly,
-  superAdminController.getUsersCount
+  superAdminController.getUsersCount // Make sure this function is exported
 );
 
 // =======================
 // USERS ROUTES
 // =======================
+
+// Get all users
 router.get(
   "/users",
   authenticateToken,
@@ -93,6 +107,7 @@ router.get(
   superAdminController.getAllUsers
 );
 
+// Create a new user
 router.post(
   "/users",
   authenticateToken,
@@ -100,6 +115,7 @@ router.post(
   superAdminController.createUser
 );
 
+// Delete a user
 router.delete(
   "/users/:id",
   authenticateToken,
@@ -107,6 +123,7 @@ router.delete(
   superAdminController.deleteUser
 );
 
+// Get all organization admins (optional for dashboard)
 router.get(
   "/admin-users",
   authenticateToken,

@@ -17,6 +17,9 @@ const adminUsersRoutes = require("./routes/adminUsers.routes");
 const superAdminRoutes = require("./routes/superAdminRoutes");
 const adminTeamRoutes = require("./routes/AdminTeamRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const planRoutes = require("./routes/planRoutes");
+const orgGrowthRoutes = require("./routes/orgGrowth.routes");
+
 
 // if file is dashboard.route.js
 // Socket handlers
@@ -61,10 +64,13 @@ app.use("/api/events", eventRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/adminUsers", adminUsersRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/plans", planRoutes);
+
 
 app.use("/api/adminTeams", adminTeamRoutes);
 // Super admin routes
 app.use("/super-admin", superAdminRoutes);
+app.use("/super-admin", orgGrowthRoutes);
 
 // SOCKET.IO
 io.on("connection", (socket) => {
@@ -107,6 +113,26 @@ io.on("connection", (socket) => {
   teamSocket(io, socket);
   meetingHandlers(io, socket, connectedSockets);
   sidebarSocket(io, socket);
+});
+
+
+// Node.js / Express example
+app.get("/notifications/expiring-plans", async (req, res) => {
+  const today = new Date();
+  const fourDaysLater = new Date();
+  fourDaysLater.setDate(today.getDate() + 4);
+
+  // Fetch plans where expiryDate is within next 4 days
+  const expiringPlans = await Plan.find({
+    expiryDate: { $gte: today, $lte: fourDaysLater }
+  });
+
+  const notifications = expiringPlans.map(plan => ({
+    message: `Your plan "${plan.name}" will expire on ${plan.expiryDate.toLocaleDateString()}`,
+    time: plan.expiryDate, // you can format nicely in frontend
+  }));
+
+  res.json(notifications);
 });
 
 // Start server

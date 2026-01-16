@@ -47,7 +47,7 @@ export default function Header({
   );
 
   const token = sessionStorage.getItem("chatToken");
-  const isChatVisible = activeNav === "Chat" || activeNav === "Communities";
+  const isChatVisible = activeNav === "Chat" || activeNav === "Teams";
 
   // ----------------- Helper Functions -----------------
   function capitalizeWords(str) {
@@ -202,7 +202,7 @@ export default function Header({
           `${window.location.origin}/prejoin/${meeting.meeting_code}`,
           "_blank"
         );
-      } else alert("⚠️ This meeting is no longer active.");
+      } else alert(" This meeting is no longer active.");
     } catch (err) {
       console.error(err);
       alert("Unable to verify meeting status. Please try again.");
@@ -210,7 +210,7 @@ export default function Header({
   };
 
   const renderMeetingButton = () => {
-    if (!selectedTeam || activeNav !== "Communities") return null;
+    if (!selectedTeam || activeNav !== "Teams") return null;
 
     const buttonClass = hasJoinedMeeting
       ? "bg-red-600 text-white hover:bg-red-700"
@@ -479,7 +479,7 @@ export default function Header({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       ref={searchInputRef}
-                      className="w-full pl-8 pr-2 py-1.5 rounded-2xl bg-gray-200 text-sm placeholder-gray-400 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200"
+                      className="w-full pl-8 pr-2 py-1.5 rounded-2xl bg-gray-200 text-sm placeholder-gray-400 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all duration-200"
                     />
                   </div>
                 </div>
@@ -500,7 +500,7 @@ export default function Header({
                   className="h-8 w-8 rounded-full object-cover"
                 />
               ) : (
-                <div className="h-8 w-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
+                <div className="h-8 w-8 rounded-full bg-[rgb(106,109,213)] text-white flex items-center justify-center text-[11.5px] font-bold">
                   {getInitials(displayNameFormatted) || "G"}
                 </div>
               )}
